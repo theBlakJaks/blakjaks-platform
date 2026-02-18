@@ -13,7 +13,8 @@ import SocialModeration from './pages/SocialModeration'
 import Governance from './pages/Governance'
 import Affiliates from './pages/Affiliates'
 import Treasury from './pages/Treasury'
-import ComingSoon from './pages/ComingSoon'
+import Analytics from './pages/Analytics'
+import Settings from './pages/Settings'
 
 export default function App() {
   return (
@@ -37,8 +38,8 @@ export default function App() {
         <Route path="/social" element={<SocialModeration />} />
         <Route path="/governance" element={<Governance />} />
         <Route path="/treasury" element={<Treasury />} />
-        <Route path="/analytics" element={<ComingSoon />} />
-        <Route path="/settings" element={<ComingSoon />} />
+        <Route path="/analytics" element={<Analytics />} />
+        <Route path="/settings" element={<Settings />} />
       </Route>
     </Routes>
   )
