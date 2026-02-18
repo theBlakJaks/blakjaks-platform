@@ -3,6 +3,9 @@ import Layout from './components/Layout'
 import ProtectedRoute from './components/ProtectedRoute'
 import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
+import Users from './pages/Users'
+import UserDetail from './pages/UserDetail'
+import QRCodes from './pages/QRCodes'
 import ComingSoon from './pages/ComingSoon'
 
 export default function App() {
@@ -17,8 +20,9 @@ export default function App() {
         }
       >
         <Route path="/" element={<Dashboard />} />
-        <Route path="/users" element={<ComingSoon />} />
-        <Route path="/qr-codes" element={<ComingSoon />} />
+        <Route path="/users" element={<Users />} />
+        <Route path="/users/:id" element={<UserDetail />} />
+        <Route path="/qr-codes" element={<QRCodes />} />
         <Route path="/orders" element={<ComingSoon />} />
         <Route path="/comps" element={<ComingSoon />} />
         <Route path="/affiliates" element={<ComingSoon />} />

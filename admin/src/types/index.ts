@@ -25,6 +25,7 @@ export interface QRCode {
   product_name: string
   code: string
   is_scanned: boolean
+  scanned_by: string | null
   scanned_at: string | null
   created_at: string
 }
