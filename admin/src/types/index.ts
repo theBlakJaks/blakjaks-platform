@@ -102,14 +102,62 @@ export interface OrderEvent {
 export interface Affiliate {
   id: string
   user_id: string
+  user_name: string
   user_email: string
   referral_code: string
   total_referrals: number
   total_chips: number
   vaulted_chips: number
+  expired_chips: number
   reward_match_total: number
+  pool_share_total: number
   permanent_tier: string | null
+  referred_tins: number
   created_at: string
+}
+
+export interface AffiliateDetail extends Affiliate {
+  custom_code: string | null
+  referral_link: string
+  downline: DownlineMember[]
+  payouts: Payout[]
+}
+
+export interface DownlineMember {
+  id: string
+  user_name: string
+  tier_name: string
+  scan_count: number
+  earnings_generated: number
+  joined_at: string
+}
+
+export interface AffiliateStats {
+  total_affiliates: number
+  total_paid: number
+  pending_count: number
+  pending_value: number
+  sunset_percentage: number
+}
+
+export interface PayoutBatch {
+  id: string
+  period_start: string
+  period_end: string
+  affiliate_count: number
+  total_amount: number
+  status: string
+  approved_by: string | null
+  executed_at: string | null
+}
+
+export interface SunsetProgress {
+  monthly_volume: number
+  rolling_3mo_avg: number
+  threshold: number
+  percentage: number
+  is_triggered: boolean
+  triggered_at: string | null
 }
 
 export interface Vote {
@@ -187,8 +235,21 @@ export interface Proposal {
 
 export interface PoolBalance {
   pool_name: string
-  balance: number
-  currency: string
+  address: string
+  usdt_balance: number
+  matic_balance: number
+  allocation_pct: number
+}
+
+export interface TreasuryTransaction {
+  id: string
+  pool_name: string
+  direction: 'in' | 'out'
+  amount: number
+  address: string
+  tx_hash: string
+  reason: string
+  timestamp: string
 }
 
 export interface DashboardStats {

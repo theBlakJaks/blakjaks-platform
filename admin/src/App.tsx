@@ -11,6 +11,8 @@ import OrderDetail from './pages/OrderDetail'
 import Comps from './pages/Comps'
 import SocialModeration from './pages/SocialModeration'
 import Governance from './pages/Governance'
+import Affiliates from './pages/Affiliates'
+import Treasury from './pages/Treasury'
 import ComingSoon from './pages/ComingSoon'
 
 export default function App() {
@@ -31,10 +33,10 @@ export default function App() {
         <Route path="/orders" element={<Orders />} />
         <Route path="/orders/:id" element={<OrderDetail />} />
         <Route path="/comps" element={<Comps />} />
-        <Route path="/affiliates" element={<ComingSoon />} />
+        <Route path="/affiliates" element={<Affiliates />} />
         <Route path="/social" element={<SocialModeration />} />
         <Route path="/governance" element={<Governance />} />
-        <Route path="/treasury" element={<ComingSoon />} />
+        <Route path="/treasury" element={<Treasury />} />
         <Route path="/analytics" element={<ComingSoon />} />
         <Route path="/settings" element={<ComingSoon />} />
       </Route>

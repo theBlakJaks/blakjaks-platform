@@ -83,6 +83,12 @@ export const COMP_TYPE_COLORS: Record<string, string> = {
   manual: 'bg-slate-100 text-slate-800',
 }
 
+export const POOL_COLORS: Record<string, string> = {
+  consumer: 'bg-indigo-100 text-indigo-800',
+  affiliate: 'bg-purple-100 text-purple-800',
+  wholesale: 'bg-amber-100 text-amber-800',
+}
+
 export const HEALTH_COLORS: Record<string, string> = {
   healthy: 'text-emerald-500',
   degraded: 'text-amber-500',

@@ -42,3 +42,11 @@ export function formatPercentage(value: number): string {
   const sign = value >= 0 ? '+' : ''
   return `${sign}${value.toFixed(1)}%`
 }
+
+export function getPolygonscanUrl(hashOrAddress: string, type: 'tx' | 'address' = 'tx'): string {
+  return `https://polygonscan.com/${type}/${hashOrAddress}`
+}
+
+export function isValidPolygonAddress(address: string): boolean {
+  return /^0x[a-fA-F0-9]{40}$/.test(address)
+}
