@@ -22,6 +22,11 @@ class Settings(BaseSettings):
     KMS_KEY_NAME: str = "treasury-signer"
     KMS_KEY_VERSION: int = 1
 
+    # Pool-specific KMS keys
+    KMS_CONSUMER_KEY: str = "treasury-signer"
+    KMS_AFFILIATE_KEY: str = "affiliate-pool-signer"
+    KMS_WHOLESALE_KEY: str = "wholesale-pool-signer"
+
     # USDT contract addresses
     USDT_CONTRACT_ADDRESS_MAINNET: str = "0xc2132D05D31c914a87C6611C10748AEb04B58e8F"
     USDT_CONTRACT_ADDRESS_AMOY: str = ""

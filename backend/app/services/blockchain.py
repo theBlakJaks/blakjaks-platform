@@ -1,6 +1,5 @@
 """Polygon blockchain service using Cloud KMS for treasury signing."""
 
-import hashlib
 import logging
 from decimal import Decimal
 
@@ -17,6 +16,13 @@ CONSUMER_POOL = Decimal("50")   # 50% of GP to consumer comp pool
 AFFILIATE_POOL = Decimal("5")   # 5% of GP to affiliate pool (note: 21% is the reward MATCHING rate, not pool allocation)
 WHOLESALE_POOL = Decimal("5")   # 5% of GP to wholesale pool
 COMPANY_RETAINED = Decimal("40")  # 40% of GP retained for OpEx + profit (not a treasury pool)
+
+# --- Pool name to KMS key mapping ---
+POOL_KEY_MAP = {
+    "consumer": "KMS_CONSUMER_KEY",
+    "affiliate": "KMS_AFFILIATE_KEY",
+    "wholesale": "KMS_WHOLESALE_KEY",
+}
 
 # --- Web3 connection ---
 
@@ -54,12 +60,18 @@ ERC20_ABI = [
 # --- KMS key path ---
 
 
-def _kms_key_version_path() -> str:
+def _kms_key_version_path(key_name: str | None = None) -> str:
+    """Build the full KMS key version resource path.
+
+    Args:
+        key_name: Override key name. Defaults to settings.KMS_KEY_NAME.
+    """
+    name = key_name or settings.KMS_KEY_NAME
     return (
         f"projects/{settings.KMS_PROJECT_ID}"
         f"/locations/{settings.KMS_LOCATION}"
         f"/keyRings/{settings.KMS_KEYRING}"
-        f"/cryptoKeys/{settings.KMS_KEY_NAME}"
+        f"/cryptoKeys/{name}"
         f"/cryptoKeyVersions/{settings.KMS_KEY_VERSION}"
     )
 
@@ -67,11 +79,14 @@ def _kms_key_version_path() -> str:
 # --- KMS public key retrieval ---
 
 
-def get_kms_public_key() -> bytes:
-    """Retrieve the DER-encoded public key from Cloud KMS."""
+def get_kms_public_key(key_name: str | None = None) -> bytes:
+    """Retrieve the uncompressed public key from Cloud KMS.
+
+    Args:
+        key_name: Override key name. Defaults to settings.KMS_KEY_NAME.
+    """
     client = kms.KeyManagementServiceClient()
-    response = client.get_public_key(request={"name": _kms_key_version_path()})
-    # response.pem contains the PEM-encoded public key
+    response = client.get_public_key(request={"name": _kms_key_version_path(key_name)})
     from cryptography.hazmat.primitives.serialization import load_pem_public_key
 
     pub_key = load_pem_public_key(response.pem.encode())
@@ -92,10 +107,38 @@ def kms_public_key_to_eth_address(pub_key_bytes: bytes) -> str:
     return Web3.to_checksum_address(address_bytes)
 
 
-def get_treasury_address() -> str:
-    """Get the Polygon wallet address derived from the KMS treasury key."""
-    pub_key = get_kms_public_key()
+def get_treasury_address(key_name: str | None = None) -> str:
+    """Get the Polygon wallet address derived from a KMS key.
+
+    Args:
+        key_name: Override key name. Defaults to settings.KMS_KEY_NAME (treasury-signer).
+    """
+    pub_key = get_kms_public_key(key_name)
     return kms_public_key_to_eth_address(pub_key)
+
+
+def get_consumer_pool_address() -> str:
+    """Get the consumer pool wallet address (derived from treasury-signer key)."""
+    return get_treasury_address(settings.KMS_CONSUMER_KEY)
+
+
+def get_affiliate_pool_address() -> str:
+    """Get the affiliate pool wallet address (derived from affiliate-pool-signer key)."""
+    return get_treasury_address(settings.KMS_AFFILIATE_KEY)
+
+
+def get_wholesale_pool_address() -> str:
+    """Get the wholesale pool wallet address (derived from wholesale-pool-signer key)."""
+    return get_treasury_address(settings.KMS_WHOLESALE_KEY)
+
+
+def get_all_pool_addresses() -> dict[str, str]:
+    """Return dict of all three pool wallet addresses."""
+    return {
+        "consumer": get_consumer_pool_address(),
+        "affiliate": get_affiliate_pool_address(),
+        "wholesale": get_wholesale_pool_address(),
+    }
 
 
 # --- Balance queries ---
@@ -129,8 +172,12 @@ def get_usdt_balance(address: str) -> Decimal:
 # --- KMS transaction signing ---
 
 
-def sign_transaction_with_kms(tx: dict) -> bytes:
-    """Sign a raw transaction dict using the Cloud KMS secp256k1 key.
+def sign_transaction_with_kms(tx: dict, key_name: str | None = None) -> bytes:
+    """Sign a raw transaction dict using a Cloud KMS secp256k1 key.
+
+    Args:
+        tx: Transaction dict to sign.
+        key_name: KMS key name to sign with. Defaults to settings.KMS_KEY_NAME.
 
     Returns the signed raw transaction bytes ready for broadcast.
     """
@@ -146,7 +193,7 @@ def sign_transaction_with_kms(tx: dict) -> bytes:
     client = kms.KeyManagementServiceClient()
     sign_response = client.asymmetric_sign(
         request={
-            "name": _kms_key_version_path(),
+            "name": _kms_key_version_path(key_name),
             "digest": {"sha256": tx_hash},
         }
     )
@@ -162,11 +209,11 @@ def sign_transaction_with_kms(tx: dict) -> bytes:
         s = SECP256K1_N - s
 
     # Recover the v value by trying both recovery IDs
-    treasury_addr = get_treasury_address()
+    signer_addr = get_treasury_address(key_name)
     for v_candidate in (0, 1):
         try:
             recovered = Account._recover_hash(tx_hash, vrs=(v_candidate + 27, r, s))
-            if recovered.lower() == treasury_addr.lower():
+            if recovered.lower() == signer_addr.lower():
                 v = v_candidate + 27
                 break
         except Exception:
@@ -186,7 +233,7 @@ def sign_transaction_with_kms(tx: dict) -> bytes:
 
 
 def send_usdt_transfer(to_address: str, amount: Decimal) -> str:
-    """Build, sign via KMS, and broadcast a USDT transfer.
+    """Build, sign via KMS, and broadcast a USDT transfer from the treasury.
 
     Args:
         to_address: Recipient Polygon address.
@@ -195,6 +242,26 @@ def send_usdt_transfer(to_address: str, amount: Decimal) -> str:
     Returns:
         Transaction hash hex string.
     """
+    return send_usdt_from_pool("consumer", to_address, amount)
+
+
+def send_usdt_from_pool(pool_name: str, to_address: str, amount: Decimal) -> str:
+    """Build, sign via KMS, and broadcast a USDT transfer from a specific pool.
+
+    Args:
+        pool_name: One of "consumer", "affiliate", "wholesale".
+        to_address: Recipient Polygon address.
+        amount: USDT amount (human-readable, e.g. Decimal("10.50")).
+
+    Returns:
+        Transaction hash hex string.
+    """
+    if pool_name not in POOL_KEY_MAP:
+        raise ValueError(f"Unknown pool: {pool_name}. Must be one of {list(POOL_KEY_MAP.keys())}")
+
+    key_attr = POOL_KEY_MAP[pool_name]
+    key_name = getattr(settings, key_attr)
+
     contract_addr = (
         settings.USDT_CONTRACT_ADDRESS_MAINNET
         if settings.POLYGON_NETWORK == "mainnet"
@@ -203,7 +270,7 @@ def send_usdt_transfer(to_address: str, amount: Decimal) -> str:
     if not contract_addr:
         raise RuntimeError(f"No USDT contract address for network {settings.POLYGON_NETWORK}")
 
-    treasury = get_treasury_address()
+    pool_address = get_treasury_address(key_name)
     checksum_contract = Web3.to_checksum_address(contract_addr)
     checksum_to = Web3.to_checksum_address(to_address)
 
@@ -213,10 +280,10 @@ def send_usdt_transfer(to_address: str, amount: Decimal) -> str:
     raw_amount = int(amount * Decimal(10**6))
 
     # Build the transaction
-    nonce = w3.eth.get_transaction_count(Web3.to_checksum_address(treasury))
+    nonce = w3.eth.get_transaction_count(Web3.to_checksum_address(pool_address))
     tx = contract.functions.transfer(checksum_to, raw_amount).build_transaction(
         {
-            "from": treasury,
+            "from": pool_address,
             "nonce": nonce,
             "gas": 100_000,
             "gasPrice": w3.eth.gas_price,
@@ -224,9 +291,12 @@ def send_usdt_transfer(to_address: str, amount: Decimal) -> str:
         }
     )
 
-    # Sign and broadcast
-    signed_raw = sign_transaction_with_kms(tx)
+    # Sign with the pool's KMS key and broadcast
+    signed_raw = sign_transaction_with_kms(tx, key_name)
     tx_hash = w3.eth.send_raw_transaction(signed_raw)
 
-    logger.info("USDT transfer sent: %s -> %s, amount=%s, tx=%s", treasury, to_address, amount, tx_hash.hex())
+    logger.info(
+        "USDT transfer from %s pool: %s -> %s, amount=%s, tx=%s",
+        pool_name, pool_address, to_address, amount, tx_hash.hex(),
+    )
     return tx_hash.hex()
