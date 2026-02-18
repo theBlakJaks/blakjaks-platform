@@ -34,7 +34,11 @@ export interface Order {
   id: string
   user_id: string
   user_email: string
+  user_name: string
   status: string
+  subtotal: number
+  shipping_cost: number
+  tax: number
   total: number
   items: OrderItem[]
   created_at: string
@@ -54,10 +58,45 @@ export interface Comp {
   id: string
   user_id: string
   user_email: string
+  user_name: string
+  comp_type: string
   amount: number
   reason: string
   status: string
+  tx_hash: string | null
+  affiliate_match: number | null
   created_at: string
+}
+
+export interface CompStats {
+  total_awarded: number
+  total_value: number
+  pending_count: number
+  failed_count: number
+}
+
+export interface OrderStats {
+  total_orders: number
+  revenue_today: number
+  pending_fulfillment: number
+  avg_order_value: number
+}
+
+export interface OrderDetail extends Order {
+  customer_name: string
+  shipping_address: string
+  subtotal: number
+  shipping_cost: number
+  tax: number
+  tracking_number: string | null
+  timeline: OrderEvent[]
+}
+
+export interface OrderEvent {
+  id: string
+  status: string
+  note: string
+  timestamp: string
 }
 
 export interface Affiliate {

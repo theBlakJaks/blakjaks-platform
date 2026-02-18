@@ -52,6 +52,18 @@ export const STATUS_COLORS: Record<string, string> = {
   message: 'bg-indigo-100 text-indigo-800',
   vote: 'bg-purple-100 text-purple-800',
   admin: 'bg-indigo-100 text-indigo-800',
+  cancelled: 'bg-red-100 text-red-800',
+  refunded: 'bg-red-100 text-red-800',
+}
+
+export const COMP_TYPE_COLORS: Record<string, string> = {
+  crypto_100: 'bg-indigo-100 text-indigo-800',
+  crypto_1k: 'bg-indigo-100 text-indigo-800',
+  crypto_10k: 'bg-indigo-100 text-indigo-800',
+  casino_comp: 'bg-amber-100 text-amber-800',
+  guaranteed_5: 'bg-emerald-100 text-emerald-800',
+  trip: 'bg-purple-100 text-purple-800',
+  manual: 'bg-slate-100 text-slate-800',
 }
 
 export const HEALTH_COLORS: Record<string, string> = {

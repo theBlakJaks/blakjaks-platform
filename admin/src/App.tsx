@@ -6,6 +6,9 @@ import Dashboard from './pages/Dashboard'
 import Users from './pages/Users'
 import UserDetail from './pages/UserDetail'
 import QRCodes from './pages/QRCodes'
+import Orders from './pages/Orders'
+import OrderDetail from './pages/OrderDetail'
+import Comps from './pages/Comps'
 import ComingSoon from './pages/ComingSoon'
 
 export default function App() {
@@ -23,8 +26,9 @@ export default function App() {
         <Route path="/users" element={<Users />} />
         <Route path="/users/:id" element={<UserDetail />} />
         <Route path="/qr-codes" element={<QRCodes />} />
-        <Route path="/orders" element={<ComingSoon />} />
-        <Route path="/comps" element={<ComingSoon />} />
+        <Route path="/orders" element={<Orders />} />
+        <Route path="/orders/:id" element={<OrderDetail />} />
+        <Route path="/comps" element={<Comps />} />
         <Route path="/affiliates" element={<ComingSoon />} />
         <Route path="/social" element={<ComingSoon />} />
         <Route path="/governance" element={<ComingSoon />} />
