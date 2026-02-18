@@ -16,6 +16,8 @@ dependencies = [
     "python-multipart>=0.0.6",
     "email-validator>=2.0",
     "httpx>=0.26.0",
+    "web3>=6.15.0",
+    "google-cloud-kms>=2.21.0",
 ]
 
 [project.optional-dependencies]

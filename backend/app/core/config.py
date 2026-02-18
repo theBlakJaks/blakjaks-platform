@@ -11,6 +11,21 @@ class Settings(BaseSettings):
     ENVIRONMENT: str = "development"
     CORS_ORIGINS: list[str] = ["*"]
 
+    # Polygon / blockchain
+    POLYGON_RPC_URL: str = "https://polygon-amoy.infura.io/v3/YOUR_KEY"
+    POLYGON_NETWORK: str = "amoy"
+
+    # Cloud KMS
+    KMS_PROJECT_ID: str = "blakjaks-production"
+    KMS_LOCATION: str = "us-central1"
+    KMS_KEYRING: str = "blakjaks-crypto"
+    KMS_KEY_NAME: str = "treasury-signer"
+    KMS_KEY_VERSION: int = 1
+
+    # USDT contract addresses
+    USDT_CONTRACT_ADDRESS_MAINNET: str = "0xc2132D05D31c914a87C6611C10748AEb04B58e8F"
+    USDT_CONTRACT_ADDRESS_AMOY: str = ""
+
     model_config = {"env_file": ".env", "extra": "ignore"}
 
 
