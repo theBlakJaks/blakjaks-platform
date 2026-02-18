@@ -99,14 +99,14 @@ async def seed_tiers(db: AsyncSession):
     from app.models.tier import Tier
 
     tiers = [
-        Tier(name="Standard", min_scans=0, discount_pct=0, color="#6B7280",
-             benefits_json={"comp_eligibility": [], "community_access": "observational", "merch_tier": None}),
-        Tier(name="VIP", min_scans=7, discount_pct=10, color="#3B82F6",
-             benefits_json={"comp_eligibility": ["crypto_100"], "community_access": "full", "merch_tier": "vip"}),
-        Tier(name="High Roller", min_scans=15, discount_pct=15, color="#F59E0B",
-             benefits_json={"comp_eligibility": ["crypto_100", "crypto_1k"], "community_access": "high_roller_lounge", "merch_tier": "high_roller"}),
-        Tier(name="Whale", min_scans=30, discount_pct=20, color="#8B5CF6",
-             benefits_json={"comp_eligibility": ["crypto_100", "crypto_1k", "crypto_10k", "casino_comp"], "community_access": "whale_lounge", "merch_tier": "whale"}),
+        Tier(name="Standard", min_scans=0, color="#6B7280",
+             benefits_json={"comp_eligibility": [], "community_access": "observational", "merch_tier": None, "partner_discount_pct": 0}),
+        Tier(name="VIP", min_scans=7, color="#3B82F6",
+             benefits_json={"comp_eligibility": ["crypto_100"], "community_access": "full", "merch_tier": "vip", "partner_discount_pct": 10}),
+        Tier(name="High Roller", min_scans=15, color="#F59E0B",
+             benefits_json={"comp_eligibility": ["crypto_100", "crypto_1k"], "community_access": "high_roller_lounge", "merch_tier": "high_roller", "partner_discount_pct": 15}),
+        Tier(name="Whale", min_scans=30, color="#8B5CF6",
+             benefits_json={"comp_eligibility": ["crypto_100", "crypto_1k", "crypto_10k", "casino_comp"], "community_access": "whale_lounge", "merch_tier": "whale", "partner_discount_pct": 20}),
     ]
     db.add_all(tiers)
     await db.commit()

@@ -37,7 +37,6 @@ async def get_me(
     if user.tier is not None:
         response.tier = TierResponse(
             name=user.tier.name,
-            discount_pct=user.tier.discount_pct,
             color=user.tier.color,
             benefits=user.tier.benefits_json,
         )
@@ -66,7 +65,6 @@ async def update_me(
     if user.tier is not None:
         response.tier = TierResponse(
             name=user.tier.name,
-            discount_pct=user.tier.discount_pct,
             color=user.tier.color,
             benefits=user.tier.benefits_json,
         )
@@ -97,7 +95,6 @@ async def get_my_stats(
     return UserStatsResponse(
         tier_name=tier_info.get("tier_name"),
         tier_color=tier_info.get("tier_color"),
-        discount_pct=tier_info.get("discount_pct"),
         benefits=tier_info.get("benefits"),
         quarterly_scans=tier_info["quarterly_scans"],
         scans_to_next_tier=tier_info.get("scans_to_next_tier"),

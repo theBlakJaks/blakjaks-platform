@@ -107,7 +107,6 @@ async def get_user_tier_info(db: AsyncSession, user_id: uuid.UUID) -> dict:
     return {
         "tier_name": current.name,
         "tier_color": current.color,
-        "discount_pct": current.discount_pct,
         "benefits": current.benefits_json,
         "quarterly_scans": scan_count,
         "scans_to_next_tier": remaining,

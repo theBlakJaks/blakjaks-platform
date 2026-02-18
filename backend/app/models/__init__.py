@@ -13,6 +13,7 @@ from app.models.message import Message
 from app.models.affiliate import Affiliate
 from app.models.comp_pool import CompPool
 from app.models.notification import Notification
+from app.models.cart_item import CartItem
 
 __all__ = [
     "Base",
@@ -30,4 +31,5 @@ __all__ = [
     "Affiliate",
     "CompPool",
     "Notification",
+    "CartItem",
 ]

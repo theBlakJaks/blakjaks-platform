@@ -77,7 +77,6 @@ async def test_get_stats_with_tiers(client: AsyncClient, auth_headers, registere
     assert resp.status_code == 200
     data = resp.json()
     assert data["tier_name"] == "Standard"
-    assert data["discount_pct"] == 0
     assert data["quarterly_scans"] == 0
     assert data["scans_to_next_tier"] == 7  # 7 scans to VIP
 
@@ -105,7 +104,6 @@ async def test_stats_tier_promotion(client: AsyncClient, auth_headers, registere
     assert resp.status_code == 200
     data = resp.json()
     assert data["tier_name"] == "VIP"
-    assert data["discount_pct"] == 10
     assert data["quarterly_scans"] == 8
     assert data["scans_to_next_tier"] == 7  # 15 - 8 = 7 to High Roller
 

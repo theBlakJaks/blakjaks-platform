@@ -25,7 +25,6 @@ class UserProfileResponse(BaseModel):
 
 class TierResponse(BaseModel):
     name: str
-    discount_pct: int
     color: str | None
     benefits: dict | None
 
@@ -42,7 +41,6 @@ class UserUpdateRequest(BaseModel):
 class UserStatsResponse(BaseModel):
     tier_name: str | None
     tier_color: str | None
-    discount_pct: int | None
     benefits: dict | None
     quarterly_scans: int
     scans_to_next_tier: int | None
