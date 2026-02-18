@@ -8,6 +8,8 @@ from app.api.wallet import router as wallet_router
 from app.api.treasury import router as treasury_router
 from app.api.shop import router as shop_router
 from app.api.notifications import router as notifications_router
+from app.api.social import router as social_router
+from app.api.admin.social import router as admin_social_router
 
 api_router = APIRouter(prefix="/api")
 api_router.include_router(auth_router)
@@ -18,3 +20,5 @@ api_router.include_router(wallet_router)
 api_router.include_router(treasury_router)
 api_router.include_router(shop_router)
 api_router.include_router(notifications_router)
+api_router.include_router(social_router)
+api_router.include_router(admin_social_router)

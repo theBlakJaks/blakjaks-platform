@@ -15,6 +15,9 @@ from app.models.comp_pool import CompPool
 from app.models.notification import Notification
 from app.models.cart_item import CartItem
 from app.models.device_token import DeviceToken
+from app.models.message_reaction import MessageReaction
+from app.models.chat_mute import ChatMute
+from app.models.chat_report import ChatReport
 
 __all__ = [
     "Base",
@@ -34,4 +37,7 @@ __all__ = [
     "Notification",
     "CartItem",
     "DeviceToken",
+    "MessageReaction",
+    "ChatMute",
+    "ChatReport",
 ]
