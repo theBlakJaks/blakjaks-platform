@@ -1,0 +1,30 @@
+# Secrets
+*.env
+Secrets.xcconfig
+GoogleService-Info.plist
+gcp-service-account.json
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# Node
+node_modules/
+.next/
+
+# iOS
+*.xcuserstate
+DerivedData/
+Pods/
+
+# Android
+*.apk
+*.aab
+.gradle/
+local.properties
+
+# IDE
+.idea/
+.vscode/
+*.swp
