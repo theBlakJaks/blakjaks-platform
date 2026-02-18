@@ -12,6 +12,8 @@ from app.api.social import router as social_router
 from app.api.admin.social import router as admin_social_router
 from app.api.affiliate import router as affiliate_router
 from app.api.admin.affiliate import router as admin_affiliate_router
+from app.api.governance import router as governance_router
+from app.api.admin.governance import router as admin_governance_router
 
 api_router = APIRouter(prefix="/api")
 api_router.include_router(auth_router)
@@ -26,3 +28,5 @@ api_router.include_router(social_router)
 api_router.include_router(admin_social_router)
 api_router.include_router(affiliate_router)
 api_router.include_router(admin_affiliate_router)
+api_router.include_router(governance_router)
+api_router.include_router(admin_governance_router)
