@@ -30,6 +30,8 @@ from app.core.security import (
 )
 from app.models.user import User
 from app.services.wallet_service import create_user_wallet
+from app.services.email_service import send_password_reset, send_welcome_email
+from app.services.intercom_service import create_or_update_contact
 
 logger = logging.getLogger(__name__)
 
@@ -55,6 +57,16 @@ async def signup(body: SignupRequest, db: AsyncSession = Depends(get_db)):
 
     # Auto-create wallet for the new user
     await create_user_wallet(db, user.id, email=body.email)
+
+    # Send welcome email and sync to Intercom (fire-and-forget)
+    try:
+        await send_welcome_email(body.email, body.first_name)
+    except Exception:
+        logger.exception("Failed to send welcome email to %s", body.email)
+    try:
+        await create_or_update_contact(user.id, body.email, f"{body.first_name} {body.last_name}")
+    except Exception:
+        logger.exception("Failed to sync user to Intercom: %s", body.email)
 
     return AuthResponse(
         user=UserResponse.model_validate(user),
@@ -110,8 +122,11 @@ async def reset_password(body: ResetPasswordRequest, db: AsyncSession = Depends(
     # Always return success to prevent email enumeration
     if user is not None:
         token = create_reset_token(user.id)
-        # TODO: Send via Brevo — for now, log it
-        logger.info("Password reset token for %s: %s", user.email, token)
+        reset_url = f"https://blakjaks.com/reset-password?token={token}"
+        try:
+            await send_password_reset(user.email, token, reset_url)
+        except Exception:
+            logger.exception("Failed to send password reset email to %s", user.email)
 
     return MessageResponse(message="If that email exists, a reset link has been sent")
 

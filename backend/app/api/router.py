@@ -7,6 +7,7 @@ from app.api.admin.qr_codes import router as admin_qr_router
 from app.api.wallet import router as wallet_router
 from app.api.treasury import router as treasury_router
 from app.api.shop import router as shop_router
+from app.api.notifications import router as notifications_router
 
 api_router = APIRouter(prefix="/api")
 api_router.include_router(auth_router)
@@ -16,3 +17,4 @@ api_router.include_router(admin_qr_router)
 api_router.include_router(wallet_router)
 api_router.include_router(treasury_router)
 api_router.include_router(shop_router)
+api_router.include_router(notifications_router)

@@ -30,6 +30,8 @@ class Settings(BaseSettings):
     # Third-party API keys (placeholders)
     KINTSUGI_API_KEY: str = ""
     AGECHECKER_API_KEY: str = ""
+    BREVO_API_KEY: str = ""
+    INTERCOM_API_KEY: str = ""
 
     # USDT contract addresses
     USDT_CONTRACT_ADDRESS_MAINNET: str = "0xc2132D05D31c914a87C6611C10748AEb04B58e8F"
