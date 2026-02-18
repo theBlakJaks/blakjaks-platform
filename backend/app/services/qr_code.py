@@ -1,0 +1,128 @@
+import re
+import uuid
+from datetime import datetime, timedelta, timezone
+
+from fastapi import HTTPException, status
+from sqlalchemy import func, select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.models.product import Product
+from app.models.qr_code import QRCode
+from app.models.scan import Scan
+from app.models.user import User
+from app.services.tier import get_all_tiers, get_quarterly_scan_count, get_user_tier_info
+
+QR_PATTERN = re.compile(r"^BLAKJAKS-([A-Za-z0-9_]+)-([A-Za-z0-9]+)$")
+RATE_LIMIT_WINDOW = timedelta(minutes=1)
+RATE_LIMIT_MAX = 10
+
+
+def parse_qr_code(raw: str) -> tuple[str, str]:
+    """Parse a QR code string. Returns (product_code, unique_id) or raises."""
+    match = QR_PATTERN.match(raw.strip())
+    if not match:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            "Invalid QR code format. Expected BLAKJAKS-[PRODUCT_CODE]-[UNIQUE_ID]",
+        )
+    return match.group(1), match.group(2)
+
+
+async def check_rate_limit(db: AsyncSession, user_id: uuid.UUID) -> None:
+    """Reject if user has exceeded 10 scans in the last minute."""
+    cutoff = datetime.now(timezone.utc) - RATE_LIMIT_WINDOW
+    result = await db.execute(
+        select(func.count())
+        .select_from(Scan)
+        .where(Scan.user_id == user_id, Scan.created_at >= cutoff)
+    )
+    count = result.scalar_one()
+    if count >= RATE_LIMIT_MAX:
+        raise HTTPException(
+            status.HTTP_429_TOO_MANY_REQUESTS,
+            "Rate limit exceeded. Max 10 scans per minute.",
+        )
+
+
+async def submit_scan(db: AsyncSession, user: User, raw_qr: str) -> dict:
+    """Validate QR, record scan, return result dict."""
+    product_code, unique_id = parse_qr_code(raw_qr)
+
+    # Rate limit
+    await check_rate_limit(db, user.id)
+
+    # Build the full unique_id stored in DB
+    full_unique_id = f"BLAKJAKS-{product_code}-{unique_id}"
+
+    # Look up QR code
+    result = await db.execute(
+        select(QRCode).where(QRCode.unique_id == full_unique_id)
+    )
+    qr = result.scalar_one_or_none()
+    if qr is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "QR code not found")
+
+    # Already scanned?
+    if qr.is_used:
+        raise HTTPException(status.HTTP_409_CONFLICT, "QR code has already been scanned")
+
+    # Get product name
+    product_name = "Unknown"
+    if qr.product_id:
+        prod_result = await db.execute(select(Product).where(Product.id == qr.product_id))
+        product = prod_result.scalar_one_or_none()
+        if product:
+            product_name = product.name
+
+    # Record the scan
+    scan = Scan(user_id=user.id, qr_code_id=qr.id, usdt_earned=0, streak_day=0)
+    db.add(scan)
+
+    # Mark QR as used
+    qr.is_used = True
+    qr.scanned_by = user.id
+    qr.scanned_at = datetime.now(timezone.utc)
+
+    await db.commit()
+
+    # Get updated tier info
+    tier_info = await get_user_tier_info(db, user.id)
+
+    return {
+        "success": True,
+        "product_name": product_name,
+        "chip_earned": True,
+        "quarterly_scan_count": tier_info["quarterly_scans"],
+        "tier_name": tier_info.get("tier_name"),
+    }
+
+
+async def generate_qr_codes(
+    db: AsyncSession, product_id: uuid.UUID, quantity: int
+) -> list[str]:
+    """Generate bulk QR codes for a product. Returns list of full code strings."""
+    # Verify product exists
+    result = await db.execute(select(Product).where(Product.id == product_id))
+    product = result.scalar_one_or_none()
+    if product is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Product not found")
+
+    # Derive a short product code from the product name
+    product_code = re.sub(r"[^A-Za-z0-9]", "", product.name).upper()[:10]
+    if not product_code:
+        product_code = "PROD"
+
+    codes = []
+    for _ in range(quantity):
+        short_uuid = uuid.uuid4().hex[:12].upper()
+        full_code = f"BLAKJAKS-{product_code}-{short_uuid}"
+        qr = QRCode(
+            product_code=product_code,
+            unique_id=full_code,
+            product_id=product_id,
+        )
+        db.add(qr)
+        codes.append(full_code)
+
+    await db.commit()
+    return codes
