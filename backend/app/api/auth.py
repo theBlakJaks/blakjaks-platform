@@ -32,6 +32,7 @@ from app.models.user import User
 from app.services.wallet_service import create_user_wallet
 from app.services.email_service import send_password_reset, send_welcome_email
 from app.services.intercom_service import create_or_update_contact
+from app.services.affiliate_service import attribute_referral, get_or_create_affiliate
 
 logger = logging.getLogger(__name__)
 
@@ -57,6 +58,19 @@ async def signup(body: SignupRequest, db: AsyncSession = Depends(get_db)):
 
     # Auto-create wallet for the new user
     await create_user_wallet(db, user.id, email=body.email)
+
+    # Auto-create affiliate record (all members are affiliates until sunset)
+    try:
+        await get_or_create_affiliate(db, user.id)
+    except Exception:
+        logger.exception("Failed to create affiliate record for %s", body.email)
+
+    # Attribute referral if code provided
+    if body.referral_code:
+        try:
+            await attribute_referral(db, user.id, body.referral_code)
+        except Exception:
+            logger.exception("Failed to attribute referral for %s", body.email)
 
     # Send welcome email and sync to Intercom (fire-and-forget)
     try:

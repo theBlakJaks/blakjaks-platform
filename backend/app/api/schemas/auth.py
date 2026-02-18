@@ -13,6 +13,7 @@ class SignupRequest(BaseModel):
     first_name: str = Field(min_length=1, max_length=100)
     last_name: str = Field(min_length=1, max_length=100)
     birthdate: date
+    referral_code: str | None = Field(None, min_length=3, max_length=20)
 
 
 class LoginRequest(BaseModel):

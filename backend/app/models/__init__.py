@@ -18,6 +18,9 @@ from app.models.device_token import DeviceToken
 from app.models.message_reaction import MessageReaction
 from app.models.chat_mute import ChatMute
 from app.models.chat_report import ChatReport
+from app.models.affiliate_chip import AffiliateChip
+from app.models.affiliate_payout import AffiliatePayout
+from app.models.sunset_status import SunsetStatus
 
 __all__ = [
     "Base",
@@ -40,4 +43,7 @@ __all__ = [
     "MessageReaction",
     "ChatMute",
     "ChatReport",
+    "AffiliateChip",
+    "AffiliatePayout",
+    "SunsetStatus",
 ]
