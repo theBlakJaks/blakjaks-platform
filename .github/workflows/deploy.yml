@@ -1,0 +1,62 @@
+name: Build & Deploy
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  PROJECT_ID: blakjaks-production
+  REGION: us-central1
+  CLUSTER: blakjaks-primary
+  REGISTRY: us-central1-docker.pkg.dev/blakjaks-production/blakjaks-repo
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: projects/752012521116/locations/global/workloadIdentityPools/github-pool/providers/github-provider
+          service_account: blakjaks-service-account@blakjaks-production.iam.gserviceaccount.com
+
+      - name: Set up Docker auth
+        uses: google-github-actions/setup-gcloud@v2
+      
+      - run: gcloud auth configure-docker us-central1-docker.pkg.dev --quiet
+
+      - name: Build backend image
+        run: |
+          docker build -t $REGISTRY/backend:$GITHUB_SHA ./backend
+          docker push $REGISTRY/backend:$GITHUB_SHA
+
+  deploy:
+    needs: build-and-test
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: projects/752012521116/locations/global/workloadIdentityPools/github-pool/providers/github-provider
+          service_account: blakjaks-service-account@blakjaks-production.iam.gserviceaccount.com
+
+      - name: Get GKE credentials
+        uses: google-github-actions/get-gke-credentials@v2
+        with:
+          cluster_name: blakjaks-primary
+          location: us-central1
+
+      - name: Deploy to GKE
+        run: |
+          kubectl set image deployment/backend backend=$REGISTRY/backend:$GITHUB_SHA -n production
