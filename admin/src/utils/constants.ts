@@ -54,6 +54,23 @@ export const STATUS_COLORS: Record<string, string> = {
   admin: 'bg-indigo-100 text-indigo-800',
   cancelled: 'bg-red-100 text-red-800',
   refunded: 'bg-red-100 text-red-800',
+  resolved: 'bg-emerald-100 text-emerald-800',
+  dismissed: 'bg-slate-100 text-slate-800',
+  changes_requested: 'bg-orange-100 text-orange-800',
+}
+
+export const VOTE_TYPE_COLORS: Record<string, string> = {
+  flavor: 'bg-pink-100 text-pink-800',
+  product: 'bg-blue-100 text-blue-800',
+  loyalty: 'bg-amber-100 text-amber-800',
+  corporate: 'bg-purple-100 text-purple-800',
+}
+
+export const VOTE_TYPE_MIN_TIER: Record<string, string> = {
+  flavor: 'VIP',
+  product: 'High Roller',
+  loyalty: 'High Roller',
+  corporate: 'Whale',
 }
 
 export const COMP_TYPE_COLORS: Record<string, string> = {

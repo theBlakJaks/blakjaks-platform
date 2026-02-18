@@ -139,28 +139,49 @@ export interface VoteResult {
   percentage: number
 }
 
+export interface ChatReport {
+  id: string
+  reporter_id: string
+  reporter_name: string
+  reporter_email: string
+  reported_user_id: string
+  reported_user_name: string
+  reported_user_email: string
+  message_id: string
+  message_content: string
+  channel_name: string
+  reason: string
+  status: string
+  created_at: string
+}
+
+export interface SocialStats {
+  pending_reports: number
+  active_mutes: number
+  banned_users: number
+}
+
+export interface ModerationLogEntry {
+  id: string
+  admin_name: string
+  action: string
+  target_user: string
+  channel: string
+  details: string
+  timestamp: string
+}
+
 export interface Proposal {
   id: string
   user_id: string
+  user_name: string
   user_email: string
   title: string
   description: string
   proposed_vote_type: string
+  proposed_options: VoteOption[] | null
   status: string
   admin_notes: string | null
-  created_at: string
-}
-
-export interface ChatReport {
-  id: string
-  reporter_id: string
-  reporter_email: string
-  reported_user_id: string
-  reported_user_email: string
-  message_id: string
-  message_content: string
-  reason: string
-  status: string
   created_at: string
 }
 

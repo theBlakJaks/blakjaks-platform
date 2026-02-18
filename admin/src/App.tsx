@@ -9,6 +9,8 @@ import QRCodes from './pages/QRCodes'
 import Orders from './pages/Orders'
 import OrderDetail from './pages/OrderDetail'
 import Comps from './pages/Comps'
+import SocialModeration from './pages/SocialModeration'
+import Governance from './pages/Governance'
 import ComingSoon from './pages/ComingSoon'
 
 export default function App() {
@@ -30,8 +32,8 @@ export default function App() {
         <Route path="/orders/:id" element={<OrderDetail />} />
         <Route path="/comps" element={<Comps />} />
         <Route path="/affiliates" element={<ComingSoon />} />
-        <Route path="/social" element={<ComingSoon />} />
-        <Route path="/governance" element={<ComingSoon />} />
+        <Route path="/social" element={<SocialModeration />} />
+        <Route path="/governance" element={<Governance />} />
         <Route path="/treasury" element={<ComingSoon />} />
         <Route path="/analytics" element={<ComingSoon />} />
         <Route path="/settings" element={<ComingSoon />} />
