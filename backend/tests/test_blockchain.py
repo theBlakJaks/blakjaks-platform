@@ -138,12 +138,12 @@ def test_erc20_abi_has_required_functions():
 
 
 async def test_create_user_wallet(registered_user, db: AsyncSession):
+    # Signup now auto-creates a wallet, so verify the existing one
     user_id = uuid.UUID(registered_user["user"]["id"])
-    wallet = await create_user_wallet(db, user_id)
-    assert wallet.address.startswith("0x")
-    assert len(wallet.address) == 42
-    assert wallet.balance_available == Decimal("0")
-    assert wallet.balance_pending == Decimal("0")
+    result = await get_user_wallet_balance(db, user_id)
+    assert result["address"] is not None
+    assert result["address"].startswith("0x")
+    assert len(result["address"]) == 42
 
 
 async def test_get_user_wallet_balance_no_wallet(db: AsyncSession):
@@ -154,8 +154,8 @@ async def test_get_user_wallet_balance_no_wallet(db: AsyncSession):
 
 
 async def test_get_user_wallet_balance_with_wallet(registered_user, db: AsyncSession):
+    # Wallet already created by signup
     user_id = uuid.UUID(registered_user["user"]["id"])
-    await create_user_wallet(db, user_id)
     result = await get_user_wallet_balance(db, user_id)
     assert result["address"] is not None
     assert result["address"].startswith("0x")

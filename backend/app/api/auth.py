@@ -29,6 +29,7 @@ from app.core.security import (
     verify_password,
 )
 from app.models.user import User
+from app.services.wallet_service import create_user_wallet
 
 logger = logging.getLogger(__name__)
 
@@ -51,6 +52,9 @@ async def signup(body: SignupRequest, db: AsyncSession = Depends(get_db)):
     except IntegrityError:
         await db.rollback()
         raise HTTPException(status.HTTP_409_CONFLICT, "Email already registered")
+
+    # Auto-create wallet for the new user
+    await create_user_wallet(db, user.id, email=body.email)
 
     return AuthResponse(
         user=UserResponse.model_validate(user),
