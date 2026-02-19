@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react'
 import Link from 'next/link'
-import { Hash, Lock, ChevronDown, ChevronRight, Send, Smile, Globe, Pin, Radio } from 'lucide-react'
+import { Hash, Lock, ChevronDown, ChevronRight, Send, Smile, Globe, Pin, Radio, Reply, X } from 'lucide-react'
 import { useAuth } from '@/lib/auth-context'
 import { api } from '@/lib/api'
 import type { Channel, Message, Tier } from '@/lib/types'
@@ -23,6 +23,14 @@ import { prefixMatchEmotes } from '@/lib/emote-utils'
 import type { CachedEmote } from '@/lib/emote-store'
 
 const TIER_RANK: Record<Tier, number> = { standard: 0, vip: 1, high_roller: 2, whale: 3 }
+
+const ALLOWED_REACTIONS = [
+  { key: '100', emoji: '\uD83D\uDCAF' },
+  { key: 'heart', emoji: '\u2764\uFE0F' },
+  { key: 'laugh', emoji: '\uD83D\uDE02' },
+  { key: 'check', emoji: '\u2705' },
+  { key: 'x', emoji: '\u274C' },
+]
 
 const LANGUAGE_NAMES: Record<string, string> = {
   en: 'English', es: 'Spanish', fr: 'French', pt: 'Portuguese',
@@ -69,7 +77,7 @@ const SYSTEM_MESSAGES: Message[] = [
 const PINNED_MESSAGE: Message = {
   id: 'pin_001', channelId: 'ch_001', userId: 'usr_012', username: 'whaleDave',
   userTier: 'whale', content: 'Welcome to BlakJaks Social! Read the rules and be respectful. New members, drop an intro in #Introductions!',
-  timestamp: new Date(Date.now() - 86400000).toISOString(), reactions: { '\uD83D\uDC4D': ['usr_010', 'usr_014', 'usr_011'] },
+  timestamp: new Date(Date.now() - 86400000).toISOString(), reactions: { '\uD83D\uDCAF': ['usr_010', 'usr_014', 'usr_011'] },
   avatarUrl: 'https://i.pravatar.cc/150?u=usr_012',
 }
 
@@ -97,6 +105,7 @@ export default function SocialPage() {
   const [emotePickerOpen, setEmotePickerOpen] = useState(false)
   const [autocompleteMatches, setAutocompleteMatches] = useState<CachedEmote[]>([])
   const [inputFocused, setInputFocused] = useState(false)
+  const [replyingTo, setReplyingTo] = useState<Message | null>(null)
   const emoteList = useEmoteStore(s => s.emoteList)
   const emotes = useEmoteStore(s => s.emotes)
   const chatInputRef = useRef<EmoteChatInputHandle>(null)
@@ -190,6 +199,10 @@ export default function SocialPage() {
     if (!text || cooldownActive) return
 
     const newMsg = await api.social.sendMessage(activeChannel, text)
+    if (replyingTo) {
+      newMsg.replyTo = replyingTo.username
+      setReplyingTo(null)
+    }
     setMessages(prev => [...prev, newMsg])
     chatInputRef.current?.clear()
     setInputText('')
@@ -216,6 +229,19 @@ export default function SocialPage() {
     }
     setMessages(prev => [...prev, gifMsg])
     setGifPickerOpen(false)
+  }
+
+  const toggleReaction = (msgId: string, emoji: string) => {
+    if (!user) return
+    setMessages(prev => prev.map(msg => {
+      if (msg.id !== msgId) return msg
+      const users = msg.reactions[emoji] || []
+      const hasReacted = users.includes(user.id)
+      const updated = hasReacted ? users.filter(id => id !== user.id) : [...users, user.id]
+      const reactions = { ...msg.reactions }
+      if (updated.length === 0) { delete reactions[emoji] } else { reactions[emoji] = updated }
+      return { ...msg, reactions }
+    }))
   }
 
   // Auto-translate messages when preferred language is not English
@@ -432,8 +458,30 @@ export default function SocialPage() {
             return (
               <div
                 key={msg.id}
-                className={`group flex gap-3 rounded-lg px-2 py-0.5 hover:bg-[var(--color-bg-surface)] ${showHeader ? 'mt-3' : ''}`}
+                className={`group relative flex gap-3 rounded-lg px-2 py-0.5 hover:bg-[var(--color-bg-surface)] ${showHeader ? 'mt-3' : ''}`}
               >
+                {/* Hover action bar */}
+                <div className="absolute right-2 top-0 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity z-10 flex items-center gap-0.5 rounded-md border border-[var(--color-border)] bg-[var(--color-bg-card)] px-1 py-0.5 shadow-lg">
+                  {ALLOWED_REACTIONS.map(r => (
+                    <button
+                      key={r.key}
+                      onClick={() => toggleReaction(msg.id, r.emoji)}
+                      className="hover:bg-[var(--color-bg-hover)] rounded px-1 py-0.5 text-sm transition-colors hover:scale-110"
+                      title={r.key}
+                    >
+                      {r.emoji}
+                    </button>
+                  ))}
+                  <div className="w-px h-4 bg-[var(--color-border)] mx-0.5" />
+                  <button
+                    onClick={() => setReplyingTo(msg)}
+                    className="flex items-center gap-1 hover:bg-[var(--color-bg-hover)] rounded px-1.5 py-0.5 text-xs text-[var(--color-text-dim)] hover:text-white transition-colors"
+                  >
+                    <Reply size={12} />
+                    Reply
+                  </button>
+                </div>
+
                 {showHeader ? (
                   <Avatar name={msg.username} tier={msg.userTier} size="sm" avatarUrl={msg.userId === user?.id ? user.avatarUrl : msg.avatarUrl} />
                 ) : (
@@ -497,15 +545,23 @@ export default function SocialPage() {
                   )}
 
                   {reactionEntries.length > 0 && (
-                    <div className="mt-1 flex gap-1.5">
-                      {reactionEntries.map(([emoji, users]) => (
-                        <span
-                          key={emoji}
-                          className="inline-flex items-center gap-1 rounded-full border border-[var(--color-border)] bg-[var(--color-bg-surface)] px-2 py-0.5 text-xs"
-                        >
-                          {emoji} <span className="text-[var(--color-text-dim)]">{users.length}</span>
-                        </span>
-                      ))}
+                    <div className="mt-1 flex gap-1.5 flex-wrap">
+                      {reactionEntries.map(([emoji, users]) => {
+                        const isMine = user ? users.includes(user.id) : false
+                        return (
+                          <button
+                            key={emoji}
+                            onClick={() => toggleReaction(msg.id, emoji)}
+                            className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs transition-colors cursor-pointer hover:border-[var(--color-gold)]/50 ${
+                              isMine
+                                ? 'border-[var(--color-gold)] bg-[var(--color-gold)]/10'
+                                : 'border-[var(--color-border)] bg-[var(--color-bg-surface)]'
+                            }`}
+                          >
+                            {emoji} <span className={isMine ? 'text-[var(--color-gold)]' : 'text-[var(--color-text-dim)]'}>{users.length}</span>
+                          </button>
+                        )
+                      })}
                     </div>
                   )}
                 </div>
@@ -517,6 +573,16 @@ export default function SocialPage() {
 
         {/* Message Composer */}
         <div className="shrink-0 border-t border-[var(--color-border)] px-4 py-3">
+          {replyingTo && (
+            <div className="mb-2 flex items-center gap-2 text-xs">
+              <Reply size={12} className="text-[var(--color-gold)]" />
+              <span className="text-[var(--color-text-dim)]">Replying to</span>
+              <span className="font-medium text-[var(--color-gold)]">{replyingTo.username}</span>
+              <button onClick={() => setReplyingTo(null)} className="ml-auto text-[var(--color-text-dim)] hover:text-white transition-colors">
+                <X size={14} />
+              </button>
+            </div>
+          )}
           {cooldownActive && (
             <div className="mb-2 text-xs text-[var(--color-text-dim)]">
               Rate limited. You can send another message in {cooldownTime}s

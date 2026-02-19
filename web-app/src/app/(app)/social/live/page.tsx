@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { Radio, Eye, Send, MessageSquare, X, PanelRightClose, PanelRightOpen } from 'lucide-react'
+import { Radio, Eye, Send, MessageSquare, X, PanelRightClose, PanelRightOpen, Reply } from 'lucide-react'
 import { useAuth } from '@/lib/auth-context'
 import { api } from '@/lib/api'
 import { useUIStore } from '@/lib/store'
@@ -35,6 +35,13 @@ const MOCK_USERS: { id: string; username: string; tier: Tier; avatarUrl: string 
   { id: 'usr_015', username: 'blazeRunner', tier: 'vip', avatarUrl: 'https://i.pravatar.cc/150?u=usr_015' },
 ]
 
+const ALLOWED_REACTIONS = [
+  { key: '100', emoji: '\uD83D\uDCAF' },
+  { key: 'heart', emoji: '\u2764\uFE0F' },
+  { key: 'laugh', emoji: '\uD83D\uDE02' },
+  { key: 'check', emoji: '\u2705' },
+  { key: 'x', emoji: '\u274C' },
+]
 
 export default function LiveStreamPage() {
   const { user } = useAuth()
@@ -48,6 +55,7 @@ export default function LiveStreamPage() {
   const [emotePickerOpen, setEmotePickerOpen] = useState(false)
   const [autocompleteMatches, setAutocompleteMatches] = useState<CachedEmote[]>([])
   const [inputFocused, setInputFocused] = useState(false)
+  const [replyingTo, setReplyingTo] = useState<Message | null>(null)
   const emoteList = useEmoteStore(s => s.emoteList)
   const emoteMap = useEmoteStore(s => s.emotes)
   const chatContainerRef = useRef<HTMLDivElement>(null)
@@ -101,10 +109,12 @@ export default function LiveStreamPage() {
       timestamp: new Date().toISOString(),
       reactions: {},
       avatarUrl: user.avatarUrl,
+      replyTo: replyingTo?.username,
     }
     setChatMessages(prev => [...prev, msg])
     liveChatInputRef.current?.clear()
     setChatInput('')
+    setReplyingTo(null)
   }
 
   const handleGifSelect = (gifUrl: string) => {
@@ -123,6 +133,19 @@ export default function LiveStreamPage() {
     }
     setChatMessages(prev => [...prev, gifMsg])
     setGifPickerOpen(false)
+  }
+
+  const toggleReaction = (msgId: string, emoji: string) => {
+    if (!user) return
+    setChatMessages(prev => prev.map(msg => {
+      if (msg.id !== msgId) return msg
+      const users = msg.reactions[emoji] || []
+      const hasReacted = users.includes(user.id)
+      const updated = hasReacted ? users.filter(id => id !== user.id) : [...users, user.id]
+      const reactions = { ...msg.reactions }
+      if (updated.length === 0) { delete reactions[emoji] } else { reactions[emoji] = updated }
+      return { ...msg, reactions }
+    }))
   }
 
   if (loading) {
@@ -218,7 +241,28 @@ export default function LiveStreamPage() {
             </div>
           )}
           {chatMessages.map(msg => (
-            <div key={msg.id} className="flex items-start gap-2 group">
+            <div key={msg.id} className="relative flex items-start gap-2 group">
+              {/* Hover action bar */}
+              <div className="absolute right-0 top-0 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity z-10 flex items-center gap-0.5 rounded-md border border-[var(--color-border)] bg-[var(--color-bg-card)] px-0.5 py-0.5 shadow-lg">
+                {ALLOWED_REACTIONS.map(r => (
+                  <button
+                    key={r.key}
+                    onClick={() => toggleReaction(msg.id, r.emoji)}
+                    className="hover:bg-[var(--color-bg-hover)] rounded px-0.5 py-0.5 text-xs transition-colors hover:scale-110"
+                    title={r.key}
+                  >
+                    {r.emoji}
+                  </button>
+                ))}
+                <div className="w-px h-3 bg-[var(--color-border)] mx-0.5" />
+                <button
+                  onClick={() => setReplyingTo(msg)}
+                  className="flex items-center gap-0.5 hover:bg-[var(--color-bg-hover)] rounded px-1 py-0.5 text-[10px] text-[var(--color-text-dim)] hover:text-white transition-colors"
+                >
+                  <Reply size={10} />
+                </button>
+              </div>
+
               <div className="shrink-0">
                 <Avatar name={msg.username} tier={msg.userTier} size="sm" avatarUrl={msg.userId === user?.id ? user.avatarUrl : msg.avatarUrl} />
               </div>
@@ -226,6 +270,12 @@ export default function LiveStreamPage() {
                 <span className="shrink-0 text-xs font-semibold whitespace-nowrap" style={{ color: getTierColor(msg.userTier) }}>
                   {msg.username}
                 </span>
+                {msg.replyTo && (
+                  <div className="text-[10px] text-[var(--color-text-dim)] flex items-center gap-1">
+                    <Reply size={9} className="text-[var(--color-gold)]" />
+                    <span className="text-[var(--color-gold)]">{msg.replyTo}</span>
+                  </div>
+                )}
                 {msg.gifUrl ? (
                   <img src={msg.gifUrl} alt="GIF" className="mt-0.5 rounded-md max-w-[180px]" loading="lazy" />
                 ) : (
@@ -235,6 +285,26 @@ export default function LiveStreamPage() {
                     emoteSize="sm"
                   />
                 )}
+                {Object.entries(msg.reactions).length > 0 && (
+                  <div className="mt-0.5 flex gap-1 flex-wrap">
+                    {Object.entries(msg.reactions).map(([emoji, users]) => {
+                      const isMine = user ? users.includes(user.id) : false
+                      return (
+                        <button
+                          key={emoji}
+                          onClick={() => toggleReaction(msg.id, emoji)}
+                          className={`inline-flex items-center gap-0.5 rounded-full border px-1.5 py-0 text-[10px] transition-colors cursor-pointer hover:border-[var(--color-gold)]/50 ${
+                            isMine
+                              ? 'border-[var(--color-gold)] bg-[var(--color-gold)]/10'
+                              : 'border-[var(--color-border)] bg-[var(--color-bg-surface)]'
+                          }`}
+                        >
+                          {emoji} <span className={isMine ? 'text-[var(--color-gold)]' : 'text-[var(--color-text-dim)]'}>{users.length}</span>
+                        </button>
+                      )
+                    })}
+                  </div>
+                )}
               </div>
             </div>
           ))}
@@ -242,6 +312,16 @@ export default function LiveStreamPage() {
 
         {/* Chat input */}
         <div className="shrink-0 border-t border-[var(--color-border)] p-3 relative">
+          {replyingTo && (
+            <div className="mb-2 flex items-center gap-1.5 text-[10px]">
+              <Reply size={10} className="text-[var(--color-gold)]" />
+              <span className="text-[var(--color-text-dim)]">Replying to</span>
+              <span className="font-medium text-[var(--color-gold)]">{replyingTo.username}</span>
+              <button onClick={() => setReplyingTo(null)} className="ml-auto text-[var(--color-text-dim)] hover:text-white transition-colors">
+                <X size={12} />
+              </button>
+            </div>
+          )}
           {autocompleteMatches.length > 0 && (
             <EmoteAutocomplete
               matches={autocompleteMatches}

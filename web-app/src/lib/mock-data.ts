@@ -151,6 +151,8 @@ const mockUsers = [
   { id: 'usr_016', username: 'pouch_master', tier: 'high_roller' as const, avatarUrl: 'https://i.pravatar.cc/150?u=usr_016' },
 ]
 
+const MOCK_REACTION_EMOJIS = ['\uD83D\uDCAF', '\u2764\uFE0F', '\uD83D\uDE02', '\u2705', '\u274C']
+
 function generateMessages(channelId: string, count: number): Message[] {
   const baseMessages = [
     'Has anyone tried the new Cinnamon flavor? Absolutely fire.',
@@ -198,8 +200,9 @@ function generateMessages(channelId: string, count: number): Message[] {
       userTier: user.tier,
       content: baseMessages[i % baseMessages.length],
       timestamp: new Date(now - (count - i) * 300000).toISOString(),
-      reactions: i % 4 === 0 ? { '\uD83D\uDD25': ['usr_010', 'usr_014'] } as Record<string, string[]> : {} as Record<string, string[]>,
+      reactions: i % 4 === 0 ? { [MOCK_REACTION_EMOJIS[i % MOCK_REACTION_EMOJIS.length]]: ['usr_010', 'usr_014'] } as Record<string, string[]> : {} as Record<string, string[]>,
       isSystem: false,
+      replyTo: i === 3 ? mockUsers[0].username : i === 9 ? mockUsers[2].username : undefined,
       avatarUrl: user.avatarUrl,
     }
   })

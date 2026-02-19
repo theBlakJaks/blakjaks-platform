@@ -88,6 +88,14 @@ export const api = {
         avatarUrl: currentUser.avatarUrl,
       }
     },
+    async addReaction(_messageId: string, _emoji: string) {
+      await delay(200)
+      return { success: true }
+    },
+    async removeReaction(_messageId: string, _emoji: string) {
+      await delay(200)
+      return { success: true }
+    },
   },
 
   streaming: {
