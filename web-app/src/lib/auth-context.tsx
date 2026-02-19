@@ -12,6 +12,7 @@ interface AuthContextType {
   login: (email: string, password: string) => Promise<void>
   register: (data: { email: string; password: string; username: string; firstName: string; lastName: string }) => Promise<void>
   logout: () => void
+  updateUser: (partial: Partial<User>) => void
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -66,8 +67,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     router.replace('/login')
   }, [router])
 
+  const updateUser = useCallback((partial: Partial<User>) => {
+    setUser((prev) => prev ? { ...prev, ...partial } : null)
+  }, [])
+
   return (
-    <AuthContext.Provider value={{ user, isAuthenticated: !!user, isLoading, login, register, logout }}>
+    <AuthContext.Provider value={{ user, isAuthenticated: !!user, isLoading, login, register, logout, updateUser }}>
       {children}
     </AuthContext.Provider>
   )

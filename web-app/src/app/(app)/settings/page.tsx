@@ -1,14 +1,28 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
+import { Check, X, Loader2 } from 'lucide-react'
 import Card from '@/components/ui/Card'
 import Input from '@/components/ui/Input'
 import GoldButton from '@/components/ui/GoldButton'
 import Tabs from '@/components/ui/Tabs'
 import Select from '@/components/ui/Select'
 import Spinner from '@/components/ui/Spinner'
+import AvatarUpload from '@/components/ui/AvatarUpload'
 import { useAuth } from '@/lib/auth-context'
 import { api } from '@/lib/api'
+import { useUIStore } from '@/lib/store'
+
+const USERNAME_REGEX = /^[a-zA-Z_][a-zA-Z0-9_]{3,24}$/
+
+function validateUsername(username: string): { valid: boolean; error?: string } {
+  if (username.length < 4) return { valid: false, error: 'Must be at least 4 characters' }
+  if (username.length > 25) return { valid: false, error: 'Must be 25 characters or less' }
+  if (/^[0-9]/.test(username)) return { valid: false, error: 'Cannot start with a number' }
+  if (!/^[a-zA-Z0-9_]+$/.test(username)) return { valid: false, error: 'Only letters, numbers, and underscores allowed' }
+  if (!USERNAME_REGEX.test(username)) return { valid: false, error: 'Must start with a letter or underscore' }
+  return { valid: true }
+}
 
 const settingsTabs = [
   { id: 'account', label: 'Account' },
@@ -61,19 +75,27 @@ function Toggle({ enabled, onChange }: { enabled: boolean; onChange: (v: boolean
 }
 
 export default function SettingsPage() {
-  const { user } = useAuth()
+  const { user, updateUser } = useAuth()
   const [activeTab, setActiveTab] = useState('account')
 
   // Account state
   const [accountForm, setAccountForm] = useState({
     firstName: user?.firstName || '',
     lastName: user?.lastName || '',
-    username: user?.username || '',
     email: user?.email || '',
     phone: user?.phone || '',
   })
   const [accountSaving, setAccountSaving] = useState(false)
   const [accountSuccess, setAccountSuccess] = useState(false)
+
+  // Username change state
+  const [newUsername, setNewUsername] = useState(user?.username || '')
+  const [usernameStatus, setUsernameStatus] = useState<'idle' | 'checking' | 'available' | 'taken' | 'invalid'>('idle')
+  const [usernameMessage, setUsernameMessage] = useState('')
+  const [usernameSuggestions, setUsernameSuggestions] = useState<string[]>([])
+  const [usernameSaving, setUsernameSaving] = useState(false)
+  const [usernameSuccess, setUsernameSuccess] = useState(false)
+  const usernameTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // Security state
   const [passwordForm, setPasswordForm] = useState({
@@ -97,7 +119,9 @@ export default function SettingsPage() {
   const [notifSuccess, setNotifSuccess] = useState(false)
 
   // Language state
-  const [language, setLanguage] = useState('en')
+  const { preferredLanguage, setPreferredLanguage } = useUIStore()
+  const [language, setLanguage] = useState(preferredLanguage)
+  const [langSuccess, setLangSuccess] = useState(false)
 
   // Mock sessions
   const sessions = [
@@ -105,6 +129,79 @@ export default function SettingsPage() {
     { id: 's2', device: 'Safari on iPhone', lastActive: '1 hour ago', current: false },
     { id: 's3', device: 'Firefox on Windows', lastActive: '3 days ago', current: false },
   ]
+
+  // Username availability check (debounced)
+  const checkUsername = useCallback(async (username: string) => {
+    // Skip if unchanged from current
+    if (username.toLowerCase() === user?.username?.toLowerCase()) {
+      setUsernameStatus('idle')
+      setUsernameMessage('')
+      setUsernameSuggestions([])
+      return
+    }
+
+    const validation = validateUsername(username)
+    if (!validation.valid) {
+      setUsernameStatus('invalid')
+      setUsernameMessage(validation.error || 'Invalid username')
+      setUsernameSuggestions([])
+      return
+    }
+
+    setUsernameStatus('checking')
+    setUsernameMessage('')
+    setUsernameSuggestions([])
+    try {
+      const result = await api.users.checkUsername(username)
+      if (result.available) {
+        setUsernameStatus('available')
+        setUsernameMessage('Username available')
+      } else {
+        setUsernameStatus('taken')
+        setUsernameMessage(result.message)
+        setUsernameSuggestions(result.suggestions || [])
+      }
+    } catch {
+      setUsernameStatus('idle')
+    }
+  }, [user?.username])
+
+  const handleUsernameChange = (value: string) => {
+    // Auto-lowercase
+    const lower = value.toLowerCase().replace(/[^a-z0-9_]/g, '')
+    setNewUsername(lower)
+    setUsernameSuccess(false)
+
+    if (usernameTimerRef.current) clearTimeout(usernameTimerRef.current)
+
+    if (lower.length < 4) {
+      setUsernameStatus(lower.length > 0 ? 'invalid' : 'idle')
+      setUsernameMessage(lower.length > 0 ? 'Must be at least 4 characters' : '')
+      setUsernameSuggestions([])
+      return
+    }
+
+    usernameTimerRef.current = setTimeout(() => checkUsername(lower), 500)
+  }
+
+  async function handleUsernameSave() {
+    if (usernameStatus !== 'available') return
+    setUsernameSaving(true)
+    setUsernameSuccess(false)
+    try {
+      await api.users.changeUsername(newUsername)
+      updateUser({ username: newUsername })
+      setUsernameSuccess(true)
+      setUsernameStatus('idle')
+      setUsernameMessage('')
+      setTimeout(() => setUsernameSuccess(false), 3000)
+    } catch {
+      setUsernameMessage('Failed to update username')
+      setUsernameStatus('invalid')
+    } finally {
+      setUsernameSaving(false)
+    }
+  }
 
   if (!user) {
     return (
@@ -119,6 +216,7 @@ export default function SettingsPage() {
     setAccountSuccess(false)
     try {
       await api.settings.updateProfile(accountForm)
+      updateUser(accountForm)
       setAccountSuccess(true)
       setTimeout(() => setAccountSuccess(false), 3000)
     } finally {
@@ -194,48 +292,130 @@ export default function SettingsPage() {
 
       {/* Account Tab */}
       {activeTab === 'account' && (
-        <Card>
-          <h2 className="mb-6 text-lg font-semibold text-white">Account Information</h2>
-          <div className="space-y-5 max-w-lg">
-            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
-              <Input
-                label="First Name"
-                value={accountForm.firstName}
-                onChange={(e) => setAccountForm((p) => ({ ...p, firstName: e.target.value }))}
-              />
-              <Input
-                label="Last Name"
-                value={accountForm.lastName}
-                onChange={(e) => setAccountForm((p) => ({ ...p, lastName: e.target.value }))}
+        <div className="space-y-6">
+          <Card>
+            <h2 className="mb-6 text-lg font-semibold text-white">Account Information</h2>
+
+            {/* Profile Picture */}
+            <div className="mb-8 flex justify-center">
+              <AvatarUpload
+                name={`${user.firstName} ${user.lastName}`}
+                tier={user.tier}
+                currentAvatarUrl={user.avatarUrl}
+                onUpload={async (file) => {
+                  const result = await api.settings.uploadAvatar(file)
+                  updateUser({ avatarUrl: result.avatarUrl })
+                  return result
+                }}
+                onDelete={async () => {
+                  await api.settings.deleteAvatar()
+                  updateUser({ avatarUrl: undefined })
+                }}
               />
             </div>
-            <Input
-              label="Username"
-              value={accountForm.username}
-              onChange={(e) => setAccountForm((p) => ({ ...p, username: e.target.value }))}
-            />
-            <Input
-              label="Email"
-              type="email"
-              value={accountForm.email}
-              onChange={(e) => setAccountForm((p) => ({ ...p, email: e.target.value }))}
-            />
-            <Input
-              label="Phone"
-              type="tel"
-              value={accountForm.phone}
-              onChange={(e) => setAccountForm((p) => ({ ...p, phone: e.target.value }))}
-            />
-            <div className="flex items-center gap-3">
-              <GoldButton onClick={handleAccountSave} loading={accountSaving}>
-                Save Changes
-              </GoldButton>
-              {accountSuccess && (
-                <span className="text-sm text-emerald-400">Changes saved!</span>
-              )}
+
+            <div className="space-y-5 max-w-lg">
+              <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+                <Input
+                  label="First Name"
+                  value={accountForm.firstName}
+                  onChange={(e) => setAccountForm((p) => ({ ...p, firstName: e.target.value }))}
+                />
+                <Input
+                  label="Last Name"
+                  value={accountForm.lastName}
+                  onChange={(e) => setAccountForm((p) => ({ ...p, lastName: e.target.value }))}
+                />
+              </div>
+              <Input
+                label="Email"
+                type="email"
+                value={accountForm.email}
+                onChange={(e) => setAccountForm((p) => ({ ...p, email: e.target.value }))}
+              />
+              <Input
+                label="Phone"
+                type="tel"
+                value={accountForm.phone}
+                onChange={(e) => setAccountForm((p) => ({ ...p, phone: e.target.value }))}
+              />
+              <div className="flex items-center gap-3">
+                <GoldButton onClick={handleAccountSave} loading={accountSaving}>
+                  Save Changes
+                </GoldButton>
+                {accountSuccess && (
+                  <span className="text-sm text-emerald-400">Changes saved!</span>
+                )}
+              </div>
             </div>
-          </div>
-        </Card>
+          </Card>
+
+          {/* Username Change */}
+          <Card>
+            <h2 className="mb-2 text-lg font-semibold text-white">Username</h2>
+            <p className="mb-5 text-xs text-[var(--color-text-dim)]">
+              Your username is how others identify you in chat. Can be changed once every 60 days.
+            </p>
+            <div className="max-w-lg space-y-4">
+              <div className="space-y-1.5">
+                <label className="block text-sm font-medium text-[var(--color-text-muted)]">Username</label>
+                <div className="relative">
+                  <input
+                    value={newUsername}
+                    onChange={(e) => handleUsernameChange(e.target.value)}
+                    maxLength={25}
+                    placeholder="Choose a username"
+                    className="w-full rounded-[10px] border border-[var(--color-border)] bg-[var(--color-bg-surface)] px-4 py-2.5 pr-10 text-sm text-[var(--color-text)] placeholder-[var(--color-text-dim)] transition-colors focus:border-[var(--color-gold)] focus:outline-none focus:ring-1 focus:ring-[var(--color-gold)]/50"
+                  />
+                  {/* Status indicator */}
+                  <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                    {usernameStatus === 'checking' && <Loader2 size={16} className="animate-spin text-[var(--color-text-dim)]" />}
+                    {usernameStatus === 'available' && <Check size={16} className="text-emerald-400" />}
+                    {(usernameStatus === 'taken' || usernameStatus === 'invalid') && <X size={16} className="text-red-400" />}
+                  </div>
+                </div>
+                {/* Character counter + message */}
+                <div className="flex items-center justify-between">
+                  <span className={`text-xs ${
+                    usernameStatus === 'available' ? 'text-emerald-400' :
+                    usernameStatus === 'taken' || usernameStatus === 'invalid' ? 'text-red-400' :
+                    'text-[var(--color-text-dim)]'
+                  }`}>
+                    {usernameMessage}
+                  </span>
+                  <span className="text-[10px] text-[var(--color-text-dim)]">{newUsername.length}/25</span>
+                </div>
+                {/* Suggestions */}
+                {usernameSuggestions.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5 mt-1">
+                    <span className="text-xs text-[var(--color-text-dim)]">Try:</span>
+                    {usernameSuggestions.map((s) => (
+                      <button
+                        key={s}
+                        onClick={() => { setNewUsername(s); checkUsername(s) }}
+                        className="rounded-full border border-[var(--color-border)] bg-[var(--color-bg-surface)] px-2.5 py-0.5 text-xs text-[var(--color-gold)] hover:bg-[var(--color-gold)]/10 transition-colors"
+                      >
+                        {s}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <div className="flex items-center gap-3">
+                <GoldButton
+                  onClick={handleUsernameSave}
+                  loading={usernameSaving}
+                  disabled={usernameStatus !== 'available'}
+                >
+                  Update Username
+                </GoldButton>
+                {usernameSuccess && (
+                  <span className="text-sm text-emerald-400">Username updated!</span>
+                )}
+              </div>
+            </div>
+          </Card>
+        </div>
       )}
 
       {/* Security Tab */}
@@ -381,9 +561,16 @@ export default function SettingsPage() {
               onChange={(e) => setLanguage(e.target.value)}
             />
             <p className="text-xs text-[var(--color-text-dim)]">
-              This sets your default translation language for the Social Hub. Messages from other languages will be auto-translated to your selected language.
+              This sets your default translation language for the Social Hub. Messages in other languages will be automatically translated to your selected language.
             </p>
-            <GoldButton>Save Language</GoldButton>
+            <div className="flex items-center gap-3">
+              <GoldButton onClick={() => { setPreferredLanguage(language); setLangSuccess(true); setTimeout(() => setLangSuccess(false), 3000) }}>
+                Save Language
+              </GoldButton>
+              {langSuccess && (
+                <span className="text-sm text-emerald-400">Language saved!</span>
+              )}
+            </div>
           </div>
         </Card>
       )}

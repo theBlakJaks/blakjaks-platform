@@ -41,6 +41,7 @@ class MessageOut(BaseModel):
     reply_to_id: uuid.UUID | None = None
     reply_preview: str | None = None
     reactions: list[ReactionOut] = []
+    avatar_url: str | None = None
     is_pinned: bool = False
     is_system: bool = False
     created_at: datetime

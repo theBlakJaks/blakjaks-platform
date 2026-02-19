@@ -122,9 +122,13 @@ async def websocket_endpoint(websocket: WebSocket):
                     if isinstance(result, str):
                         await websocket.send_json({"type": "error", "message": result})
                     else:
-                        # Get username
-                        user_result = await db.execute(select(User.first_name).where(User.id == user_id))
-                        username = user_result.scalar_one_or_none() or "Unknown"
+                        # Get username and avatar
+                        user_result = await db.execute(
+                            select(User.username, User.avatar_url).where(User.id == user_id)
+                        )
+                        user_row = user_result.one_or_none()
+                        username = user_row[0] if user_row else "Unknown"
+                        avatar_url = user_row[1] if user_row else None
 
                         msg_data = {
                             "type": "new_message",
@@ -132,6 +136,7 @@ async def websocket_endpoint(websocket: WebSocket):
                             "channel_id": str(result.channel_id),
                             "user_id": str(result.user_id),
                             "username": username,
+                            "avatar_url": avatar_url,
                             "content": result.content,
                             "reply_to_id": str(result.reply_to_id) if result.reply_to_id else None,
                             "is_pinned": result.is_pinned,
@@ -143,7 +148,7 @@ async def websocket_endpoint(websocket: WebSocket):
             elif msg_type == "typing":
                 channel_id = uuid.UUID(data["channel_id"])
                 async with async_session_factory() as db:
-                    user_result = await db.execute(select(User.first_name).where(User.id == user_id))
+                    user_result = await db.execute(select(User.username).where(User.id == user_id))
                     username = user_result.scalar_one_or_none() or "Unknown"
                 await manager.broadcast(
                     channel_id,

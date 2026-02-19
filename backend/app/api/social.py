@@ -77,6 +77,7 @@ async def create_message(
         channel_id=result.channel_id,
         user_id=result.user_id,
         username=user.first_name or "Unknown",
+        avatar_url=user.avatar_url,
         user_tier=None,
         content=result.content,
         original_language=result.original_language,

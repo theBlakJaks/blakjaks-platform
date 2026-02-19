@@ -108,6 +108,17 @@ export const api = {
       await delay(400)
       return { ...currentUser, ...data }
     },
+    async uploadAvatar(file: File) {
+      await delay(800)
+      // Simulate: generate a local object URL as the "uploaded" avatar
+      const avatarUrl = URL.createObjectURL(file)
+      currentUser.avatarUrl = avatarUrl
+      return { avatarUrl }
+    },
+    async deleteAvatar() {
+      await delay(400)
+      currentUser.avatarUrl = undefined
+    },
     async updatePassword(_data: { currentPassword: string; newPassword: string }) {
       await delay(400)
       return { success: true }
@@ -119,6 +130,26 @@ export const api = {
     async updateNotifications(_data: Record<string, boolean>) {
       await delay(300)
       return { success: true }
+    },
+  },
+
+  users: {
+    async checkUsername(username: string): Promise<{ available: boolean; message: string; suggestions?: string[] }> {
+      await delay(400)
+      // Simulate: "jakemitch" is taken, everything else is available
+      if (username.toLowerCase() === 'jakemitch') {
+        return {
+          available: false,
+          message: 'Username already taken',
+          suggestions: [`${username}_42`, `${username}99`, `${username}_BJ`],
+        }
+      }
+      return { available: true, message: 'Username available' }
+    },
+    async changeUsername(username: string) {
+      await delay(400)
+      currentUser.username = username
+      return { message: 'Username updated', username }
     },
   },
 

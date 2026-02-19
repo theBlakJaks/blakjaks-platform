@@ -1,8 +1,9 @@
 'use client'
 
-import { useState, type FormEvent, Suspense } from 'react'
+import { useState, useRef, useCallback, type FormEvent, Suspense } from 'react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
+import { Check, X, Loader2 } from 'lucide-react'
 import Logo from '@/components/ui/Logo'
 import Input from '@/components/ui/Input'
 import GoldButton from '@/components/ui/GoldButton'
@@ -15,6 +16,17 @@ const US_STATES = [
   'MA','MI','MN','MS','MO','MT','NE','NV','NH','NJ','NM','NY','NC','ND','OH','OK','OR','PA','RI','SC',
   'SD','TN','TX','UT','VT','VA','WA','WV','WI','WY',
 ]
+
+const USERNAME_REGEX = /^[a-zA-Z_][a-zA-Z0-9_]{3,24}$/
+
+function validateUsername(username: string): { valid: boolean; error?: string } {
+  if (username.length < 4) return { valid: false, error: 'Must be at least 4 characters' }
+  if (username.length > 25) return { valid: false, error: 'Must be 25 characters or less' }
+  if (/^[0-9]/.test(username)) return { valid: false, error: 'Cannot start with a number' }
+  if (!/^[a-zA-Z0-9_]+$/.test(username)) return { valid: false, error: 'Only letters, numbers, and underscores allowed' }
+  if (!USERNAME_REGEX.test(username)) return { valid: false, error: 'Must start with a letter or underscore' }
+  return { valid: true }
+}
 
 export default function SignupPage() {
   return (
@@ -31,6 +43,7 @@ function SignupForm() {
   const [form, setForm] = useState({
     firstName: '',
     lastName: '',
+    username: '',
     email: '',
     password: '',
     confirmPassword: '',
@@ -47,6 +60,12 @@ function SignupForm() {
   const [loading, setLoading] = useState(false)
   const [success, setSuccess] = useState(false)
 
+  // Username availability state
+  const [usernameStatus, setUsernameStatus] = useState<'idle' | 'checking' | 'available' | 'taken' | 'invalid'>('idle')
+  const [usernameMessage, setUsernameMessage] = useState('')
+  const [usernameSuggestions, setUsernameSuggestions] = useState<string[]>([])
+  const usernameTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
   function updateField(field: string, value: string) {
     setForm((prev) => ({ ...prev, [field]: value }))
   }
@@ -60,12 +79,63 @@ function SignupForm() {
     return age
   }
 
+  const checkUsername = useCallback(async (username: string) => {
+    const validation = validateUsername(username)
+    if (!validation.valid) {
+      setUsernameStatus('invalid')
+      setUsernameMessage(validation.error || 'Invalid username')
+      setUsernameSuggestions([])
+      return
+    }
+
+    setUsernameStatus('checking')
+    setUsernameMessage('')
+    setUsernameSuggestions([])
+    try {
+      const result = await api.users.checkUsername(username)
+      if (result.available) {
+        setUsernameStatus('available')
+        setUsernameMessage('Username available')
+      } else {
+        setUsernameStatus('taken')
+        setUsernameMessage(result.message)
+        setUsernameSuggestions(result.suggestions || [])
+      }
+    } catch {
+      setUsernameStatus('idle')
+    }
+  }, [])
+
+  function handleUsernameChange(value: string) {
+    // Auto-lowercase, strip invalid chars
+    const clean = value.toLowerCase().replace(/[^a-z0-9_]/g, '')
+    updateField('username', clean)
+
+    if (usernameTimerRef.current) clearTimeout(usernameTimerRef.current)
+
+    if (clean.length < 4) {
+      setUsernameStatus(clean.length > 0 ? 'invalid' : 'idle')
+      setUsernameMessage(clean.length > 0 ? 'Must be at least 4 characters' : '')
+      setUsernameSuggestions([])
+      return
+    }
+
+    usernameTimerRef.current = setTimeout(() => checkUsername(clean), 500)
+  }
+
+  function selectSuggestion(suggestion: string) {
+    updateField('username', suggestion)
+    checkUsername(suggestion)
+  }
+
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
     setError('')
 
     if (!form.firstName.trim()) { setError('First name is required'); return }
     if (!form.lastName.trim()) { setError('Last name is required'); return }
+    if (!form.username.trim()) { setError('Username is required'); return }
+    if (usernameStatus !== 'available') { setError('Please choose an available username'); return }
     if (!form.email.trim()) { setError('Email is required'); return }
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) { setError('Please enter a valid email address'); return }
     if (!form.password) { setError('Password is required'); return }
@@ -86,7 +156,7 @@ function SignupForm() {
       await api.auth.register({
         email: form.email,
         password: form.password,
-        username: form.email.split('@')[0],
+        username: form.username,
         firstName: form.firstName,
         lastName: form.lastName,
       })
@@ -161,6 +231,53 @@ function SignupForm() {
               onChange={(e) => updateField('lastName', e.target.value)}
               required
             />
+          </div>
+
+          {/* Username field */}
+          <div className="space-y-1.5">
+            <label className="block text-sm font-medium text-[var(--color-text-muted)]">
+              Username<span className="ml-1 text-[var(--color-danger)]">*</span>
+            </label>
+            <div className="relative">
+              <input
+                value={form.username}
+                onChange={(e) => handleUsernameChange(e.target.value)}
+                maxLength={25}
+                placeholder="Choose a username"
+                required
+                className="w-full rounded-[10px] border border-[var(--color-border)] bg-[var(--color-bg-surface)] px-4 py-2.5 pr-10 text-sm text-[var(--color-text)] placeholder-[var(--color-text-dim)] transition-colors focus:border-[var(--color-gold)] focus:outline-none focus:ring-1 focus:ring-[var(--color-gold)]/50"
+              />
+              <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                {usernameStatus === 'checking' && <Loader2 size={16} className="animate-spin text-[var(--color-text-dim)]" />}
+                {usernameStatus === 'available' && <Check size={16} className="text-emerald-400" />}
+                {(usernameStatus === 'taken' || usernameStatus === 'invalid') && <X size={16} className="text-red-400" />}
+              </div>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className={`text-xs ${
+                usernameStatus === 'available' ? 'text-emerald-400' :
+                usernameStatus === 'taken' || usernameStatus === 'invalid' ? 'text-red-400' :
+                'text-[var(--color-text-dim)]'
+              }`}>
+                {usernameMessage || (form.username.length === 0 ? 'Letters, numbers, and underscores only' : '')}
+              </span>
+              <span className="text-[10px] text-[var(--color-text-dim)]">{form.username.length}/25</span>
+            </div>
+            {usernameSuggestions.length > 0 && (
+              <div className="flex flex-wrap gap-1.5">
+                <span className="text-xs text-[var(--color-text-dim)]">Try:</span>
+                {usernameSuggestions.map((s) => (
+                  <button
+                    key={s}
+                    type="button"
+                    onClick={() => selectSuggestion(s)}
+                    className="rounded-full border border-[var(--color-border)] bg-[var(--color-bg-surface)] px-2.5 py-0.5 text-xs text-[var(--color-gold)] hover:bg-[var(--color-gold)]/10 transition-colors"
+                  >
+                    {s}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           <Input

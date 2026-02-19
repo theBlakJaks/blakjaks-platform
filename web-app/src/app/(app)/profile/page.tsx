@@ -37,7 +37,7 @@ export default function ProfilePage() {
     <div className="space-y-6">
       {/* Profile Header */}
       <Card className="flex flex-col items-center gap-4 sm:flex-row sm:items-start">
-        <Avatar name={`${user.firstName} ${user.lastName}`} tier={user.effectiveTier} size="lg" />
+        <Avatar name={`${user.firstName} ${user.lastName}`} tier={user.effectiveTier} size="lg" avatarUrl={user.avatarUrl} />
         <div className="text-center sm:text-left">
           <h1 className="text-xl font-bold text-white">{user.firstName} {user.lastName}</h1>
           <p className="text-sm text-[var(--color-text-muted)]">@{user.username}</p>
