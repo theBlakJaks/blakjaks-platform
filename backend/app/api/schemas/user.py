@@ -8,11 +8,13 @@ from pydantic import BaseModel, EmailStr, Field
 class UserProfileResponse(BaseModel):
     id: uuid.UUID
     email: str
+    username: str
     first_name: str | None
     last_name: str | None
     birthdate: date | None
     phone: str | None
     avatar_url: str | None
+    avatar_updated_at: datetime | None = None
     wallet_address: str | None
     referral_code: str | None
     is_active: bool
@@ -29,6 +31,11 @@ class TierResponse(BaseModel):
     benefits: dict | None
 
     model_config = {"from_attributes": True}
+
+
+class AvatarUploadResponse(BaseModel):
+    avatar_url: str
+    sizes: dict[str, str]
 
 
 class UserUpdateRequest(BaseModel):
@@ -63,3 +70,13 @@ class PaginatedNotifications(BaseModel):
     total: int
     page: int
     page_size: int
+
+
+class UsernameCheckResponse(BaseModel):
+    available: bool
+    message: str
+    suggestions: list[str] | None = None
+
+
+class UsernameChangeRequest(BaseModel):
+    username: str = Field(min_length=4, max_length=25, pattern=r'^[a-zA-Z_][a-zA-Z0-9_]{3,24}$')

@@ -11,6 +11,10 @@ from app.models.base import Base, UpdateTimestampMixin, UUIDPrimaryKey
 class User(UUIDPrimaryKey, UpdateTimestampMixin, Base):
     __tablename__ = "users"
 
+    username: Mapped[str] = mapped_column(String(25), nullable=False)
+    username_lower: Mapped[str] = mapped_column(String(25), nullable=False, unique=True, index=True)
+    username_changed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
     email: Mapped[str] = mapped_column(String(255), unique=True, nullable=False, index=True)
     password_hash: Mapped[str] = mapped_column(Text, nullable=False)
     first_name: Mapped[str | None] = mapped_column(String(100), nullable=True)
@@ -18,6 +22,7 @@ class User(UUIDPrimaryKey, UpdateTimestampMixin, Base):
     birthdate: Mapped[date | None] = mapped_column(Date, nullable=True)
     phone: Mapped[str | None] = mapped_column(String(20), nullable=True)
     avatar_url: Mapped[str | None] = mapped_column(Text, nullable=True)
+    avatar_updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     wallet_address: Mapped[str | None] = mapped_column(String(255), nullable=True)
 
     tier_id: Mapped[uuid.UUID | None] = mapped_column(

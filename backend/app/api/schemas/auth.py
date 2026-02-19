@@ -13,6 +13,7 @@ class SignupRequest(BaseModel):
     first_name: str = Field(min_length=1, max_length=100)
     last_name: str = Field(min_length=1, max_length=100)
     birthdate: date
+    username: str = Field(min_length=4, max_length=25, pattern=r'^[a-zA-Z_][a-zA-Z0-9_]{3,24}$')
     referral_code: str | None = Field(None, min_length=3, max_length=20)
 
 
@@ -51,6 +52,7 @@ class AccessTokenResponse(BaseModel):
 class UserResponse(BaseModel):
     id: uuid.UUID
     email: str
+    username: str | None = None
     first_name: str | None
     last_name: str | None
     birthdate: date | None

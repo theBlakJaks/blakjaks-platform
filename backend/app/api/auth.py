@@ -41,12 +41,25 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 
 @router.post("/signup", response_model=AuthResponse, status_code=status.HTTP_201_CREATED)
 async def signup(body: SignupRequest, db: AsyncSession = Depends(get_db)):
+    from app.services.username_service import validate_username_format, is_profane, is_reserved
+
+    # Validate username
+    fmt = validate_username_format(body.username)
+    if not fmt["valid"]:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, fmt["error"])
+    if is_profane(body.username):
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "This username is not allowed")
+    if is_reserved(body.username):
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "This username is not allowed")
+
     user = User(
         email=body.email,
         password_hash=hash_password(body.password),
         first_name=body.first_name,
         last_name=body.last_name,
         birthdate=body.birthdate,
+        username=body.username,
+        username_lower=body.username.lower(),
     )
     db.add(user)
     try:
@@ -54,7 +67,7 @@ async def signup(body: SignupRequest, db: AsyncSession = Depends(get_db)):
         await db.refresh(user)
     except IntegrityError:
         await db.rollback()
-        raise HTTPException(status.HTTP_409_CONFLICT, "Email already registered")
+        raise HTTPException(status.HTTP_409_CONFLICT, "Email or username already registered")
 
     # Auto-create wallet for the new user
     await create_user_wallet(db, user.id, email=body.email)
