@@ -20,18 +20,13 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined)
 const publicPaths = ['/', '/about', '/transparency', '/login', '/signup', '/forgot-password']
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
+  const [user, setUser] = useState<User | null>(() => {
+    if (typeof window !== 'undefined' && localStorage.getItem('bj_token')) return currentUser
+    return null
+  })
+  const isLoading = false
   const router = useRouter()
   const pathname = usePathname()
-
-  useEffect(() => {
-    const token = typeof window !== 'undefined' ? localStorage.getItem('bj_token') : null
-    if (token) {
-      setUser(currentUser)
-    }
-    setIsLoading(false)
-  }, [])
 
   useEffect(() => {
     if (isLoading) return

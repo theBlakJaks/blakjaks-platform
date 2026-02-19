@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useRef, useCallback } from 'react'
 import { Check, X, Loader2 } from 'lucide-react'
 import Card from '@/components/ui/Card'
 import Input from '@/components/ui/Input'

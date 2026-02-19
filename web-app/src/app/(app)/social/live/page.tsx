@@ -46,7 +46,7 @@ const ALLOWED_REACTIONS = [
 export default function LiveStreamPage() {
   const { user } = useAuth()
   const { isLive } = useUIStore()
-  const [viewerCount, setViewerCount] = useState(0)
+  const [viewerCount, setViewerCount] = useState(() => isLive ? 1247 : 0)
   const [chatMessages, setChatMessages] = useState<Message[]>([])
   const [chatInput, setChatInput] = useState('')
   const [loading, setLoading] = useState(true)
@@ -111,7 +111,6 @@ export default function LiveStreamPage() {
   // Simulated live chat when "live"
   useEffect(() => {
     if (!isLive) return
-    setViewerCount(1247)
     const interval = setInterval(() => {
       // Check scroll position BEFORE adding message
       shouldAutoScrollRef.current = isNearBottom()

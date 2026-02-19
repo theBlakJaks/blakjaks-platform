@@ -91,6 +91,7 @@ export default function GiphyPicker({ onSelect, onClose }: GiphyPickerProps) {
     setQuery(value)
     if (debounceRef.current) clearTimeout(debounceRef.current)
     debounceRef.current = setTimeout(() => fetchSearch(value), 400)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   return (

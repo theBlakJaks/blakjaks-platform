@@ -1,7 +1,7 @@
 'use client'
 
-import { useRef, useEffect, useCallback, forwardRef, useImperativeHandle } from 'react'
-import { useEmoteStore, getEmoteUrl } from '@/lib/emote-store'
+import { useRef, useState, useCallback, forwardRef, useImperativeHandle } from 'react'
+import { getEmoteUrl } from '@/lib/emote-store'
 
 interface EmoteChatInputProps {
   placeholder?: string
@@ -30,7 +30,7 @@ export interface EmoteChatInputHandle {
 const EmoteChatInput = forwardRef<EmoteChatInputHandle, EmoteChatInputProps>(
   ({ placeholder, disabled, className, maxLength, onSubmit, onChange, onFocus, onBlur, onKeyDown }, ref) => {
     const editorRef = useRef<HTMLDivElement>(null)
-    const emotes = useEmoteStore(s => s.emotes)
+    const [isContentEmpty, setIsContentEmpty] = useState(true)
     const prevLengthRef = useRef(0)
 
     function getPlainText(): string {
@@ -98,6 +98,7 @@ const EmoteChatInput = forwardRef<EmoteChatInputHandle, EmoteChatInputProps>(
       const text = getPlainText()
       const isDeleting = text.length < prevLengthRef.current
       prevLengthRef.current = text.length
+      setIsContentEmpty(text.trim().length === 0)
       onChange?.(text, isDeleting)
     }
 
@@ -132,6 +133,7 @@ const EmoteChatInput = forwardRef<EmoteChatInputHandle, EmoteChatInputProps>(
         lastValidHTML.current = editorRef.current?.innerHTML || ''
       }
       triggerChange()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [onChange, maxLength])
 
     const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -159,8 +161,6 @@ const EmoteChatInput = forwardRef<EmoteChatInputHandle, EmoteChatInputProps>(
       document.execCommand('insertText', false, text)
     }
 
-    const isEmpty = getPlainText().trim().length === 0
-
     return (
       <div className="relative flex-1">
         <div
@@ -175,7 +175,7 @@ const EmoteChatInput = forwardRef<EmoteChatInputHandle, EmoteChatInputProps>(
           className={className}
           style={{ minHeight: '1.5em', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}
         />
-        {isEmpty && placeholder && (
+        {isContentEmpty && placeholder && (
           <span
             className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-text-dim)]"
             style={{ fontSize: 'inherit' }}

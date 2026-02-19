@@ -15,9 +15,6 @@ import Input from '@/components/ui/Input'
 import Textarea from '@/components/ui/Textarea'
 import Spinner from '@/components/ui/Spinner'
 import { toast } from '@/components/ui/Toast'
-import { getTierLabel } from '@/lib/utils'
-
-const TIER_RANK: Record<Tier, number> = { standard: 0, vip: 1, high_roller: 2, whale: 3 }
 
 const VOTING_RULES: { category: string; tierRequired: Tier }[] = [
   { category: 'New Product Flavors', tierRequired: 'vip' },
@@ -64,7 +61,6 @@ export default function GovernancePage() {
   const [showRules, setShowRules] = useState(false)
 
   const userTier = user?.tier || 'standard'
-  const userRank = TIER_RANK[userTier]
   const isWhale = userTier === 'whale'
 
   useEffect(() => {

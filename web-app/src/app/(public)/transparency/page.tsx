@@ -1,10 +1,10 @@
 'use client'
 
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect } from 'react'
 import {
   Scan, Coins, Users, TrendingUp, Activity, Wallet, Shield, ExternalLink,
-  Copy, CheckCircle2, Award, Gem, Crown, Star, Clock, Server, Zap,
-  UserCheck, Package, Gift, Lock, Unlock, CircleDollarSign, Layers, BarChart3,
+  Copy, CheckCircle2, Award, Gem, Crown, Star, Server, Zap,
+  UserCheck, Package, Gift, CircleDollarSign, Layers, BarChart3,
 } from 'lucide-react'
 import Tabs from '@/components/ui/Tabs'
 import Card from '@/components/ui/Card'
@@ -77,28 +77,6 @@ function CopyButton({ text }: { text: string }) {
       {copied ? <CheckCircle2 size={14} className="text-emerald-400" /> : <Copy size={14} className="text-[var(--color-text-dim)]" />}
     </button>
   )
-}
-
-/* ── Animated count-up ── */
-function useCountUp(target: number, duration = 2000) {
-  const [value, setValue] = useState(0)
-  const started = useRef(false)
-  useEffect(() => {
-    if (started.current) return
-    started.current = true
-    const startTime = performance.now()
-    let raf: number
-    const tick = (now: number) => {
-      const elapsed = now - startTime
-      const progress = Math.min(elapsed / duration, 1)
-      const eased = 1 - Math.pow(1 - progress, 3)
-      setValue(Math.floor(eased * target))
-      if (progress < 1) raf = requestAnimationFrame(tick)
-    }
-    raf = requestAnimationFrame(tick)
-    return () => cancelAnimationFrame(raf)
-  }, [target, duration])
-  return value
 }
 
 /* ── Live incrementing counter ── */

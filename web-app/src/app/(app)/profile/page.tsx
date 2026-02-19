@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { QrCode, DollarSign, Award, Gift } from 'lucide-react'
 import Card from '@/components/ui/Card'
 import Avatar from '@/components/ui/Avatar'
@@ -15,15 +15,9 @@ import type { CompAward, Scan } from '@/lib/types'
 
 export default function ProfilePage() {
   const { user } = useAuth()
-  const [allComps, setAllComps] = useState<CompAward[]>([])
-  const [recentScans, setRecentScans] = useState<Scan[]>([])
-  const [loading, setLoading] = useState(true)
-
-  useEffect(() => {
-    setAllComps(comps)
-    setRecentScans(scans.slice(0, 15))
-    setLoading(false)
-  }, [])
+  const [allComps] = useState<CompAward[]>(comps)
+  const [recentScans] = useState<Scan[]>(() => scans.slice(0, 15))
+  const loading = false
 
   if (!user || loading) {
     return (

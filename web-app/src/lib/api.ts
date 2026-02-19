@@ -3,15 +3,13 @@ import {
   votes, proposals, comps, scans, treasuryWallets, transparencyOverview,
   activityFeed, monthlyEarnings, compTierStats, partnerMetrics, systemHealth,
 } from './mock-data'
-import type { Transaction, Channel, Message, Vote, Proposal } from './types'
+import type { Channel, Message, Vote, Proposal } from './types'
 
 const delay = (ms?: number) => new Promise((r) => setTimeout(r, ms ?? (200 + Math.random() * 300)))
 
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL || ''
-
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 async function fetchAPI<T>(_endpoint: string, _options?: RequestInit): Promise<T> {
-  // When a real API is available, this will make actual fetch calls to BASE_URL
+  // When a real API is available, this will make actual fetch calls to BASE_URL + endpoint
   // For now, all methods below return mock data
   throw new Error('Not implemented - use mock methods')
 }

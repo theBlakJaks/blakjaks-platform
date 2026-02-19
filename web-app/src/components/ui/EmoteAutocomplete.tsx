@@ -9,7 +9,7 @@ interface EmoteAutocompleteProps {
   onDismiss: () => void
 }
 
-export default function EmoteAutocomplete({ matches, onSelect, onDismiss }: EmoteAutocompleteProps) {
+export default function EmoteAutocomplete({ matches, onSelect }: EmoteAutocompleteProps) {
   if (matches.length === 0) return null
 
   return (

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
-import { Scan, Coins, TrendingUp, Shield, Users, Zap, ChevronDown, Star, Award, Gem, Crown, Trophy, CheckCircle2, ExternalLink } from 'lucide-react'
+import { Scan, Coins, TrendingUp, Shield, Users, ChevronDown, Star, Award, Gem, Crown, CheckCircle2, ExternalLink } from 'lucide-react'
 import GoldButton from '@/components/ui/GoldButton'
 import Card from '@/components/ui/Card'
 
@@ -98,13 +98,13 @@ function FAQItem({ q, a }: { q: string; a: string }) {
 
 /* ──────────────────────────── LANDING PAGE ──────────────────────────── */
 export default function LandingPage() {
-  const statsSection = useInView()
-  const scanCount = useCountUp(847523, 2500, statsSection.inView)
-  const membersCount = useCountUp(24891, 2000, statsSection.inView)
-  const usdtPaid = useCountUp(137395, 2500, statsSection.inView)
+  const { ref: statsRef, inView: statsInView } = useInView()
+  const scanCount = useCountUp(847523, 2500, statsInView)
+  const membersCount = useCountUp(24891, 2000, statsInView)
+  const usdtPaid = useCountUp(137395, 2500, statsInView)
 
-  const transparencySection = useInView()
-  const liveScanCount = useCountUp(847523, 3000, transparencySection.inView)
+  const { ref: transparencyRef, inView: transparencyInView } = useInView()
+  const liveScanCount = useCountUp(847523, 3000, transparencyInView)
 
   return (
     <div className="overflow-hidden">
@@ -292,7 +292,7 @@ export default function LandingPage() {
       </section>
 
       {/* ── TRANSPARENCY CALLOUT ── */}
-      <section ref={transparencySection.ref} className="py-24 sm:py-32 px-4 sm:px-6 lg:px-8 bg-[var(--color-bg-card)]/50">
+      <section ref={transparencyRef} className="py-24 sm:py-32 px-4 sm:px-6 lg:px-8 bg-[var(--color-bg-card)]/50">
         <div className="max-w-4xl mx-auto text-center">
           <div className="inline-flex items-center justify-center w-20 h-20 rounded-full border-2 border-[#D4AF37]/30 bg-[#D4AF37]/5 mb-8">
             <Shield className="h-10 w-10 text-[#D4AF37]" />
@@ -354,7 +354,7 @@ export default function LandingPage() {
       </section>
 
       {/* ── SOCIAL PROOF / STATS ── */}
-      <section ref={statsSection.ref} className="py-24 sm:py-32 px-4 sm:px-6 lg:px-8 bg-[var(--color-bg-card)]/50">
+      <section ref={statsRef} className="py-24 sm:py-32 px-4 sm:px-6 lg:px-8 bg-[var(--color-bg-card)]/50">
         <div className="max-w-5xl mx-auto">
           <div className="text-center mb-16">
             <h2 className="text-3xl sm:text-4xl md:text-5xl font-black text-white mb-4">
