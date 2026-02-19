@@ -42,9 +42,9 @@ export default function Avatar({ name, tier, size = 'md', avatarUrl }: AvatarPro
 
   return (
     <div
-      className={`relative flex items-center justify-center rounded-full border-2 overflow-hidden shrink-0 ${sizes[size]}`}
+      className={`relative flex items-center justify-center rounded-full overflow-hidden shrink-0 ${showImage ? '' : 'border-2'} ${sizes[size]}`}
       style={{
-        borderColor,
+        borderColor: showImage ? undefined : borderColor,
         backgroundColor: showImage ? 'transparent' : getAvatarColor(name),
       }}
     >

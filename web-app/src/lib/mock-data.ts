@@ -142,13 +142,13 @@ export const channels: Channel[] = [
 ]
 
 const mockUsers = [
-  { id: 'usr_010', username: 'cryptoQueen', tier: 'high_roller' as const },
-  { id: 'usr_011', username: 'mintFanatic', tier: 'standard' as const },
-  { id: 'usr_012', username: 'whaleDave', tier: 'whale' as const },
-  { id: 'usr_013', username: 'newbie42', tier: 'standard' as const },
-  { id: 'usr_014', username: 'vipSarah', tier: 'vip' as const },
-  { id: 'usr_015', username: 'blazeRunner', tier: 'vip' as const },
-  { id: 'usr_016', username: 'pouch_master', tier: 'high_roller' as const },
+  { id: 'usr_010', username: 'cryptoQueen', tier: 'high_roller' as const, avatarUrl: 'https://i.pravatar.cc/150?u=usr_010' },
+  { id: 'usr_011', username: 'mintFanatic', tier: 'standard' as const, avatarUrl: 'https://i.pravatar.cc/150?u=usr_011' },
+  { id: 'usr_012', username: 'whaleDave', tier: 'whale' as const, avatarUrl: 'https://i.pravatar.cc/150?u=usr_012' },
+  { id: 'usr_013', username: 'newbie42', tier: 'standard' as const, avatarUrl: 'https://i.pravatar.cc/150?u=usr_013' },
+  { id: 'usr_014', username: 'vipSarah', tier: 'vip' as const, avatarUrl: 'https://i.pravatar.cc/150?u=usr_014' },
+  { id: 'usr_015', username: 'blazeRunner', tier: 'vip' as const, avatarUrl: 'https://i.pravatar.cc/150?u=usr_015' },
+  { id: 'usr_016', username: 'pouch_master', tier: 'high_roller' as const, avatarUrl: 'https://i.pravatar.cc/150?u=usr_016' },
 ]
 
 function generateMessages(channelId: string, count: number): Message[] {
@@ -188,7 +188,7 @@ function generateMessages(channelId: string, count: number): Message[] {
   const now = Date.now()
   return Array.from({ length: count }, (_, i) => {
     const user = i % 7 === 0
-      ? { id: currentUser.id, username: currentUser.username, tier: currentUser.tier }
+      ? { id: currentUser.id, username: currentUser.username, tier: currentUser.tier, avatarUrl: currentUser.avatarUrl }
       : mockUsers[i % mockUsers.length]
     return {
       id: `msg_${channelId}_${String(i + 1).padStart(3, '0')}`,
@@ -200,6 +200,7 @@ function generateMessages(channelId: string, count: number): Message[] {
       timestamp: new Date(now - (count - i) * 300000).toISOString(),
       reactions: i % 4 === 0 ? { '\uD83D\uDD25': ['usr_010', 'usr_014'] } as Record<string, string[]> : {} as Record<string, string[]>,
       isSystem: false,
+      avatarUrl: user.avatarUrl,
     }
   })
 }

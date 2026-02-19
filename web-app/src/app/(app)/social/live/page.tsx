@@ -27,12 +27,12 @@ const LIVE_CHAT_MESSAGES = [
   'Drop a like if you like Wintergreen', 'BlakJaks to the moon',
 ]
 
-const MOCK_USERS: { id: string; username: string; tier: Tier }[] = [
-  { id: 'usr_010', username: 'cryptoQueen', tier: 'high_roller' },
-  { id: 'usr_011', username: 'mintFanatic', tier: 'standard' },
-  { id: 'usr_012', username: 'whaleDave', tier: 'whale' },
-  { id: 'usr_014', username: 'vipSarah', tier: 'vip' },
-  { id: 'usr_015', username: 'blazeRunner', tier: 'vip' },
+const MOCK_USERS: { id: string; username: string; tier: Tier; avatarUrl: string }[] = [
+  { id: 'usr_010', username: 'cryptoQueen', tier: 'high_roller', avatarUrl: 'https://i.pravatar.cc/150?u=usr_010' },
+  { id: 'usr_011', username: 'mintFanatic', tier: 'standard', avatarUrl: 'https://i.pravatar.cc/150?u=usr_011' },
+  { id: 'usr_012', username: 'whaleDave', tier: 'whale', avatarUrl: 'https://i.pravatar.cc/150?u=usr_012' },
+  { id: 'usr_014', username: 'vipSarah', tier: 'vip', avatarUrl: 'https://i.pravatar.cc/150?u=usr_014' },
+  { id: 'usr_015', username: 'blazeRunner', tier: 'vip', avatarUrl: 'https://i.pravatar.cc/150?u=usr_015' },
 ]
 
 
@@ -75,6 +75,7 @@ export default function LiveStreamPage() {
         content: randomContent,
         timestamp: new Date().toISOString(),
         reactions: {},
+        avatarUrl: randomUser.avatarUrl,
       }
       setChatMessages(prev => [...prev.slice(-50), newMsg])
       setViewerCount(v => v + Math.floor(Math.random() * 5) - 2)

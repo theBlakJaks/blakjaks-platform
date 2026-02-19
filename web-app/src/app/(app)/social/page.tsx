@@ -44,13 +44,13 @@ const RANDOM_MESSAGES = [
 ]
 
 const MOCK_USERS = [
-  { id: 'usr_010', username: 'cryptoQueen', tier: 'high_roller' as Tier },
-  { id: 'usr_011', username: 'mintFanatic', tier: 'standard' as Tier },
-  { id: 'usr_012', username: 'whaleDave', tier: 'whale' as Tier },
-  { id: 'usr_013', username: 'newbie42', tier: 'standard' as Tier },
-  { id: 'usr_014', username: 'vipSarah', tier: 'vip' as Tier },
-  { id: 'usr_015', username: 'blazeRunner', tier: 'vip' as Tier },
-  { id: 'usr_016', username: 'pouch_master', tier: 'high_roller' as Tier },
+  { id: 'usr_010', username: 'cryptoQueen', tier: 'high_roller' as Tier, avatarUrl: 'https://i.pravatar.cc/150?u=usr_010' },
+  { id: 'usr_011', username: 'mintFanatic', tier: 'standard' as Tier, avatarUrl: 'https://i.pravatar.cc/150?u=usr_011' },
+  { id: 'usr_012', username: 'whaleDave', tier: 'whale' as Tier, avatarUrl: 'https://i.pravatar.cc/150?u=usr_012' },
+  { id: 'usr_013', username: 'newbie42', tier: 'standard' as Tier, avatarUrl: 'https://i.pravatar.cc/150?u=usr_013' },
+  { id: 'usr_014', username: 'vipSarah', tier: 'vip' as Tier, avatarUrl: 'https://i.pravatar.cc/150?u=usr_014' },
+  { id: 'usr_015', username: 'blazeRunner', tier: 'vip' as Tier, avatarUrl: 'https://i.pravatar.cc/150?u=usr_015' },
+  { id: 'usr_016', username: 'pouch_master', tier: 'high_roller' as Tier, avatarUrl: 'https://i.pravatar.cc/150?u=usr_016' },
 ]
 
 const SYSTEM_MESSAGES: Message[] = [
@@ -70,12 +70,14 @@ const PINNED_MESSAGE: Message = {
   id: 'pin_001', channelId: 'ch_001', userId: 'usr_012', username: 'whaleDave',
   userTier: 'whale', content: 'Welcome to BlakJaks Social! Read the rules and be respectful. New members, drop an intro in #Introductions!',
   timestamp: new Date(Date.now() - 86400000).toISOString(), reactions: { '\uD83D\uDC4D': ['usr_010', 'usr_014', 'usr_011'] },
+  avatarUrl: 'https://i.pravatar.cc/150?u=usr_012',
 }
 
 const FOREIGN_MESSAGE: Message = {
   id: 'foreign_001', channelId: 'ch_001', userId: 'usr_017', username: 'tokyoDrifter',
   userTier: 'vip', content: '\u3053\u306E\u30B3\u30DF\u30E5\u30CB\u30C6\u30A3\u306F\u6700\u9AD8\u3067\u3059\uFF01',
   timestamp: new Date(Date.now() - 1800000).toISOString(), reactions: {}, originalLanguage: 'ja',
+  avatarUrl: 'https://i.pravatar.cc/150?u=usr_017',
 }
 
 export default function SocialPage() {
@@ -163,6 +165,7 @@ export default function SocialPage() {
           content: randomContent,
           timestamp: new Date().toISOString(),
           reactions: Math.random() > 0.7 ? { '\uD83D\uDD25': ['usr_010'] } : {},
+          avatarUrl: randomUser.avatarUrl,
         }
         setMessages(prev => [...prev, newMsg])
       }
