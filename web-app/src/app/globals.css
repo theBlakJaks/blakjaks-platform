@@ -40,3 +40,6 @@ body {
 ::-webkit-scrollbar-track { background: #0D0D0F; }
 ::-webkit-scrollbar-thumb { background: #3F3F46; border-radius: 3px; }
 ::-webkit-scrollbar-thumb:hover { background: #52525B; }
+
+/* Hide Next.js dev tools indicator */
+#devtools-indicator { display: none !important; }

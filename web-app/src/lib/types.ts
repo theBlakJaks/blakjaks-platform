@@ -35,6 +35,7 @@ export interface User {
   walletAddress: string
   memberSince: string
   avatar?: string
+  avatarUrl?: string
 }
 
 export interface Product {
@@ -106,6 +107,8 @@ export interface Message {
   replyTo?: string
   isSystem?: boolean
   originalLanguage?: string
+  gifUrl?: string
+  avatarUrl?: string
 }
 
 export interface VoteOption {

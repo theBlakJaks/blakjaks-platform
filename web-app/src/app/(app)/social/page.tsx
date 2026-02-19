@@ -1,7 +1,8 @@
 'use client'
 
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { Hash, Lock, ChevronDown, ChevronRight, Send, Smile, ImageIcon, Globe, Pin } from 'lucide-react'
+import Link from 'next/link'
+import { Hash, Lock, ChevronDown, ChevronRight, Send, Smile, Globe, Pin, Radio } from 'lucide-react'
 import { useAuth } from '@/lib/auth-context'
 import { api } from '@/lib/api'
 import type { Channel, Message, Tier } from '@/lib/types'
@@ -10,8 +11,24 @@ import TierBadge from '@/components/ui/TierBadge'
 import GoldButton from '@/components/ui/GoldButton'
 import Spinner from '@/components/ui/Spinner'
 import { getTierColor, formatRelativeTime } from '@/lib/utils'
+import { useUIStore } from '@/lib/store'
+import GiphyPicker from '@/components/ui/GiphyPicker'
+import EmoteParsedMessage from '@/components/ui/EmoteParsedMessage'
+import EmotePicker from '@/components/ui/EmotePicker'
+import EmoteAutocomplete from '@/components/ui/EmoteAutocomplete'
+import EmoteChatInput from '@/components/ui/EmoteChatInput'
+import type { EmoteChatInputHandle } from '@/components/ui/EmoteChatInput'
+import { useEmoteStore } from '@/lib/emote-store'
+import { prefixMatchEmotes } from '@/lib/emote-utils'
+import type { CachedEmote } from '@/lib/emote-store'
 
 const TIER_RANK: Record<Tier, number> = { standard: 0, vip: 1, high_roller: 2, whale: 3 }
+
+const LANGUAGE_NAMES: Record<string, string> = {
+  en: 'English', es: 'Spanish', fr: 'French', pt: 'Portuguese',
+  ja: 'Japanese', ko: 'Korean', zh: 'Chinese', de: 'German',
+  ar: 'Arabic', hi: 'Hindi', ru: 'Russian', it: 'Italian',
+}
 
 const RANDOM_MESSAGES = [
   'Just grabbed another can of Spearmint. So good.',
@@ -69,9 +86,18 @@ export default function SocialPage() {
   const [collapsedCategories, setCollapsedCategories] = useState<Set<string>>(new Set())
   const [inputText, setInputText] = useState('')
   const [loading, setLoading] = useState(true)
-  const [translatedMessages, setTranslatedMessages] = useState<Set<string>>(new Set())
+  const [translations, setTranslations] = useState<Record<string, string>>({})
+  const [translating, setTranslating] = useState<Set<string>>(new Set())
+  const preferredLanguage = useUIStore((s) => s.preferredLanguage)
   const [cooldownActive, setCooldownActive] = useState(false)
   const [cooldownTime, setCooldownTime] = useState(0)
+  const [gifPickerOpen, setGifPickerOpen] = useState(false)
+  const [emotePickerOpen, setEmotePickerOpen] = useState(false)
+  const [autocompleteMatches, setAutocompleteMatches] = useState<CachedEmote[]>([])
+  const [inputFocused, setInputFocused] = useState(false)
+  const emoteList = useEmoteStore(s => s.emoteList)
+  const emotes = useEmoteStore(s => s.emotes)
+  const chatInputRef = useRef<EmoteChatInputHandle>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const chatContainerRef = useRef<HTMLDivElement>(null)
 
@@ -90,14 +116,11 @@ export default function SocialPage() {
     })
   }, [])
 
-  // Load messages when channel changes
+  // Start with blank chat, populate one by one
   useEffect(() => {
-    api.social.getMessages(activeChannel).then(({ messages: msgs }) => {
-      const enriched = activeChannel === 'ch_001'
-        ? [...msgs.slice(0, -2), SYSTEM_MESSAGES[0], ...msgs.slice(-2, -1), FOREIGN_MESSAGE, SYSTEM_MESSAGES[1], ...msgs.slice(-1)]
-        : msgs
-      setMessages(enriched)
-    })
+    setMessages([])
+    setTranslations({})
+    translateQueue.current.clear()
   }, [activeChannel])
 
   // Scroll on new messages
@@ -105,23 +128,45 @@ export default function SocialPage() {
     scrollToBottom()
   }, [messages, scrollToBottom])
 
-  // Simulated real-time messages
+  // Drip-feed mock messages one by one
+  const mockIndexRef = useRef(0)
+  const allMockMessages = useRef<Message[]>([])
+
   useEffect(() => {
+    // Build the full mock message queue for this channel
+    api.social.getMessages(activeChannel).then(({ messages: msgs }) => {
+      const enriched = activeChannel === 'ch_001'
+        ? [...msgs.slice(0, -2), SYSTEM_MESSAGES[0], ...msgs.slice(-2, -1), FOREIGN_MESSAGE, SYSTEM_MESSAGES[1], ...msgs.slice(-1)]
+        : msgs
+      allMockMessages.current = enriched
+      mockIndexRef.current = 0
+    })
+
     const interval = setInterval(() => {
-      const randomUser = MOCK_USERS[Math.floor(Math.random() * MOCK_USERS.length)]
-      const randomContent = RANDOM_MESSAGES[Math.floor(Math.random() * RANDOM_MESSAGES.length)]
-      const newMsg: Message = {
-        id: `msg_live_${Date.now()}`,
-        channelId: activeChannel,
-        userId: randomUser.id,
-        username: randomUser.username,
-        userTier: randomUser.tier,
-        content: randomContent,
-        timestamp: new Date().toISOString(),
-        reactions: Math.random() > 0.7 ? { '\uD83D\uDD25': ['usr_010'] } : {},
+      // If we still have pre-built messages to drip, use those
+      if (mockIndexRef.current < allMockMessages.current.length) {
+        const msg = allMockMessages.current[mockIndexRef.current]
+        // Update timestamp to now so it feels live
+        const liveMsg = { ...msg, timestamp: new Date().toISOString() }
+        setMessages(prev => [...prev, liveMsg])
+        mockIndexRef.current++
+      } else {
+        // Once exhausted, generate random new messages
+        const randomUser = MOCK_USERS[Math.floor(Math.random() * MOCK_USERS.length)]
+        const randomContent = RANDOM_MESSAGES[Math.floor(Math.random() * RANDOM_MESSAGES.length)]
+        const newMsg: Message = {
+          id: `msg_live_${Date.now()}`,
+          channelId: activeChannel,
+          userId: randomUser.id,
+          username: randomUser.username,
+          userTier: randomUser.tier,
+          content: randomContent,
+          timestamp: new Date().toISOString(),
+          reactions: Math.random() > 0.7 ? { '\uD83D\uDD25': ['usr_010'] } : {},
+        }
+        setMessages(prev => [...prev, newMsg])
       }
-      setMessages(prev => [...prev, newMsg])
-    }, 8000 + Math.random() * 2000)
+    }, 3000)
 
     return () => clearInterval(interval)
   }, [activeChannel])
@@ -138,11 +183,12 @@ export default function SocialPage() {
   }, [cooldownActive, cooldownTime])
 
   const handleSend = async () => {
-    const text = inputText.trim()
+    const text = chatInputRef.current?.getText().trim() || inputText.trim()
     if (!text || cooldownActive) return
 
     const newMsg = await api.social.sendMessage(activeChannel, text)
     setMessages(prev => [...prev, newMsg])
+    chatInputRef.current?.clear()
     setInputText('')
 
     if (userTier === 'standard') {
@@ -150,6 +196,73 @@ export default function SocialPage() {
       setCooldownTime(5)
     }
   }
+
+  const handleGifSelect = (gifUrl: string) => {
+    if (!user) return
+    const gifMsg: Message = {
+      id: `msg_gif_${Date.now()}`,
+      channelId: activeChannel,
+      userId: user.id,
+      username: user.username,
+      userTier: user.tier,
+      content: '',
+      gifUrl,
+      timestamp: new Date().toISOString(),
+      reactions: {},
+    }
+    setMessages(prev => [...prev, gifMsg])
+    setGifPickerOpen(false)
+  }
+
+  // Auto-translate messages when preferred language is not English
+  const translateQueue = useRef<Set<string>>(new Set())
+
+  const autoTranslateMsg = useCallback(async (msg: Message) => {
+    if (msg.isSystem || translations[msg.id] || translateQueue.current.has(msg.id)) return
+
+    const msgLang = msg.originalLanguage || 'en'
+    if (msgLang === preferredLanguage) return
+
+    translateQueue.current.add(msg.id)
+    setTranslating(prev => new Set(prev).add(msg.id))
+    try {
+      const res = await fetch('/api/translate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: msg.content, targetLang: preferredLanguage }),
+      })
+      const data = await res.json()
+      if (data.translatedText) {
+        setTranslations(prev => ({ ...prev, [msg.id]: data.translatedText }))
+      }
+    } catch {
+      // silently fail
+    } finally {
+      translateQueue.current.delete(msg.id)
+      setTranslating(prev => {
+        const next = new Set(prev)
+        next.delete(msg.id)
+        return next
+      })
+    }
+  }, [preferredLanguage, translations])
+
+  useEffect(() => {
+    if (preferredLanguage === 'en') return
+    messages.forEach(msg => {
+      const msgLang = msg.originalLanguage || 'en'
+      if (msgLang !== preferredLanguage && !translations[msg.id] && !translateQueue.current.has(msg.id)) {
+        autoTranslateMsg(msg)
+      }
+    })
+  }, [messages, preferredLanguage, autoTranslateMsg, translations])
+
+  // Clear translations when language changes back to English
+  useEffect(() => {
+    if (preferredLanguage === 'en') {
+      setTranslations({})
+    }
+  }, [preferredLanguage])
 
   const toggleCategory = (category: string) => {
     setCollapsedCategories(prev => {
@@ -160,13 +273,36 @@ export default function SocialPage() {
     })
   }
 
-  const toggleTranslate = (msgId: string) => {
-    setTranslatedMessages(prev => {
-      const next = new Set(prev)
-      if (next.has(msgId)) next.delete(msgId)
-      else next.add(msgId)
-      return next
-    })
+  const toggleTranslate = async (msgId: string, content: string) => {
+    if (translations[msgId]) {
+      setTranslations(prev => {
+        const next = { ...prev }
+        delete next[msgId]
+        return next
+      })
+      return
+    }
+
+    setTranslating(prev => new Set(prev).add(msgId))
+    try {
+      const res = await fetch('/api/translate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: content, targetLang: preferredLanguage }),
+      })
+      const data = await res.json()
+      if (data.translatedText) {
+        setTranslations(prev => ({ ...prev, [msgId]: data.translatedText }))
+      }
+    } catch {
+      // silently fail
+    } finally {
+      setTranslating(prev => {
+        const next = new Set(prev)
+        next.delete(msgId)
+        return next
+      })
+    }
   }
 
   const channelsByCategory = channels.reduce<Record<string, Channel[]>>((acc, ch) => {
@@ -176,7 +312,6 @@ export default function SocialPage() {
 
   const currentChannel = channels.find(c => c.id === activeChannel)
   const charCount = inputText.length
-  const showCharCount = charCount > 1800
 
   if (loading) {
     return (
@@ -193,6 +328,12 @@ export default function SocialPage() {
         <div className="p-4 border-b border-[var(--color-border)]">
           <h2 className="text-sm font-semibold text-white">Social Hub</h2>
           <p className="text-xs text-[var(--color-text-dim)] mt-0.5">Community Channels</p>
+          <Link
+            href="/social/live"
+            className="mt-3 flex items-center gap-2 rounded-lg bg-red-500/10 px-3 py-2 text-xs font-medium text-red-400 hover:bg-red-500/20 transition-colors"
+          >
+            <Radio size={14} className="animate-pulse" /> Live Stream
+          </Link>
         </div>
 
         <div className="py-2">
@@ -281,7 +422,8 @@ export default function SocialPage() {
 
             const showHeader = i === 0 || messages[i - 1]?.userId !== msg.userId || messages[i - 1]?.isSystem
             const reactionEntries = Object.entries(msg.reactions)
-            const isTranslated = translatedMessages.has(msg.id)
+            const isTranslated = !!translations[msg.id]
+            const isTranslating = translating.has(msg.id)
 
             return (
               <div
@@ -289,7 +431,7 @@ export default function SocialPage() {
                 className={`group flex gap-3 rounded-lg px-2 py-0.5 hover:bg-[var(--color-bg-surface)] ${showHeader ? 'mt-3' : ''}`}
               >
                 {showHeader ? (
-                  <Avatar name={msg.username} tier={msg.userTier} size="sm" />
+                  <Avatar name={msg.username} tier={msg.userTier} size="sm" avatarUrl={msg.avatarUrl} />
                 ) : (
                   <div className="w-8 shrink-0" />
                 )}
@@ -314,18 +456,40 @@ export default function SocialPage() {
                     </div>
                   )}
 
-                  <p className="text-sm text-[var(--color-text)] break-words">
-                    {isTranslated ? 'This community is the best!' : msg.content}
-                  </p>
+                  {msg.gifUrl ? (
+                    <img
+                      src={msg.gifUrl}
+                      alt="GIF"
+                      className="mt-1 rounded-lg max-w-[240px]"
+                      loading="lazy"
+                    />
+                  ) : (
+                    <EmoteParsedMessage
+                      content={isTranslated ? translations[msg.id] : msg.content}
+                      className="text-sm text-[var(--color-text)] break-words"
+                      emoteSize="md"
+                    />
+                  )}
 
-                  {msg.originalLanguage && (
-                    <button
-                      onClick={() => toggleTranslate(msg.id)}
-                      className="mt-1 flex items-center gap-1 text-xs text-[var(--color-text-dim)] hover:text-[var(--color-gold)] transition-colors"
-                    >
-                      <Globe size={12} />
-                      {isTranslated ? 'Show Original' : 'Translate'}
-                    </button>
+                  {isTranslated && (
+                    <div className="mt-1.5 flex items-center gap-1.5 rounded-md bg-[var(--color-gold)]/5 border border-[var(--color-gold)]/20 px-2 py-1 w-fit">
+                      <Globe size={11} className="text-[var(--color-gold)]" />
+                      <span className="text-[11px] text-[var(--color-gold)]">
+                        Translated from {LANGUAGE_NAMES[msg.originalLanguage || 'en'] || msg.originalLanguage || 'English'}
+                      </span>
+                      <button
+                        onClick={() => toggleTranslate(msg.id, msg.content)}
+                        className="ml-1 text-[11px] text-[var(--color-text-dim)] hover:text-white underline transition-colors"
+                      >
+                        Show Original
+                      </button>
+                    </div>
+                  )}
+
+                  {isTranslating && (
+                    <p className="mt-1 flex items-center gap-1 text-xs text-[var(--color-text-dim)]">
+                      <Globe size={12} className="animate-spin" /> Translating...
+                    </p>
                   )}
 
                   {reactionEntries.length > 0 && (
@@ -356,31 +520,82 @@ export default function SocialPage() {
           )}
           <div className="flex items-end gap-2">
             <div className="flex-1 relative">
-              <input
-                type="text"
-                value={inputText}
-                onChange={e => setInputText(e.target.value.slice(0, 2000))}
-                onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend() } }}
+              <EmoteChatInput
+                ref={chatInputRef}
                 placeholder={`Message #${currentChannel?.name || 'general'}...`}
                 disabled={cooldownActive}
-                className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-surface)] px-4 py-2.5 pr-20 text-sm text-[var(--color-text)] placeholder-[var(--color-text-dim)] focus:border-[var(--color-gold)] focus:outline-none focus:ring-1 focus:ring-[var(--color-gold)]/50 disabled:opacity-50"
+                maxLength={500}
+                className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-surface)] px-4 py-2.5 pr-24 text-sm text-[var(--color-text)] focus:border-[var(--color-gold)] focus:outline-none focus:ring-1 focus:ring-[var(--color-gold)]/50 disabled:opacity-50"
+                onChange={(text, isDeleting) => {
+                  setInputText(text)
+                  if (isDeleting) {
+                    setAutocompleteMatches([])
+                  } else {
+                    const words = text.split(/\s/)
+                    const lastWord = words[words.length - 1]
+                    setAutocompleteMatches(lastWord.length >= 2 ? prefixMatchEmotes(lastWord, emoteList) : [])
+                  }
+                }}
+                onFocus={() => setInputFocused(true)}
+                onBlur={() => setInputFocused(false)}
+                onSubmit={() => { handleSend(); setAutocompleteMatches([]); setEmotePickerOpen(false) }}
+                onKeyDown={(e) => {
+                  if (autocompleteMatches.length > 0 && (e.key === 'Tab' || e.key === 'Escape')) {
+                    e.preventDefault()
+                    if (e.key === 'Tab') {
+                      const emote = autocompleteMatches[0]
+                      chatInputRef.current?.insertEmote(emote.name, emote.id)
+                    }
+                    setAutocompleteMatches([])
+                  }
+                }}
               />
               <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1.5">
-                <button className="p-1 text-[var(--color-text-dim)] hover:text-[var(--color-text-muted)] transition-colors" title="Emoji">
+                <button
+                  onClick={() => { setEmotePickerOpen(!emotePickerOpen); setGifPickerOpen(false) }}
+                  className={`p-1 transition-colors ${emotePickerOpen ? 'text-[var(--color-gold)]' : 'text-[var(--color-text-dim)] hover:text-[var(--color-text-muted)]'}`}
+                  title="Emotes"
+                >
                   <Smile size={18} />
                 </button>
-                <button className="p-1 text-[var(--color-text-dim)] hover:text-[var(--color-text-muted)] transition-colors" title="GIF">
-                  <ImageIcon size={18} />
+                <button
+                  onClick={() => { setGifPickerOpen(!gifPickerOpen); setEmotePickerOpen(false) }}
+                  className={`p-1 transition-colors ${gifPickerOpen ? 'text-[var(--color-gold)]' : 'text-[var(--color-text-dim)] hover:text-[var(--color-text-muted)]'}`}
+                  title="GIF"
+                >
+                  <span className="text-xs font-bold">GIF</span>
                 </button>
               </div>
+              {autocompleteMatches.length > 0 && (
+                <EmoteAutocomplete
+                  matches={autocompleteMatches}
+                  onSelect={(name) => {
+                    const emote = emotes.get(name)
+                    if (emote) chatInputRef.current?.insertEmote(emote.name, emote.id)
+                    setAutocompleteMatches([])
+                  }}
+                  onDismiss={() => setAutocompleteMatches([])}
+                />
+              )}
+              {emotePickerOpen && (
+                <EmotePicker
+                  onSelect={(emote) => {
+                    chatInputRef.current?.insertEmote(emote.name, emote.id)
+                  }}
+                  onClose={() => setEmotePickerOpen(false)}
+                />
+              )}
+              {gifPickerOpen && (
+                <GiphyPicker onSelect={handleGifSelect} onClose={() => setGifPickerOpen(false)} />
+              )}
             </div>
-            <GoldButton onClick={handleSend} disabled={!inputText.trim() || cooldownActive} size="md">
+            <GoldButton onClick={() => { handleSend(); setEmotePickerOpen(false) }} disabled={!inputText.trim() || cooldownActive} size="md">
               <Send size={16} />
             </GoldButton>
           </div>
-          {showCharCount && (
-            <div className={`mt-1 text-xs text-right ${charCount >= 2000 ? 'text-red-400' : 'text-[var(--color-text-dim)]'}`}>
-              {charCount}/2,000
+          {inputFocused && (
+            <div className={`mt-1 text-xs text-right ${charCount >= 500 ? 'text-red-400' : 'text-[var(--color-text-dim)]'}`}>
+              {charCount}/500
             </div>
           )}
         </div>
