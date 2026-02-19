@@ -128,17 +128,23 @@ export const transactions: Transaction[] = [
 ]
 
 export const channels: Channel[] = [
+  // General
   { id: 'ch_001', name: 'General Chat', category: 'General', description: 'Open discussion for all members', tierRequired: 'standard', unreadCount: 5, icon: 'MessageCircle' },
   { id: 'ch_002', name: 'Introductions', category: 'General', description: 'New? Say hello!', tierRequired: 'standard', unreadCount: 0, icon: 'HandMetal' },
   { id: 'ch_003', name: 'Flavor Reviews', category: 'General', description: 'Share your thoughts on BlakJaks flavors', tierRequired: 'standard', unreadCount: 12, icon: 'Star' },
-  { id: 'ch_004', name: 'VIP Lounge', category: 'High Roller Lounge', description: 'Exclusive VIP discussion', tierRequired: 'vip', unreadCount: 3, icon: 'Crown' },
-  { id: 'ch_005', name: 'High Roller Table', category: 'High Roller Lounge', description: 'For High Roller tier and above', tierRequired: 'high_roller', unreadCount: 0, icon: 'Gem' },
-  { id: 'ch_006', name: 'Whale Pod', category: 'High Roller Lounge', description: 'Whale-exclusive channel', tierRequired: 'whale', unreadCount: 0, icon: 'Trophy' },
+  // VIP Lounge
+  { id: 'ch_004', name: 'VIP Chat', category: 'VIP Lounge', description: 'Exclusive VIP discussion', tierRequired: 'vip', unreadCount: 3, icon: 'Crown' },
+  { id: 'ch_010', name: 'VIP Governance', category: 'VIP Lounge', description: 'VIP governance proposals and voting', tierRequired: 'vip', unreadCount: 1, icon: 'FileText' },
+  // High Roller Lounge
+  { id: 'ch_005', name: 'High Roller Chat', category: 'High Roller Lounge', description: 'For High Roller tier and above', tierRequired: 'high_roller', unreadCount: 0, icon: 'Gem' },
+  { id: 'ch_012', name: 'High Roller Governance', category: 'High Roller Lounge', description: 'High Roller governance proposals and voting', tierRequired: 'high_roller', unreadCount: 2, icon: 'FileText' },
+  // Whale Pod
+  { id: 'ch_006', name: 'Whale Chat', category: 'Whale Pod', description: 'Whale-exclusive channel', tierRequired: 'whale', unreadCount: 0, icon: 'Trophy' },
+  { id: 'ch_013', name: 'Whale Governance', category: 'Whale Pod', description: 'Whale governance proposals and voting', tierRequired: 'whale', unreadCount: 0, icon: 'FileText' },
+  // Comps & Crypto
   { id: 'ch_007', name: 'Comp Updates', category: 'Comps & Crypto', description: 'Latest comp award announcements', tierRequired: 'standard', unreadCount: 8, icon: 'Coins' },
   { id: 'ch_008', name: 'Wallet Help', category: 'Comps & Crypto', description: 'Questions about wallets and withdrawals', tierRequired: 'standard', unreadCount: 2, icon: 'Wallet' },
   { id: 'ch_009', name: 'Crypto Talk', category: 'Comps & Crypto', description: 'Discuss blockchain and crypto topics', tierRequired: 'standard', unreadCount: 0, icon: 'Bitcoin' },
-  { id: 'ch_010', name: 'Proposals', category: 'Governance', description: 'Discuss and submit governance proposals', tierRequired: 'vip', unreadCount: 1, icon: 'FileText' },
-  { id: 'ch_011', name: 'Voting Discussion', category: 'Governance', description: 'Discuss active votes', tierRequired: 'standard', unreadCount: 4, icon: 'Vote' },
 ]
 
 const mockUsers = [
@@ -215,10 +221,12 @@ export const messagesByChannel: Record<string, Message[]> = {
   ch_003: generateMessages('ch_003', 30),
   ch_004: generateMessages('ch_004', 20),
   ch_005: generateMessages('ch_005', 10),
+  ch_006: generateMessages('ch_006', 8),
   ch_007: generateMessages('ch_007', 25),
   ch_008: generateMessages('ch_008', 18),
   ch_010: generateMessages('ch_010', 12),
-  ch_011: generateMessages('ch_011', 22),
+  ch_012: generateMessages('ch_012', 10),
+  ch_013: generateMessages('ch_013', 6),
 }
 
 export const votes: Vote[] = [

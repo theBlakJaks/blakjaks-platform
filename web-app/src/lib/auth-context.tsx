@@ -20,11 +20,16 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined)
 const publicPaths = ['/', '/about', '/transparency', '/login', '/signup', '/forgot-password']
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(() => {
-    if (typeof window !== 'undefined' && localStorage.getItem('bj_token')) return currentUser
-    return null
-  })
-  const isLoading = false
+  const [user, setUser] = useState<User | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
+
+  // Hydrate user from localStorage after mount (avoids SSR/client mismatch).
+  /* eslint-disable react-hooks/set-state-in-effect -- reading browser API on mount is the standard SSR-safe pattern */
+  useEffect(() => {
+    if (localStorage.getItem('bj_token')) setUser(currentUser)
+    setIsLoading(false)
+  }, [])
+  /* eslint-enable react-hooks/set-state-in-effect */
   const router = useRouter()
   const pathname = usePathname()
 

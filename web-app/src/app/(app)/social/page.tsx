@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback, Suspense } from 'react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
-import { Hash, Lock, ChevronDown, ChevronRight, Send, Smile, Globe, Pin, Radio, Reply, X, ChevronUp } from 'lucide-react'
+import { Lock, ChevronDown, ChevronRight, Send, Smile, Globe, Pin, Radio, Reply, X, ChevronUp } from 'lucide-react'
 import { useAuth } from '@/lib/auth-context'
 import { api } from '@/lib/api'
 import type { Channel, Message, Tier } from '@/lib/types'
@@ -64,7 +64,8 @@ const MOCK_USERS = [
 
 const CHANNEL_MEMBER_COUNTS: Record<string, number> = {
   ch_001: 1247, ch_002: 892, ch_003: 643, ch_004: 312, ch_005: 87,
-  ch_006: 24, ch_007: 534, ch_008: 278, ch_009: 189, ch_010: 156, ch_011: 421,
+  ch_006: 24, ch_007: 534, ch_008: 278, ch_009: 189, ch_010: 156,
+  ch_012: 72, ch_013: 18,
 }
 
 const SYSTEM_MESSAGES: Message[] = [
@@ -446,54 +447,62 @@ function SocialPage() {
   }
 
   return (
-    <div className="flex h-[calc(100vh-120px)] overflow-hidden rounded-2xl border border-[var(--color-border)] bg-[var(--color-bg-card)]">
+    <div className="flex h-full overflow-hidden">
       {/* Left Sidebar - Channel List */}
-      <div className="w-64 shrink-0 border-r border-[var(--color-border)] bg-[var(--color-bg-surface)] overflow-y-auto">
-        <div className="p-4 border-b border-[var(--color-border)]">
-          <h2 className="text-sm font-semibold text-white">Social Hub</h2>
-          <p className="text-xs text-[var(--color-text-dim)] mt-0.5">Community Channels</p>
+      <aside className="w-60 shrink-0 border-r border-white/5 bg-[#111125] flex flex-col h-full">
+        {/* Sidebar Header */}
+        <div className="shrink-0 px-4 py-4 border-b border-white/5">
+          <h2 className="text-lg font-bold text-white">Social Hub</h2>
+          <p className="text-xs text-gray-500 mt-0.5">Community Channels</p>
+        </div>
+
+        {/* Live Stream Button */}
+        <div className="shrink-0 px-3 py-2">
           <Link
             href="/social/live"
-            className="mt-3 flex items-center gap-2 rounded-lg bg-red-500/10 px-3 py-2 text-xs font-medium text-red-400 hover:bg-red-500/20 transition-colors"
+            className="flex w-full items-center gap-2 rounded-lg bg-red-500/10 px-3 py-2 text-xs font-medium text-red-400 hover:bg-red-500/20 transition-colors"
           >
             <Radio size={14} className="animate-pulse" /> Live Stream
           </Link>
         </div>
 
-        <div className="py-2">
+        {/* Channel List — scrollable */}
+        <nav className="flex-1 overflow-y-auto px-2 py-1 space-y-1">
           {Object.entries(channelsByCategory).map(([category, chs]) => {
             const isCollapsed = collapsedCategories.has(category)
             return (
-              <div key={category} className="mb-1">
+              <div key={category}>
                 <button
                   onClick={() => toggleCategory(category)}
-                  className="flex w-full items-center gap-1 px-3 py-1.5 text-xs font-semibold uppercase tracking-wider text-[var(--color-text-dim)] hover:text-[var(--color-text-muted)] transition-colors"
+                  className="flex w-full items-center gap-1 px-2 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-gray-500 hover:text-gray-300 transition-colors"
                 >
-                  {isCollapsed ? <ChevronRight size={12} /> : <ChevronDown size={12} />}
+                  {isCollapsed ? <ChevronRight size={10} /> : <ChevronDown size={10} />}
                   {category}
                 </button>
 
                 {!isCollapsed && chs.map(ch => {
                   const isLocked = TIER_RANK[ch.tierRequired] > userRank
                   const isActive = ch.id === activeChannel
+                  const hasUnread = ch.unreadCount > 0 && !isLocked
 
                   return (
                     <button
                       key={ch.id}
                       onClick={() => !isLocked && setActiveChannel(ch.id)}
                       disabled={isLocked}
-                      className={`flex w-full items-center gap-2 px-3 py-1.5 mx-2 rounded-lg text-sm transition-colors ${
+                      className={`flex w-full items-center gap-2 px-2 py-1.5 rounded-md text-sm transition-colors ${
                         isActive
-                          ? 'bg-[var(--color-gold)]/10 text-[var(--color-gold)]'
+                          ? 'bg-white/10 text-white font-medium border-l-[3px] border-[var(--color-gold)] pl-[5px]'
                           : isLocked
-                            ? 'text-[var(--color-text-dim)] opacity-50 cursor-not-allowed'
-                            : 'text-[var(--color-text-muted)] hover:text-white hover:bg-[var(--color-bg-hover)]'
+                            ? 'text-gray-600 cursor-not-allowed'
+                            : hasUnread
+                              ? 'text-white font-medium hover:bg-white/5'
+                              : 'text-gray-400 hover:bg-white/5 hover:text-gray-200'
                       }`}
-                      style={{ maxWidth: 'calc(100% - 16px)' }}
                     >
-                      {isLocked ? <Lock size={14} /> : <Hash size={14} />}
+                      {isLocked ? <Lock size={14} className="shrink-0 text-gray-600" /> : <span className="shrink-0 text-gray-500">#</span>}
                       <span className="truncate flex-1 text-left">{ch.name}</span>
-                      {ch.unreadCount > 0 && !isLocked && (
+                      {hasUnread && (
                         <span className="ml-auto shrink-0 flex h-5 min-w-[20px] items-center justify-center rounded-full bg-[var(--color-gold)] px-1.5 text-[10px] font-bold text-black">
                           {ch.unreadCount}
                         </span>
@@ -504,29 +513,25 @@ function SocialPage() {
               </div>
             )
           })}
-        </div>
-      </div>
+        </nav>
+      </aside>
 
       {/* Main Chat Area */}
-      <div className="flex flex-1 flex-col min-w-0">
+      <main className="flex flex-1 flex-col min-w-0 bg-[#0f0f23]">
         {/* Channel Header */}
-        <div className="shrink-0 border-b border-[var(--color-border)] px-6 py-3">
-          <div className="flex items-center gap-2">
-            <Hash size={18} className="text-[var(--color-text-dim)]" />
-            <h3 className="font-semibold text-white">{currentChannel?.name || 'General Chat'}</h3>
-            <span className="flex items-center gap-1.5 ml-2">
-              <span className="h-2 w-2 rounded-full bg-green-500 shadow-[0_0_6px_rgba(34,197,94,0.6)]" />
-              <span className="text-xs text-[var(--color-text-dim)]">{onlineCount.toLocaleString()} online</span>
-            </span>
-          </div>
-          <p className="text-xs text-[var(--color-text-dim)] mt-0.5 ml-7">
-            {currentChannel?.description || ''}
-          </p>
-        </div>
+        <header className="h-12 shrink-0 border-b border-white/5 px-4 flex items-center gap-3">
+          <span className="text-gray-500 text-lg font-bold">#</span>
+          <h1 className="text-white font-semibold">{currentChannel?.name || 'General Chat'}</h1>
+          <span className="flex items-center gap-1.5">
+            <span className="h-2 w-2 rounded-full bg-green-500 shadow-[0_0_6px_rgba(34,197,94,0.6)]" />
+            <span className="text-xs text-green-400">{onlineCount.toLocaleString()} online</span>
+          </span>
+          <span className="text-gray-500 text-sm ml-1 hidden sm:inline">{currentChannel?.description || ''}</span>
+        </header>
 
         {/* Pinned Message */}
         {activeChannel === 'ch_001' && (
-          <div className="shrink-0 mx-4 mt-3 flex items-start gap-3 rounded-xl border border-[var(--color-gold)]/30 bg-[var(--color-gold)]/5 px-4 py-3">
+          <div className="shrink-0 flex items-start gap-3 border-b border-white/5 bg-[#111125] px-4 py-2.5">
             <Pin size={14} className="mt-0.5 shrink-0 text-[var(--color-gold)]" />
             <div className="min-w-0">
               <span className="text-xs font-medium text-[var(--color-gold)]">Pinned by whaleDave</span>
@@ -536,28 +541,44 @@ function SocialPage() {
         )}
 
         {/* Messages Feed */}
-        <div ref={chatContainerRef} className="flex-1 overflow-y-auto px-4 py-4 space-y-1 relative">
+        <div ref={chatContainerRef} className="flex-1 overflow-y-auto px-4 py-2 space-y-1 relative">
           {messages.map((msg, i) => {
+            const msgDate = new Date(msg.timestamp).toDateString()
+            const prevDate = i > 0 ? new Date(messages[i - 1].timestamp).toDateString() : null
+            const showDateSep = i === 0 || msgDate !== prevDate
+            const dateSeparator = showDateSep ? (
+              <div className="flex items-center gap-3 py-2 my-2">
+                <div className="flex-1 h-px bg-white/5" />
+                <span className="text-[11px] font-medium text-gray-500">
+                  {new Date(msg.timestamp).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
+                </span>
+                <div className="flex-1 h-px bg-white/5" />
+              </div>
+            ) : null
             if (msg.isSystem) {
               return (
-                <div key={msg.id} id={`msg-${msg.id}`} className="flex justify-center py-2">
-                  <span className="rounded-full bg-[var(--color-bg-surface)] px-4 py-1 text-xs text-[var(--color-text-dim)]">
-                    {msg.content}
-                  </span>
+                <div key={msg.id}>
+                  {dateSeparator}
+                  <div id={`msg-${msg.id}`} className="flex justify-center py-2">
+                    <span className="rounded-full bg-white/5 px-4 py-1 text-xs text-gray-500">
+                      {msg.content}
+                    </span>
+                  </div>
                 </div>
               )
             }
 
-            const showHeader = i === 0 || messages[i - 1]?.userId !== msg.userId || messages[i - 1]?.isSystem
+            const showHeader = showDateSep || i === 0 || messages[i - 1]?.userId !== msg.userId || messages[i - 1]?.isSystem
             const reactionEntries = Object.entries(msg.reactions)
             const isTranslated = !!translations[msg.id]
             const isTranslating = translating.has(msg.id)
 
             return (
+              <div key={msg.id}>
+                {dateSeparator}
               <div
-                key={msg.id}
                 id={`msg-${msg.id}`}
-                className={`group relative flex gap-3 rounded-lg px-2 py-0.5 hover:bg-[var(--color-bg-surface)] ${showHeader ? 'mt-3' : ''}`}
+                className={`group relative flex gap-3 rounded-lg px-2 py-0.5 hover:bg-white/[0.02] ${showHeader ? 'mt-3' : ''}`}
               >
                 {/* Hover action bar */}
                 <div className="absolute right-2 top-0 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity z-10 flex items-center gap-0.5 rounded-md border border-[var(--color-border)] bg-[var(--color-bg-card)] px-1 py-0.5 shadow-lg">
@@ -691,6 +712,7 @@ function SocialPage() {
                   )}
                 </div>
               </div>
+              </div>
             )
           })}
           <div ref={messagesEndRef} />
@@ -710,7 +732,7 @@ function SocialPage() {
         )}
 
         {/* Message Composer */}
-        <div className="shrink-0 border-t border-[var(--color-border)] px-4 py-3">
+        <div className="shrink-0 border-t border-white/5 px-4 py-3">
           {replyingTo && (
             <div className="mb-2 flex items-start gap-2 text-xs rounded-md bg-[var(--color-bg-surface)] border-l-2 border-[var(--color-gold)] px-3 py-2">
               <Reply size={12} className="text-[var(--color-gold)] mt-0.5 shrink-0" />
@@ -812,7 +834,7 @@ function SocialPage() {
             </div>
           )}
         </div>
-      </div>
+      </main>
     </div>
   )
 }

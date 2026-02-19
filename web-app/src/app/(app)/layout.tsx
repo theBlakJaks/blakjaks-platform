@@ -75,12 +75,14 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   if (!user) return null
 
   const isLivePage = pathname === '/social/live'
+  const isSocialPage = pathname === '/social'
+  const isFullWidth = isLivePage || isSocialPage
 
   return (
     <div className="min-h-screen flex flex-col">
       {/* Top Navbar */}
       <header className="sticky top-0 z-40 border-b border-[var(--color-border)] bg-[var(--color-bg)]/95 backdrop-blur-md">
-        <div className={cn('mx-auto flex h-16 items-center justify-between px-4 sm:px-6 lg:px-8', !isLivePage && 'max-w-7xl')}>
+        <div className={cn('mx-auto flex h-16 items-center justify-between px-4 sm:px-6 lg:px-8', !isFullWidth && 'max-w-7xl')}>
           <Link href="/dashboard">
             <Logo size="md" />
           </Link>
@@ -158,8 +160,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       </header>
 
       {/* Main Content */}
-      <main className={cn('flex-1 overflow-hidden', isLivePage ? 'pb-0' : 'pb-20 md:pb-0')}>
-        {isLivePage ? (
+      <main className={cn('flex-1 overflow-hidden', isFullWidth ? 'pb-0' : 'pb-20 md:pb-0')}>
+        {isFullWidth ? (
           <div className="h-[calc(100vh-4rem)]">
             {children}
           </div>
@@ -173,7 +175,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       {/* Mobile Bottom Tab Bar — hidden on live stream page */}
       <nav className={cn(
         'fixed bottom-0 left-0 right-0 z-40 border-t border-[var(--color-border)] bg-[var(--color-bg)]/95 backdrop-blur-md md:hidden',
-        isLivePage && 'hidden',
+        isFullWidth && 'hidden',
       )}>
         <div className="flex items-center justify-around py-2">
           {mobileNav.map((item) => {
