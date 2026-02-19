@@ -209,6 +209,7 @@ export default function SocialPage() {
       gifUrl,
       timestamp: new Date().toISOString(),
       reactions: {},
+      avatarUrl: user.avatarUrl,
     }
     setMessages(prev => [...prev, gifMsg])
     setGifPickerOpen(false)
@@ -431,7 +432,7 @@ export default function SocialPage() {
                 className={`group flex gap-3 rounded-lg px-2 py-0.5 hover:bg-[var(--color-bg-surface)] ${showHeader ? 'mt-3' : ''}`}
               >
                 {showHeader ? (
-                  <Avatar name={msg.username} tier={msg.userTier} size="sm" avatarUrl={msg.avatarUrl} />
+                  <Avatar name={msg.username} tier={msg.userTier} size="sm" avatarUrl={msg.userId === user?.id ? user.avatarUrl : msg.avatarUrl} />
                 ) : (
                   <div className="w-8 shrink-0" />
                 )}

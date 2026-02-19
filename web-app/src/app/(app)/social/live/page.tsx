@@ -99,6 +99,7 @@ export default function LiveStreamPage() {
       content: text,
       timestamp: new Date().toISOString(),
       reactions: {},
+      avatarUrl: user.avatarUrl,
     }
     setChatMessages(prev => [...prev, msg])
     liveChatInputRef.current?.clear()
@@ -117,6 +118,7 @@ export default function LiveStreamPage() {
       gifUrl,
       timestamp: new Date().toISOString(),
       reactions: {},
+      avatarUrl: user.avatarUrl,
     }
     setChatMessages(prev => [...prev, gifMsg])
     setGifPickerOpen(false)
@@ -217,7 +219,7 @@ export default function LiveStreamPage() {
           {chatMessages.map(msg => (
             <div key={msg.id} className="flex items-start gap-2 group">
               <div className="shrink-0">
-                <Avatar name={msg.username} tier={msg.userTier} size="sm" avatarUrl={msg.avatarUrl} />
+                <Avatar name={msg.username} tier={msg.userTier} size="sm" avatarUrl={msg.userId === user?.id ? user.avatarUrl : msg.avatarUrl} />
               </div>
               <div className="min-w-0">
                 <span className="shrink-0 text-xs font-semibold whitespace-nowrap" style={{ color: getTierColor(msg.userTier) }}>

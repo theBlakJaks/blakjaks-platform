@@ -85,6 +85,7 @@ export const api = {
         content,
         timestamp: new Date().toISOString(),
         reactions: {},
+        avatarUrl: currentUser.avatarUrl,
       }
     },
   },
