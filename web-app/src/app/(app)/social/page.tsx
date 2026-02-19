@@ -157,7 +157,8 @@ function SocialPage() {
     setFirstNewMsgId(null)
   }, [])
 
-  // Only used for clearing the "new messages" pill when user scrolls back to bottom
+  // Clear the "new messages" pill when user scrolls back to bottom.
+  // Re-registers whenever loading finishes so chatContainerRef is populated.
   useEffect(() => {
     const el = chatContainerRef.current
     if (!el) return
@@ -169,7 +170,7 @@ function SocialPage() {
     }
     el.addEventListener('scroll', onScroll, { passive: true })
     return () => el.removeEventListener('scroll', onScroll)
-  }, [])
+  }, [loading, activeChannel])
 
   // Load channels
   useEffect(() => {

@@ -87,7 +87,8 @@ export default function LiveStreamPage() {
     setFirstNewMsgId(null)
   }, [])
 
-  // Only used for clearing the "new messages" pill when user scrolls back to bottom
+  // Clear the "new messages" pill when user scrolls back to bottom.
+  // Re-registers when loading finishes so chatContainerRef is populated.
   useEffect(() => {
     const el = chatContainerRef.current
     if (!el) return
@@ -99,7 +100,7 @@ export default function LiveStreamPage() {
     }
     el.addEventListener('scroll', onScroll, { passive: true })
     return () => el.removeEventListener('scroll', onScroll)
-  }, [])
+  }, [loading])
 
   useEffect(() => {
     api.streaming.getLive().then(() => {
