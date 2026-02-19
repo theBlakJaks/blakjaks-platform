@@ -177,6 +177,49 @@ export const api = {
     },
   },
 
+  notifications: {
+    async getAll() {
+      await delay()
+      const mockNotifications = [
+        {
+          id: 'notif_001', type: 'chat_reply' as const, title: 'cryptoQueen replied to your message',
+          body: 'The comp system is so generous. Love getting USDT just for scanning.', isRead: false,
+          channelId: 'ch_001', messageId: 'msg_ch_001_003', senderUsername: 'cryptoQueen',
+          senderAvatarUrl: 'https://i.pravatar.cc/150?u=usr_010', createdAt: new Date(Date.now() - 120000).toISOString(),
+        },
+        {
+          id: 'notif_002', type: 'admin_broadcast' as const, title: 'New flavor just dropped!',
+          body: 'Check out our new Midnight Mint flavor. Limited edition for VIP and above.', isRead: false,
+          channelId: 'ch_007', messageId: 'msg_ch_007_005', senderUsername: 'BlakJaks',
+          senderAvatarUrl: null, createdAt: new Date(Date.now() - 3600000).toISOString(),
+        },
+        {
+          id: 'notif_003', type: 'chat_reply' as const, title: 'whaleDave replied to your message',
+          body: 'Great point about the governance vote!', isRead: true,
+          channelId: 'ch_001', messageId: 'msg_ch_001_010', senderUsername: 'whaleDave',
+          senderAvatarUrl: 'https://i.pravatar.cc/150?u=usr_012', createdAt: new Date(Date.now() - 86400000).toISOString(),
+        },
+      ]
+      return { notifications: mockNotifications, unreadCount: 2, total: 3 }
+    },
+    async markAsRead(_notificationId: string) {
+      await delay(200)
+      return { success: true }
+    },
+    async markAllAsRead() {
+      await delay(200)
+      return { success: true }
+    },
+    async deleteNotification(_notificationId: string) {
+      await delay(200)
+      return { success: true }
+    },
+    async getUnreadCount() {
+      await delay(100)
+      return { count: 2 }
+    },
+  },
+
   transparency: {
     async getOverview() {
       await delay()

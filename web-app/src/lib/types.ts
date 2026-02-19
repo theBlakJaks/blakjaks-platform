@@ -105,6 +105,7 @@ export interface Message {
   timestamp: string
   reactions: Record<string, string[]>
   replyTo?: string
+  replyToContent?: string
   isSystem?: boolean
   originalLanguage?: string
   gifUrl?: string

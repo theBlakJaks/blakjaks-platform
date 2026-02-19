@@ -203,6 +203,7 @@ function generateMessages(channelId: string, count: number): Message[] {
       reactions: i % 4 === 0 ? { [MOCK_REACTION_EMOJIS[i % MOCK_REACTION_EMOJIS.length]]: ['usr_010', 'usr_014'] } as Record<string, string[]> : {} as Record<string, string[]>,
       isSystem: false,
       replyTo: i === 3 ? mockUsers[0].username : i === 9 ? mockUsers[2].username : undefined,
+      replyToContent: i === 3 ? baseMessages[2] : i === 9 ? baseMessages[6] : undefined,
       avatarUrl: user.avatarUrl,
     }
   })

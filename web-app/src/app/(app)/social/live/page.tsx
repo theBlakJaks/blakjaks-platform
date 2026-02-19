@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
-import { Radio, Eye, Send, MessageSquare, X, PanelRightClose, PanelRightOpen, Reply } from 'lucide-react'
+import { useState, useEffect, useRef, useCallback } from 'react'
+import { Radio, Eye, Send, MessageSquare, X, PanelRightClose, PanelRightOpen, Reply, ChevronUp } from 'lucide-react'
 import { useAuth } from '@/lib/auth-context'
 import { api } from '@/lib/api'
 import { useUIStore } from '@/lib/store'
@@ -10,7 +10,7 @@ import Avatar from '@/components/ui/Avatar'
 import GoldButton from '@/components/ui/GoldButton'
 import Logo from '@/components/ui/Logo'
 import Spinner from '@/components/ui/Spinner'
-import { getTierColor } from '@/lib/utils'
+import { getTierColor, formatRelativeTime } from '@/lib/utils'
 import GiphyPicker from '@/components/ui/GiphyPicker'
 import EmoteParsedMessage from '@/components/ui/EmoteParsedMessage'
 import EmotePicker from '@/components/ui/EmotePicker'
@@ -56,10 +56,50 @@ export default function LiveStreamPage() {
   const [autocompleteMatches, setAutocompleteMatches] = useState<CachedEmote[]>([])
   const [inputFocused, setInputFocused] = useState(false)
   const [replyingTo, setReplyingTo] = useState<Message | null>(null)
+  const [newMsgCount, setNewMsgCount] = useState(0)
+  const [firstNewMsgId, setFirstNewMsgId] = useState<string | null>(null)
   const emoteList = useEmoteStore(s => s.emoteList)
   const emoteMap = useEmoteStore(s => s.emotes)
   const chatContainerRef = useRef<HTMLDivElement>(null)
   const liveChatInputRef = useRef<EmoteChatInputHandle>(null)
+  const messagesEndRef = useRef<HTMLDivElement>(null)
+  const shouldAutoScrollRef = useRef(true)
+
+  const isNearBottom = useCallback(() => {
+    const el = chatContainerRef.current
+    if (!el) return true
+    return el.scrollHeight - el.scrollTop - el.clientHeight < 100
+  }, [])
+
+  const scrollToBottom = useCallback(() => {
+    shouldAutoScrollRef.current = true
+    setNewMsgCount(0)
+    setFirstNewMsgId(null)
+    const el = chatContainerRef.current
+    if (el) el.scrollTop = el.scrollHeight
+  }, [])
+
+  const scrollToMessage = useCallback((msgId: string) => {
+    const el = document.getElementById(`live-msg-${msgId}`)
+    if (el) el.scrollIntoView({ behavior: 'instant', block: 'center' })
+    shouldAutoScrollRef.current = true
+    setNewMsgCount(0)
+    setFirstNewMsgId(null)
+  }, [])
+
+  // Only used for clearing the "new messages" pill when user scrolls back to bottom
+  useEffect(() => {
+    const el = chatContainerRef.current
+    if (!el) return
+    const onScroll = () => {
+      if (el.scrollHeight - el.scrollTop - el.clientHeight < 80) {
+        setNewMsgCount(0)
+        setFirstNewMsgId(null)
+      }
+    }
+    el.addEventListener('scroll', onScroll, { passive: true })
+    return () => el.removeEventListener('scroll', onScroll)
+  }, [])
 
   useEffect(() => {
     api.streaming.getLive().then(() => {
@@ -72,6 +112,9 @@ export default function LiveStreamPage() {
     if (!isLive) return
     setViewerCount(1247)
     const interval = setInterval(() => {
+      // Check scroll position BEFORE adding message
+      shouldAutoScrollRef.current = isNearBottom()
+
       const randomUser = MOCK_USERS[Math.floor(Math.random() * MOCK_USERS.length)]
       const randomContent = LIVE_CHAT_MESSAGES[Math.floor(Math.random() * LIVE_CHAT_MESSAGES.length)]
       const newMsg: Message = {
@@ -87,13 +130,23 @@ export default function LiveStreamPage() {
       }
       setChatMessages(prev => [...prev.slice(-50), newMsg])
       setViewerCount(v => v + Math.floor(Math.random() * 5) - 2)
+      // Track new messages when scrolled up
+      if (!shouldAutoScrollRef.current) {
+        setNewMsgCount(c => {
+          if (c === 0) setFirstNewMsgId(newMsg.id)
+          return c + 1
+        })
+      }
     }, 3000)
     return () => clearInterval(interval)
-  }, [isLive])
+  }, [isLive, isNearBottom])
 
+  // Auto-scroll after DOM update — reads the flag set BEFORE the state update
   useEffect(() => {
-    const el = chatContainerRef.current
-    if (el) el.scrollTop = el.scrollHeight
+    if (shouldAutoScrollRef.current) {
+      const el = chatContainerRef.current
+      if (el) el.scrollTop = el.scrollHeight
+    }
   }, [chatMessages])
 
   const handleChatSend = async () => {
@@ -110,11 +163,16 @@ export default function LiveStreamPage() {
       reactions: {},
       avatarUrl: user.avatarUrl,
       replyTo: replyingTo?.username,
+      replyToContent: replyingTo?.content,
     }
+    // Always scroll to bottom when user sends their own message
+    shouldAutoScrollRef.current = true
     setChatMessages(prev => [...prev, msg])
     liveChatInputRef.current?.clear()
     setChatInput('')
     setReplyingTo(null)
+    setNewMsgCount(0)
+    setFirstNewMsgId(null)
   }
 
   const handleGifSelect = (gifUrl: string) => {
@@ -215,21 +273,22 @@ export default function LiveStreamPage() {
       >
         {/* Chat header */}
         <div className="shrink-0 border-b border-[var(--color-border)] px-4 py-3 flex items-center justify-between">
-          <h3 className="text-sm font-semibold text-white">Live Chat</h3>
           <div className="flex items-center gap-2">
+            <h3 className="text-sm font-semibold text-white">Live Chat</h3>
             {isLive && (
-              <span className="text-[10px] text-[var(--color-text-dim)]">
-                {chatMessages.length} messages
+              <span className="flex items-center gap-1.5">
+                <span className="h-2 w-2 rounded-full bg-green-500 shadow-[0_0_6px_rgba(34,197,94,0.6)]" />
+                <span className="text-[10px] text-[var(--color-text-dim)]">{viewerCount.toLocaleString()} watching</span>
               </span>
             )}
-            <button
-              onClick={() => setChatVisible(false)}
-              className="text-[var(--color-text-dim)] hover:text-white transition-colors"
-              title="Hide chat"
-            >
-              <PanelRightClose size={16} />
-            </button>
           </div>
+          <button
+            onClick={() => setChatVisible(false)}
+            className="text-[var(--color-text-dim)] hover:text-white transition-colors"
+            title="Hide chat"
+          >
+            <PanelRightClose size={16} />
+          </button>
         </div>
 
         {/* Chat messages */}
@@ -240,84 +299,116 @@ export default function LiveStreamPage() {
               <p className="text-sm text-[var(--color-text-dim)]">Chat will be active when the stream is live</p>
             </div>
           )}
-          {chatMessages.map(msg => (
-            <div key={msg.id} className="relative flex items-start gap-2 group">
-              {/* Hover action bar */}
-              <div className="absolute right-0 top-0 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity z-10 flex items-center gap-0.5 rounded-md border border-[var(--color-border)] bg-[var(--color-bg-card)] px-0.5 py-0.5 shadow-lg">
-                {ALLOWED_REACTIONS.map(r => (
+          {chatMessages.map(msg => {
+            const reactionEntries = Object.entries(msg.reactions)
+            return (
+              <div key={msg.id} id={`live-msg-${msg.id}`} className="relative flex items-start gap-2 group">
+                {/* Hover action bar */}
+                <div className="absolute right-0 top-0 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity z-10 flex items-center gap-0.5 rounded-md border border-[var(--color-border)] bg-[var(--color-bg-card)] px-0.5 py-0.5 shadow-lg">
+                  {ALLOWED_REACTIONS.map(r => (
+                    <button
+                      key={r.key}
+                      onClick={() => toggleReaction(msg.id, r.emoji)}
+                      className="hover:bg-[var(--color-bg-hover)] rounded px-0.5 py-0.5 text-xs transition-colors hover:scale-110"
+                      title={r.key}
+                    >
+                      {r.emoji}
+                    </button>
+                  ))}
+                  <div className="w-px h-3 bg-[var(--color-border)] mx-0.5" />
                   <button
-                    key={r.key}
-                    onClick={() => toggleReaction(msg.id, r.emoji)}
-                    className="hover:bg-[var(--color-bg-hover)] rounded px-0.5 py-0.5 text-xs transition-colors hover:scale-110"
-                    title={r.key}
+                    onClick={() => setReplyingTo(msg)}
+                    className="flex items-center gap-0.5 hover:bg-[var(--color-bg-hover)] rounded px-1 py-0.5 text-[10px] text-[var(--color-text-dim)] hover:text-white transition-colors"
                   >
-                    {r.emoji}
+                    <Reply size={10} />
                   </button>
-                ))}
-                <div className="w-px h-3 bg-[var(--color-border)] mx-0.5" />
-                <button
-                  onClick={() => setReplyingTo(msg)}
-                  className="flex items-center gap-0.5 hover:bg-[var(--color-bg-hover)] rounded px-1 py-0.5 text-[10px] text-[var(--color-text-dim)] hover:text-white transition-colors"
-                >
-                  <Reply size={10} />
-                </button>
-              </div>
+                </div>
 
-              <div className="shrink-0">
-                <Avatar name={msg.username} tier={msg.userTier} size="sm" avatarUrl={msg.userId === user?.id ? user.avatarUrl : msg.avatarUrl} />
-              </div>
-              <div className="min-w-0">
-                <span className="shrink-0 text-xs font-semibold whitespace-nowrap" style={{ color: getTierColor(msg.userTier) }}>
-                  {msg.username}
-                </span>
-                {msg.replyTo && (
-                  <div className="text-[10px] text-[var(--color-text-dim)] flex items-center gap-1">
-                    <Reply size={9} className="text-[var(--color-gold)]" />
-                    <span className="text-[var(--color-gold)]">{msg.replyTo}</span>
+                <div className="shrink-0">
+                  <Avatar name={msg.username} tier={msg.userTier} size="sm" avatarUrl={msg.userId === user?.id ? user.avatarUrl : msg.avatarUrl} />
+                </div>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="shrink-0 text-xs font-semibold whitespace-nowrap" style={{ color: getTierColor(msg.userTier) }}>
+                      {msg.username}
+                    </span>
+                    <span className="text-[10px] text-[var(--color-text-dim)]">{formatRelativeTime(msg.timestamp)}</span>
+                    {reactionEntries.length > 0 && (
+                      <div className="flex gap-0.5">
+                        {reactionEntries.map(([emoji, users]) => {
+                          const isMine = user ? users.includes(user.id) : false
+                          return (
+                            <button
+                              key={emoji}
+                              onClick={() => toggleReaction(msg.id, emoji)}
+                              className={`inline-flex items-center gap-0.5 rounded-full border px-1.5 py-0 text-[10px] transition-colors cursor-pointer hover:border-[var(--color-gold)]/50 ${
+                                isMine
+                                  ? 'border-[var(--color-gold)] bg-[var(--color-gold)]/10'
+                                  : 'border-[var(--color-border)] bg-[var(--color-bg-surface)]'
+                              }`}
+                            >
+                              {emoji} <span className={isMine ? 'text-[var(--color-gold)]' : 'text-[var(--color-text-dim)]'}>{users.length}</span>
+                            </button>
+                          )
+                        })}
+                      </div>
+                    )}
                   </div>
-                )}
-                {msg.gifUrl ? (
-                  <img src={msg.gifUrl} alt="GIF" className="mt-0.5 rounded-md max-w-[180px]" loading="lazy" />
-                ) : (
-                  <EmoteParsedMessage
-                    content={msg.content}
-                    className="text-[13px] leading-snug text-[var(--color-text)] break-words"
-                    emoteSize="sm"
-                  />
-                )}
-                {Object.entries(msg.reactions).length > 0 && (
-                  <div className="mt-0.5 flex gap-1 flex-wrap">
-                    {Object.entries(msg.reactions).map(([emoji, users]) => {
-                      const isMine = user ? users.includes(user.id) : false
-                      return (
-                        <button
-                          key={emoji}
-                          onClick={() => toggleReaction(msg.id, emoji)}
-                          className={`inline-flex items-center gap-0.5 rounded-full border px-1.5 py-0 text-[10px] transition-colors cursor-pointer hover:border-[var(--color-gold)]/50 ${
-                            isMine
-                              ? 'border-[var(--color-gold)] bg-[var(--color-gold)]/10'
-                              : 'border-[var(--color-border)] bg-[var(--color-bg-surface)]'
-                          }`}
-                        >
-                          {emoji} <span className={isMine ? 'text-[var(--color-gold)]' : 'text-[var(--color-text-dim)]'}>{users.length}</span>
-                        </button>
-                      )
-                    })}
-                  </div>
-                )}
+                  {msg.replyTo && (
+                    <div className="text-[10px] text-[var(--color-text-dim)] rounded bg-[var(--color-bg-surface)] border-l-2 border-[var(--color-gold)]/50 px-1.5 py-0.5 mt-0.5 mb-0.5">
+                      <div className="flex items-center gap-1">
+                        <Reply size={9} className="text-[var(--color-gold)]" />
+                        <span className="text-[var(--color-gold)] font-medium">Replying to {msg.replyTo}:</span>
+                      </div>
+                      {msg.replyToContent && (
+                        <p className="text-[var(--color-text-dim)] text-[9px] line-clamp-1 italic">{msg.replyToContent}</p>
+                      )}
+                    </div>
+                  )}
+                  {msg.gifUrl ? (
+                    <img src={msg.gifUrl} alt="GIF" className="mt-0.5 rounded-md max-w-[180px]" loading="lazy" />
+                  ) : (
+                    <EmoteParsedMessage
+                      content={msg.content}
+                      className="text-[13px] leading-snug text-[var(--color-text)] break-words"
+                      emoteSize="sm"
+                    />
+                  )}
+                </div>
               </div>
-            </div>
-          ))}
+            )
+          })}
+          <div ref={messagesEndRef} />
         </div>
+
+        {/* New Messages indicator */}
+        {newMsgCount > 0 && (
+          <div className="shrink-0 flex justify-center -mt-1 mb-1 relative z-20">
+            <button
+              onClick={() => firstNewMsgId ? scrollToMessage(firstNewMsgId) : scrollToBottom()}
+              className="flex items-center gap-1 rounded-full bg-[var(--color-gold)] px-3 py-1 text-[10px] font-semibold text-black shadow-lg hover:bg-[var(--color-gold)]/90 transition-colors"
+            >
+              <ChevronUp size={12} />
+              {newMsgCount === 1 ? 'New Message' : `${newMsgCount} New Messages`}
+            </button>
+          </div>
+        )}
 
         {/* Chat input */}
         <div className="shrink-0 border-t border-[var(--color-border)] p-3 relative">
           {replyingTo && (
-            <div className="mb-2 flex items-center gap-1.5 text-[10px]">
-              <Reply size={10} className="text-[var(--color-gold)]" />
-              <span className="text-[var(--color-text-dim)]">Replying to</span>
-              <span className="font-medium text-[var(--color-gold)]">{replyingTo.username}</span>
-              <button onClick={() => setReplyingTo(null)} className="ml-auto text-[var(--color-text-dim)] hover:text-white transition-colors">
+            <div className="mb-2 flex items-start gap-1.5 text-[10px] rounded bg-[var(--color-bg-surface)] border-l-2 border-[var(--color-gold)] px-2 py-1.5">
+              <Reply size={10} className="text-[var(--color-gold)] mt-0.5 shrink-0" />
+              <div className="min-w-0 flex-1">
+                <div>
+                  <span className="text-[var(--color-text-dim)]">Replying to </span>
+                  <span className="font-medium text-[var(--color-gold)]">{replyingTo.username}</span>
+                </div>
+                {replyingTo.content && (
+                  <p className="text-[9px] text-[var(--color-text-dim)] mt-0.5 line-clamp-1 italic">{replyingTo.content}</p>
+                )}
+              </div>
+              <button onClick={() => setReplyingTo(null)} className="shrink-0 text-[var(--color-text-dim)] hover:text-white transition-colors">
                 <X size={12} />
               </button>
             </div>

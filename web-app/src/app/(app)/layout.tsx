@@ -10,6 +10,9 @@ import Spinner from '@/components/ui/Spinner'
 import { useAuth } from '@/lib/auth-context'
 import { useUIStore } from '@/lib/store'
 import { useEmoteStore } from '@/lib/emote-store'
+import NotificationBell from '@/components/ui/NotificationBell'
+import { useNotificationStore } from '@/lib/notification-store'
+import { api } from '@/lib/api'
 import { cn } from '@/lib/utils'
 
 const mainNav = [
@@ -50,6 +53,16 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     const interval = setInterval(initializeEmotes, 30 * 60 * 1000)
     return () => clearInterval(interval)
   }, [initializeEmotes])
+
+  // Load notifications on mount
+  const setNotifications = useNotificationStore(s => s.setNotifications)
+  const setUnreadCount = useNotificationStore(s => s.setUnreadCount)
+  useEffect(() => {
+    api.notifications.getAll().then(({ notifications, unreadCount }) => {
+      setNotifications(notifications)
+      setUnreadCount(unreadCount)
+    })
+  }, [setNotifications, setUnreadCount])
 
   if (isLoading) {
     return (
@@ -108,6 +121,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               <Radio size={12} className={isLive ? 'animate-pulse' : ''} />
               {isLive ? 'Live' : 'Go Live'}
             </button>
+            {/* Notification bell */}
+            <NotificationBell />
             {/* Profile dropdown */}
             <div className="relative" ref={dropdownRef}>
               <button onClick={() => setDropdownOpen(!dropdownOpen)} className="flex items-center gap-2">

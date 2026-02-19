@@ -1,8 +1,9 @@
 'use client'
 
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, Suspense } from 'react'
 import Link from 'next/link'
-import { Hash, Lock, ChevronDown, ChevronRight, Send, Smile, Globe, Pin, Radio, Reply, X } from 'lucide-react'
+import { useSearchParams } from 'next/navigation'
+import { Hash, Lock, ChevronDown, ChevronRight, Send, Smile, Globe, Pin, Radio, Reply, X, ChevronUp } from 'lucide-react'
 import { useAuth } from '@/lib/auth-context'
 import { api } from '@/lib/api'
 import type { Channel, Message, Tier } from '@/lib/types'
@@ -61,6 +62,11 @@ const MOCK_USERS = [
   { id: 'usr_016', username: 'pouch_master', tier: 'high_roller' as Tier, avatarUrl: 'https://i.pravatar.cc/150?u=usr_016' },
 ]
 
+const CHANNEL_MEMBER_COUNTS: Record<string, number> = {
+  ch_001: 1247, ch_002: 892, ch_003: 643, ch_004: 312, ch_005: 87,
+  ch_006: 24, ch_007: 534, ch_008: 278, ch_009: 189, ch_010: 156, ch_011: 421,
+}
+
 const SYSTEM_MESSAGES: Message[] = [
   {
     id: 'sys_001', channelId: 'ch_001', userId: 'system', username: 'System',
@@ -88,11 +94,21 @@ const FOREIGN_MESSAGE: Message = {
   avatarUrl: 'https://i.pravatar.cc/150?u=usr_017',
 }
 
-export default function SocialPage() {
+export default function SocialPageWrapper() {
+  return (
+    <Suspense>
+      <SocialPage />
+    </Suspense>
+  )
+}
+
+function SocialPage() {
   const { user } = useAuth()
+  const searchParams = useSearchParams()
   const [channels, setChannels] = useState<Channel[]>([])
   const [messages, setMessages] = useState<Message[]>([])
-  const [activeChannel, setActiveChannel] = useState<string>('ch_001')
+  const [activeChannel, setActiveChannel] = useState<string>(searchParams.get('channel') || 'ch_001')
+  const targetMsgId = useRef<string | null>(searchParams.get('msg'))
   const [collapsedCategories, setCollapsedCategories] = useState<Set<string>>(new Set())
   const [inputText, setInputText] = useState('')
   const [loading, setLoading] = useState(true)
@@ -106,17 +122,53 @@ export default function SocialPage() {
   const [autocompleteMatches, setAutocompleteMatches] = useState<CachedEmote[]>([])
   const [inputFocused, setInputFocused] = useState(false)
   const [replyingTo, setReplyingTo] = useState<Message | null>(null)
+  const [newMsgCount, setNewMsgCount] = useState(0)
+  const [firstNewMsgId, setFirstNewMsgId] = useState<string | null>(null)
   const emoteList = useEmoteStore(s => s.emoteList)
   const emotes = useEmoteStore(s => s.emotes)
   const chatInputRef = useRef<EmoteChatInputHandle>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const chatContainerRef = useRef<HTMLDivElement>(null)
+  // Checked BEFORE each message add; the auto-scroll effect reads this
+  const shouldAutoScrollRef = useRef(true)
 
   const userTier = user?.tier || 'standard'
   const userRank = TIER_RANK[userTier]
 
+  const isNearBottom = useCallback(() => {
+    const el = chatContainerRef.current
+    if (!el) return true
+    return el.scrollHeight - el.scrollTop - el.clientHeight < 100
+  }, [])
+
   const scrollToBottom = useCallback(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+    shouldAutoScrollRef.current = true
+    setNewMsgCount(0)
+    setFirstNewMsgId(null)
+    const el = chatContainerRef.current
+    if (el) el.scrollTop = el.scrollHeight
+  }, [])
+
+  const scrollToMessage = useCallback((msgId: string) => {
+    const el = document.getElementById(`msg-${msgId}`)
+    if (el) el.scrollIntoView({ behavior: 'instant', block: 'center' })
+    shouldAutoScrollRef.current = true
+    setNewMsgCount(0)
+    setFirstNewMsgId(null)
+  }, [])
+
+  // Only used for clearing the "new messages" pill when user scrolls back to bottom
+  useEffect(() => {
+    const el = chatContainerRef.current
+    if (!el) return
+    const onScroll = () => {
+      if (el.scrollHeight - el.scrollTop - el.clientHeight < 80) {
+        setNewMsgCount(0)
+        setFirstNewMsgId(null)
+      }
+    }
+    el.addEventListener('scroll', onScroll, { passive: true })
+    return () => el.removeEventListener('scroll', onScroll)
   }, [])
 
   // Load channels
@@ -131,20 +183,47 @@ export default function SocialPage() {
   useEffect(() => {
     setMessages([])
     setTranslations({})
+    setNewMsgCount(0)
+    setFirstNewMsgId(null)
+    shouldAutoScrollRef.current = true
     translateQueue.current.clear()
   }, [activeChannel])
 
-  // Scroll on new messages
+  // Auto-scroll after DOM update — reads the flag set BEFORE the state update
   useEffect(() => {
-    scrollToBottom()
-  }, [messages, scrollToBottom])
+    if (shouldAutoScrollRef.current) {
+      const el = chatContainerRef.current
+      if (el) el.scrollTop = el.scrollHeight
+    }
+  }, [messages])
+
+  // When navigating from a notification, scroll to the referenced message
+  // once it appears in the drip-fed message list
+  useEffect(() => {
+    if (!targetMsgId.current) return
+    const found = messages.find(m => m.id === targetMsgId.current)
+    if (found) {
+      const id = targetMsgId.current
+      targetMsgId.current = null // only scroll once
+      // Wait a tick for the DOM to render the message
+      requestAnimationFrame(() => {
+        const el = document.getElementById(`msg-${id}`)
+        if (el) {
+          el.scrollIntoView({ behavior: 'instant', block: 'center' })
+          // Brief gold highlight
+          el.style.outline = '2px solid var(--color-gold)'
+          el.style.borderRadius = '8px'
+          setTimeout(() => { el.style.outline = ''; el.style.borderRadius = '' }, 2000)
+        }
+      })
+    }
+  }, [messages])
 
   // Drip-feed mock messages one by one
   const mockIndexRef = useRef(0)
   const allMockMessages = useRef<Message[]>([])
 
   useEffect(() => {
-    // Build the full mock message queue for this channel
     api.social.getMessages(activeChannel).then(({ messages: msgs }) => {
       const enriched = activeChannel === 'ch_001'
         ? [...msgs.slice(0, -2), SYSTEM_MESSAGES[0], ...msgs.slice(-2, -1), FOREIGN_MESSAGE, SYSTEM_MESSAGES[1], ...msgs.slice(-1)]
@@ -154,18 +233,19 @@ export default function SocialPage() {
     })
 
     const interval = setInterval(() => {
-      // If we still have pre-built messages to drip, use those
+      // Check scroll position BEFORE adding the message — this is the
+      // source of truth, not a scroll event handler
+      shouldAutoScrollRef.current = isNearBottom()
+
+      let newMsg: Message
       if (mockIndexRef.current < allMockMessages.current.length) {
         const msg = allMockMessages.current[mockIndexRef.current]
-        // Update timestamp to now so it feels live
-        const liveMsg = { ...msg, timestamp: new Date().toISOString() }
-        setMessages(prev => [...prev, liveMsg])
+        newMsg = { ...msg, timestamp: new Date().toISOString() }
         mockIndexRef.current++
       } else {
-        // Once exhausted, generate random new messages
         const randomUser = MOCK_USERS[Math.floor(Math.random() * MOCK_USERS.length)]
         const randomContent = RANDOM_MESSAGES[Math.floor(Math.random() * RANDOM_MESSAGES.length)]
-        const newMsg: Message = {
+        newMsg = {
           id: `msg_live_${Date.now()}`,
           channelId: activeChannel,
           userId: randomUser.id,
@@ -173,15 +253,22 @@ export default function SocialPage() {
           userTier: randomUser.tier,
           content: randomContent,
           timestamp: new Date().toISOString(),
-          reactions: Math.random() > 0.7 ? { '\uD83D\uDD25': ['usr_010'] } : {},
+          reactions: {},
           avatarUrl: randomUser.avatarUrl,
         }
-        setMessages(prev => [...prev, newMsg])
+      }
+      setMessages(prev => [...prev, newMsg])
+      // Track new messages when scrolled up
+      if (!shouldAutoScrollRef.current) {
+        setNewMsgCount(c => {
+          if (c === 0) setFirstNewMsgId(newMsg.id)
+          return c + 1
+        })
       }
     }, 3000)
 
     return () => clearInterval(interval)
-  }, [activeChannel])
+  }, [activeChannel, isNearBottom])
 
   // Cooldown timer
   useEffect(() => {
@@ -201,11 +288,16 @@ export default function SocialPage() {
     const newMsg = await api.social.sendMessage(activeChannel, text)
     if (replyingTo) {
       newMsg.replyTo = replyingTo.username
+      newMsg.replyToContent = replyingTo.content
       setReplyingTo(null)
     }
+    // Always scroll to bottom when user sends their own message
+    shouldAutoScrollRef.current = true
     setMessages(prev => [...prev, newMsg])
     chatInputRef.current?.clear()
     setInputText('')
+    setNewMsgCount(0)
+    setFirstNewMsgId(null)
 
     if (userTier === 'standard') {
       setCooldownActive(true)
@@ -342,6 +434,7 @@ export default function SocialPage() {
 
   const currentChannel = channels.find(c => c.id === activeChannel)
   const charCount = inputText.length
+  const onlineCount = CHANNEL_MEMBER_COUNTS[activeChannel] || 0
 
   if (loading) {
     return (
@@ -420,6 +513,10 @@ export default function SocialPage() {
           <div className="flex items-center gap-2">
             <Hash size={18} className="text-[var(--color-text-dim)]" />
             <h3 className="font-semibold text-white">{currentChannel?.name || 'General Chat'}</h3>
+            <span className="flex items-center gap-1.5 ml-2">
+              <span className="h-2 w-2 rounded-full bg-green-500 shadow-[0_0_6px_rgba(34,197,94,0.6)]" />
+              <span className="text-xs text-[var(--color-text-dim)]">{onlineCount.toLocaleString()} online</span>
+            </span>
           </div>
           <p className="text-xs text-[var(--color-text-dim)] mt-0.5 ml-7">
             {currentChannel?.description || ''}
@@ -438,11 +535,11 @@ export default function SocialPage() {
         )}
 
         {/* Messages Feed */}
-        <div ref={chatContainerRef} className="flex-1 overflow-y-auto px-4 py-4 space-y-1">
+        <div ref={chatContainerRef} className="flex-1 overflow-y-auto px-4 py-4 space-y-1 relative">
           {messages.map((msg, i) => {
             if (msg.isSystem) {
               return (
-                <div key={msg.id} className="flex justify-center py-2">
+                <div key={msg.id} id={`msg-${msg.id}`} className="flex justify-center py-2">
                   <span className="rounded-full bg-[var(--color-bg-surface)] px-4 py-1 text-xs text-[var(--color-text-dim)]">
                     {msg.content}
                   </span>
@@ -458,6 +555,7 @@ export default function SocialPage() {
             return (
               <div
                 key={msg.id}
+                id={`msg-${msg.id}`}
                 className={`group relative flex gap-3 rounded-lg px-2 py-0.5 hover:bg-[var(--color-bg-surface)] ${showHeader ? 'mt-3' : ''}`}
               >
                 {/* Hover action bar */}
@@ -498,13 +596,60 @@ export default function SocialPage() {
                       <span className="text-xs text-[var(--color-text-dim)]">
                         {formatRelativeTime(msg.timestamp)}
                       </span>
+                      {reactionEntries.length > 0 && (
+                        <div className="flex gap-1 ml-1">
+                          {reactionEntries.map(([emoji, users]) => {
+                            const isMine = user ? users.includes(user.id) : false
+                            return (
+                              <button
+                                key={emoji}
+                                onClick={() => toggleReaction(msg.id, emoji)}
+                                className={`inline-flex items-center gap-0.5 rounded-full border px-1.5 py-0 text-[11px] transition-colors cursor-pointer hover:border-[var(--color-gold)]/50 ${
+                                  isMine
+                                    ? 'border-[var(--color-gold)] bg-[var(--color-gold)]/10'
+                                    : 'border-[var(--color-border)] bg-[var(--color-bg-surface)]'
+                                }`}
+                              >
+                                {emoji} <span className={isMine ? 'text-[var(--color-gold)]' : 'text-[var(--color-text-dim)]'}>{users.length}</span>
+                              </button>
+                            )
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Show reactions inline for non-header messages */}
+                  {!showHeader && reactionEntries.length > 0 && (
+                    <div className="flex gap-1 mb-0.5">
+                      {reactionEntries.map(([emoji, users]) => {
+                        const isMine = user ? users.includes(user.id) : false
+                        return (
+                          <button
+                            key={emoji}
+                            onClick={() => toggleReaction(msg.id, emoji)}
+                            className={`inline-flex items-center gap-0.5 rounded-full border px-1.5 py-0 text-[11px] transition-colors cursor-pointer hover:border-[var(--color-gold)]/50 ${
+                              isMine
+                                ? 'border-[var(--color-gold)] bg-[var(--color-gold)]/10'
+                                : 'border-[var(--color-border)] bg-[var(--color-bg-surface)]'
+                            }`}
+                          >
+                            {emoji} <span className={isMine ? 'text-[var(--color-gold)]' : 'text-[var(--color-text-dim)]'}>{users.length}</span>
+                          </button>
+                        )
+                      })}
                     </div>
                   )}
 
                   {msg.replyTo && (
-                    <div className="text-xs text-[var(--color-text-dim)] mb-1 flex items-center gap-1">
-                      <span className="inline-block h-3 w-3 rounded-full border-l-2 border-t-2 border-[var(--color-text-dim)]" />
-                      Replying to <span className="text-[var(--color-gold)]">{msg.replyTo}</span>
+                    <div className="text-xs text-[var(--color-text-dim)] mb-1 rounded-md bg-[var(--color-bg-surface)] border-l-2 border-[var(--color-gold)]/50 px-2 py-1">
+                      <div className="flex items-center gap-1 mb-0.5">
+                        <Reply size={10} className="text-[var(--color-gold)]" />
+                        <span className="text-[var(--color-gold)] font-medium">Replying to {msg.replyTo}:</span>
+                      </div>
+                      {msg.replyToContent && (
+                        <p className="text-[var(--color-text-dim)] text-[11px] line-clamp-2 italic">{msg.replyToContent}</p>
+                      )}
                     </div>
                   )}
 
@@ -543,27 +688,6 @@ export default function SocialPage() {
                       <Globe size={12} className="animate-spin" /> Translating...
                     </p>
                   )}
-
-                  {reactionEntries.length > 0 && (
-                    <div className="mt-1 flex gap-1.5 flex-wrap">
-                      {reactionEntries.map(([emoji, users]) => {
-                        const isMine = user ? users.includes(user.id) : false
-                        return (
-                          <button
-                            key={emoji}
-                            onClick={() => toggleReaction(msg.id, emoji)}
-                            className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs transition-colors cursor-pointer hover:border-[var(--color-gold)]/50 ${
-                              isMine
-                                ? 'border-[var(--color-gold)] bg-[var(--color-gold)]/10'
-                                : 'border-[var(--color-border)] bg-[var(--color-bg-surface)]'
-                            }`}
-                          >
-                            {emoji} <span className={isMine ? 'text-[var(--color-gold)]' : 'text-[var(--color-text-dim)]'}>{users.length}</span>
-                          </button>
-                        )
-                      })}
-                    </div>
-                  )}
                 </div>
               </div>
             )
@@ -571,14 +695,32 @@ export default function SocialPage() {
           <div ref={messagesEndRef} />
         </div>
 
+        {/* New Messages indicator */}
+        {newMsgCount > 0 && (
+          <div className="shrink-0 flex justify-center -mt-2 mb-1 relative z-20">
+            <button
+              onClick={() => firstNewMsgId ? scrollToMessage(firstNewMsgId) : scrollToBottom()}
+              className="flex items-center gap-1.5 rounded-full bg-[var(--color-gold)] px-4 py-1.5 text-xs font-semibold text-black shadow-lg hover:bg-[var(--color-gold)]/90 transition-colors"
+            >
+              <ChevronUp size={14} />
+              {newMsgCount === 1 ? 'New Message' : `${newMsgCount} New Messages`}
+            </button>
+          </div>
+        )}
+
         {/* Message Composer */}
         <div className="shrink-0 border-t border-[var(--color-border)] px-4 py-3">
           {replyingTo && (
-            <div className="mb-2 flex items-center gap-2 text-xs">
-              <Reply size={12} className="text-[var(--color-gold)]" />
-              <span className="text-[var(--color-text-dim)]">Replying to</span>
-              <span className="font-medium text-[var(--color-gold)]">{replyingTo.username}</span>
-              <button onClick={() => setReplyingTo(null)} className="ml-auto text-[var(--color-text-dim)] hover:text-white transition-colors">
+            <div className="mb-2 flex items-start gap-2 text-xs rounded-md bg-[var(--color-bg-surface)] border-l-2 border-[var(--color-gold)] px-3 py-2">
+              <Reply size={12} className="text-[var(--color-gold)] mt-0.5 shrink-0" />
+              <div className="min-w-0 flex-1">
+                <span className="text-[var(--color-text-dim)]">Replying to </span>
+                <span className="font-medium text-[var(--color-gold)]">{replyingTo.username}</span>
+                {replyingTo.content && (
+                  <p className="text-[11px] text-[var(--color-text-dim)] mt-0.5 line-clamp-1 italic">{replyingTo.content}</p>
+                )}
+              </div>
+              <button onClick={() => setReplyingTo(null)} className="shrink-0 text-[var(--color-text-dim)] hover:text-white transition-colors">
                 <X size={14} />
               </button>
             </div>
