@@ -1,12 +1,22 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Plus, Download, Trash2, Copy, Check, Filter } from 'lucide-react'
+import { Plus, Download, Trash2, Copy, Check, Filter, Package, RefreshCw } from 'lucide-react'
 import toast from 'react-hot-toast'
 import Badge from '../components/Badge'
 import LoadingSpinner from '../components/LoadingSpinner'
 import EmptyState from '../components/EmptyState'
 import Modal from '../components/Modal'
 import ConfirmDialog from '../components/ConfirmDialog'
-import { listQRCodes, generateBatch, invalidateCodes, PRODUCTS } from '../api/qrCodes'
+import {
+  listQRCodes,
+  generateBatch,
+  invalidateCodes,
+  generateBatchFull,
+  listBatches,
+  exportBatchCSV,
+  saveBatchMeta,
+  PRODUCTS,
+} from '../api/qrCodes'
+import type { QRBatch } from '../api/qrCodes'
 import { formatDate, formatDateTime } from '../utils/formatters'
 import type { QRCode } from '../types'
 
@@ -19,7 +29,7 @@ export default function QRCodes() {
   const [loading, setLoading] = useState(true)
   const [selected, setSelected] = useState<Set<string>>(new Set())
 
-  // Generate modal
+  // Generate modal (existing simple modal — kept intact)
   const [genOpen, setGenOpen] = useState(false)
   const [genProduct, setGenProduct] = useState(PRODUCTS[0].id)
   const [genQty, setGenQty] = useState('100')
@@ -31,6 +41,20 @@ export default function QRCodes() {
   // Copied code tracking
   const [copiedId, setCopiedId] = useState<string | null>(null)
 
+  // ── New: Batch Generate form state ────────────────────────────────────────
+  const [batchName, setBatchName] = useState('')
+  const [batchProduct, setBatchProduct] = useState(PRODUCTS[0].id)
+  const [batchQty, setBatchQty] = useState('100')
+  const [batchManufacturer, setBatchManufacturer] = useState('')
+  const [batchNotes, setBatchNotes] = useState('')
+  const [batchGenerating, setBatchGenerating] = useState(false)
+  const [lastBatchResult, setLastBatchResult] = useState<{ batch_id: string; count: number } | null>(null)
+
+  // ── New: Batch History state ───────────────────────────────────────────────
+  const [batches, setBatches] = useState<QRBatch[]>([])
+  const [batchesLoading, setBatchesLoading] = useState(false)
+  const [exportingBatchId, setExportingBatchId] = useState<string | null>(null)
+
   const fetchCodes = useCallback(async () => {
     setLoading(true)
     const res = await listQRCodes(page, productFilter || undefined, statusFilter || undefined)
@@ -41,8 +65,23 @@ export default function QRCodes() {
 
   useEffect(() => { fetchCodes() }, [fetchCodes])
 
+  const fetchBatches = useCallback(async () => {
+    setBatchesLoading(true)
+    try {
+      const result = await listBatches()
+      setBatches(result)
+    } catch {
+      toast.error('Failed to load batch history')
+    } finally {
+      setBatchesLoading(false)
+    }
+  }, [])
+
+  useEffect(() => { fetchBatches() }, [fetchBatches])
+
   const totalPages = Math.ceil(total / 50)
 
+  // ── Existing generate handler (used by the simple modal) ──────────────────
   const handleGenerate = async () => {
     setGenerating(true)
     try {
@@ -104,9 +143,74 @@ export default function QRCodes() {
     else setSelected(new Set(codes.map(c => c.id)))
   }
 
+  // ── New: Full batch generate handler ──────────────────────────────────────
+  const handleBatchGenerate = async () => {
+    const qty = parseInt(batchQty)
+    if (!batchName.trim()) {
+      toast.error('Batch name is required')
+      return
+    }
+    if (isNaN(qty) || qty < 1 || qty > 10000) {
+      toast.error('Code count must be between 1 and 10,000')
+      return
+    }
+
+    setBatchGenerating(true)
+    setLastBatchResult(null)
+    try {
+      const selectedProduct = PRODUCTS.find(p => p.id === batchProduct)
+      const result = await generateBatchFull({
+        product_id: batchProduct,
+        quantity: qty,
+        batch_name: batchName.trim(),
+        manufacturer_name: batchManufacturer.trim(),
+        notes: batchNotes.trim(),
+      })
+
+      // Persist metadata client-side so listBatches() can enrich history rows
+      saveBatchMeta(result.batch_id, {
+        batch_name: batchName.trim(),
+        product_id: batchProduct,
+        product_name: selectedProduct?.name ?? batchProduct,
+        manufacturer_name: batchManufacturer.trim(),
+        notes: batchNotes.trim(),
+      })
+
+      setLastBatchResult({ batch_id: result.batch_id, count: result.count })
+      toast.success(`Generated ${result.count} QR codes`)
+
+      // Reset form fields (keep product selection for convenience)
+      setBatchName('')
+      setBatchManufacturer('')
+      setBatchNotes('')
+      setBatchQty('100')
+
+      // Refresh the code list and batch history
+      fetchCodes()
+      fetchBatches()
+    } catch {
+      toast.error('Failed to generate batch')
+    } finally {
+      setBatchGenerating(false)
+    }
+  }
+
+  // ── New: Per-row batch CSV export ─────────────────────────────────────────
+  const handleBatchExport = async (batch: QRBatch) => {
+    setExportingBatchId(batch.batch_id)
+    try {
+      await exportBatchCSV(batch)
+      toast.success(`Exported ${batch.total_count} codes for "${batch.batch_name}"`)
+    } catch {
+      toast.error('Export failed')
+    } finally {
+      setExportingBatchId(null)
+    }
+  }
+
   return (
-    <div className="space-y-4">
-      {/* Toolbar */}
+    <div className="space-y-8">
+      {/* ── Toolbar ─────────────────────────────────────────────────────────── */}
       <div className="flex flex-wrap items-center gap-3">
         <button
           onClick={() => setGenOpen(true)}
@@ -155,7 +259,7 @@ export default function QRCodes() {
 
       <p className="text-sm text-slate-500">{total} QR code{total !== 1 ? 's' : ''} found</p>
 
-      {/* Table */}
+      {/* ── Code Table ──────────────────────────────────────────────────────── */}
       {loading ? (
         <div className="flex items-center justify-center py-16"><LoadingSpinner /></div>
       ) : codes.length === 0 ? (
@@ -240,7 +344,204 @@ export default function QRCodes() {
         </div>
       )}
 
-      {/* Generate Modal */}
+      {/* ════════════════════════════════════════════════════════════════════════
+          Section 1: Generate New Batch (full form)
+      ════════════════════════════════════════════════════════════════════════ */}
+      <div className="rounded-xl bg-white shadow-sm">
+        <div className="flex items-center gap-2 border-b border-slate-100 px-6 py-4">
+          <Package size={18} className="text-indigo-500" />
+          <h2 className="text-base font-semibold text-slate-800">Generate New Batch</h2>
+        </div>
+
+        <div className="p-6">
+          {/* Success banner */}
+          {lastBatchResult && (
+            <div className="mb-5 flex items-start gap-3 rounded-lg bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+              <Check size={16} className="mt-0.5 shrink-0 text-emerald-600" />
+              <span>
+                Successfully generated <strong>{lastBatchResult.count}</strong> QR codes.
+                Batch ID: <code className="font-mono text-xs">{lastBatchResult.batch_id}</code>
+              </span>
+            </div>
+          )}
+
+          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+            {/* Batch Name */}
+            <div>
+              <label className="mb-1 block text-sm font-medium text-slate-700">
+                Batch Name <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="text"
+                value={batchName}
+                onChange={(e) => setBatchName(e.target.value)}
+                placeholder="e.g. Summer 2026 Drop"
+                className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+              />
+            </div>
+
+            {/* Code Count */}
+            <div>
+              <label className="mb-1 block text-sm font-medium text-slate-700">
+                Code Count <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="number"
+                value={batchQty}
+                onChange={(e) => setBatchQty(e.target.value)}
+                min="1"
+                max="10000"
+                placeholder="100"
+                className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+              />
+              <p className="mt-1 text-xs text-slate-400">1 – 10,000 codes per batch</p>
+            </div>
+
+            {/* Product */}
+            <div>
+              <label className="mb-1 block text-sm font-medium text-slate-700">Product</label>
+              <select
+                value={batchProduct}
+                onChange={(e) => setBatchProduct(e.target.value)}
+                className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+              >
+                {PRODUCTS.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+              </select>
+            </div>
+
+            {/* Manufacturer */}
+            <div>
+              <label className="mb-1 block text-sm font-medium text-slate-700">Manufacturer Name</label>
+              <input
+                type="text"
+                value={batchManufacturer}
+                onChange={(e) => setBatchManufacturer(e.target.value)}
+                placeholder="e.g. Acme Printing Co."
+                className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+              />
+            </div>
+
+            {/* Notes — full width */}
+            <div className="sm:col-span-2">
+              <label className="mb-1 block text-sm font-medium text-slate-700">Notes <span className="text-slate-400 font-normal">(optional)</span></label>
+              <textarea
+                value={batchNotes}
+                onChange={(e) => setBatchNotes(e.target.value)}
+                rows={3}
+                placeholder="Any relevant notes about this batch..."
+                className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 resize-none"
+              />
+            </div>
+          </div>
+
+          <div className="mt-5 flex justify-end">
+            <button
+              onClick={handleBatchGenerate}
+              disabled={batchGenerating || !batchName.trim() || !batchQty || parseInt(batchQty) < 1}
+              className="flex items-center gap-2 rounded-lg bg-indigo-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-40"
+            >
+              {batchGenerating
+                ? <><LoadingSpinner className="h-4 w-4" /> Generating...</>
+                : <><Plus size={16} /> Generate</>
+              }
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* ════════════════════════════════════════════════════════════════════════
+          Section 2: Batch History
+      ════════════════════════════════════════════════════════════════════════ */}
+      <div className="rounded-xl bg-white shadow-sm">
+        <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4">
+          <div className="flex items-center gap-2">
+            <RefreshCw size={18} className="text-indigo-500" />
+            <h2 className="text-base font-semibold text-slate-800">Batch History</h2>
+          </div>
+          <button
+            onClick={fetchBatches}
+            disabled={batchesLoading}
+            className="flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-40"
+          >
+            <RefreshCw size={13} className={batchesLoading ? 'animate-spin' : ''} />
+            Refresh
+          </button>
+        </div>
+
+        {batchesLoading ? (
+          <div className="flex items-center justify-center py-12">
+            <LoadingSpinner />
+          </div>
+        ) : batches.length === 0 ? (
+          <div className="px-6 py-12">
+            <EmptyState title="No batches yet" message="Generated batches will appear here." />
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm">
+              <thead>
+                <tr className="border-b border-slate-100 bg-slate-50">
+                  <th className="px-5 py-3 font-medium text-slate-600">Batch Name</th>
+                  <th className="px-5 py-3 font-medium text-slate-600">Product</th>
+                  <th className="px-5 py-3 font-medium text-slate-600 text-right">Total</th>
+                  <th className="px-5 py-3 font-medium text-slate-600 text-right">Scanned</th>
+                  <th className="px-5 py-3 font-medium text-slate-600 text-right">Remaining</th>
+                  <th className="px-5 py-3 font-medium text-slate-600">Date Generated</th>
+                  <th className="px-5 py-3 font-medium text-slate-600">Manufacturer</th>
+                  <th className="px-5 py-3 font-medium text-slate-600">Notes</th>
+                  <th className="px-5 py-3 font-medium text-slate-600 text-center">Export</th>
+                </tr>
+              </thead>
+              <tbody>
+                {batches.map(batch => (
+                  <tr key={batch.batch_id} className="border-b border-slate-50 hover:bg-slate-50">
+                    <td className="px-5 py-3">
+                      <span className="font-medium text-slate-800">{batch.batch_name}</span>
+                      <span className="ml-2 font-mono text-xs text-slate-400">{batch.batch_id}</span>
+                    </td>
+                    <td className="px-5 py-3 text-slate-700">{batch.product_name}</td>
+                    <td className="px-5 py-3 text-right font-mono text-slate-700">{batch.total_count.toLocaleString()}</td>
+                    <td className="px-5 py-3 text-right">
+                      <span className={`font-mono ${batch.scanned_count > 0 ? 'text-amber-600' : 'text-slate-400'}`}>
+                        {batch.scanned_count.toLocaleString()}
+                      </span>
+                    </td>
+                    <td className="px-5 py-3 text-right">
+                      <span className={`font-mono ${batch.remaining_count > 0 ? 'text-emerald-600' : 'text-slate-400'}`}>
+                        {batch.remaining_count.toLocaleString()}
+                      </span>
+                    </td>
+                    <td className="px-5 py-3 text-slate-500">{formatDate(batch.created_at)}</td>
+                    <td className="px-5 py-3 text-slate-500">{batch.manufacturer_name || '-'}</td>
+                    <td className="px-5 py-3 max-w-xs">
+                      {batch.notes
+                        ? <span className="truncate text-slate-500" title={batch.notes}>{batch.notes}</span>
+                        : <span className="text-slate-300">-</span>
+                      }
+                    </td>
+                    <td className="px-5 py-3 text-center">
+                      <button
+                        onClick={() => handleBatchExport(batch)}
+                        disabled={exportingBatchId === batch.batch_id}
+                        title={`Export batch "${batch.batch_name}" as CSV`}
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50 hover:border-slate-300 disabled:opacity-40"
+                      >
+                        {exportingBatchId === batch.batch_id
+                          ? <LoadingSpinner className="h-3 w-3" />
+                          : <Download size={13} />
+                        }
+                        CSV
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {/* ── Generate Modal (original simple modal — kept intact) ─────────────── */}
       <Modal open={genOpen} onClose={() => setGenOpen(false)} title="Generate QR Code Batch">
         <div className="space-y-4">
           <div>
@@ -278,7 +579,7 @@ export default function QRCodes() {
         </div>
       </Modal>
 
-      {/* Invalidate Confirm */}
+      {/* ── Invalidate Confirm ───────────────────────────────────────────────── */}
       <ConfirmDialog
         open={invalidateOpen}
         onClose={() => setInvalidateOpen(false)}

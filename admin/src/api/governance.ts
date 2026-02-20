@@ -40,6 +40,17 @@ const MOCK_PROPOSALS: Proposal[] = [
   { id: 'prop-008', user_id: 'u-008', user_name: NAMES[7], user_email: 'whale8@example.com', title: 'Exclusive Whale Merch', description: 'Create an exclusive merchandise line only available to Whale tier members: branded jackets, hats, and accessories.', proposed_vote_type: 'product', proposed_options: [{ id: 'yes', label: 'Yes, launch merch' }, { id: 'no', label: 'No, focus on core products' }], status: 'rejected', admin_notes: 'Not in our current roadmap. Will reconsider in Q4.', created_at: new Date(Date.now() - 25 * 86400000).toISOString() },
 ]
 
+/** GET /admin/governance/votes — returns all votes regardless of status (admin view). */
+export async function getAllVotes(): Promise<Vote[]> {
+  try {
+    const { data } = await client.get('/admin/governance/votes')
+    return data
+  } catch {
+    return [...MOCK_VOTES]
+  }
+}
+
+/** GET /admin/governance/votes — filtered list used by the votes tab. */
 export async function getVotes(
   status?: string,
   voteType?: string,
@@ -58,6 +69,7 @@ export async function getVotes(
   }
 }
 
+/** GET /admin/governance/votes/{voteId}/results */
 export async function getVoteResults(voteId: string): Promise<VoteResult[]> {
   try {
     const { data } = await client.get(`/admin/governance/votes/${voteId}/results`)
@@ -67,23 +79,37 @@ export async function getVoteResults(voteId: string): Promise<VoteResult[]> {
   }
 }
 
+/**
+ * POST /admin/governance/votes
+ * Creates a new vote. Pass either durationDays or endDate (ISO string); endDate takes precedence.
+ */
 export async function createVote(
   title: string,
   description: string,
   voteType: string,
   options: VoteOption[],
-  durationDays = 7
+  durationDays = 7,
+  endDate?: string,
 ): Promise<Vote> {
+  // Compute duration from explicit end date if provided
+  const computedDuration = endDate
+    ? Math.max(1, Math.round((new Date(endDate).getTime() - Date.now()) / 86400000))
+    : durationDays
+
   try {
-    const { data } = await client.post('/admin/governance/votes', {
+    const body: Record<string, unknown> = {
       title,
       description,
       vote_type: voteType,
       options,
-      duration_days: durationDays,
-    })
+      duration_days: computedDuration,
+    }
+    const { data } = await client.post('/admin/governance/votes', body)
     return data
   } catch {
+    const resolvedEndDate = endDate
+      ? new Date(endDate).toISOString()
+      : new Date(Date.now() + durationDays * 86400000).toISOString()
     return {
       id: `v-new-${Date.now()}`,
       title,
@@ -93,7 +119,7 @@ export async function createVote(
       min_tier_required: voteType === 'corporate' ? 'Whale' : voteType === 'flavor' ? 'VIP' : 'High Roller',
       status: 'active',
       start_date: new Date().toISOString(),
-      end_date: new Date(Date.now() + durationDays * 86400000).toISOString(),
+      end_date: resolvedEndDate,
       created_by: 'Admin',
       total_ballots: 0,
       created_at: new Date().toISOString(),
@@ -101,12 +127,14 @@ export async function createVote(
   }
 }
 
+/** PUT /admin/governance/votes/{voteId}/close */
 export async function closeVote(voteId: string): Promise<void> {
   try {
     await client.put(`/admin/governance/votes/${voteId}/close`)
   } catch { /* mock success */ }
 }
 
+/** GET /admin/governance/proposals */
 export async function getProposals(status?: string): Promise<Proposal[]> {
   try {
     const params: Record<string, string> = {}
@@ -120,6 +148,7 @@ export async function getProposals(status?: string): Promise<Proposal[]> {
   }
 }
 
+/** PUT /admin/governance/proposals/{proposalId}/review */
 export async function reviewProposal(
   proposalId: string,
   action: 'approve' | 'reject' | 'changes_requested',

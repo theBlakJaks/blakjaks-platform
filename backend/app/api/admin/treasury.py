@@ -1,5 +1,6 @@
 """Admin treasury bridge endpoints — admin-only, requires 2FA confirmation header."""
 
+from datetime import datetime, timezone
 from decimal import Decimal
 
 from fastapi import APIRouter, Depends, Header, HTTPException, status
@@ -10,6 +11,7 @@ from app.api.deps import get_current_user, get_db
 from app.models.audit_log import AuditLog
 from app.models.user import User
 from app.services.stargate_service import execute_bridge, get_bridge_quote, get_bridge_status
+from app.services.teller_service import get_last_sync_status, sync_all_balances
 
 router = APIRouter(prefix="/admin/treasury", tags=["admin-treasury"])
 
@@ -123,3 +125,34 @@ async def bridge_status(
 ):
     """Poll LayerZero for the status of a bridge transaction."""
     return get_bridge_status(tx_hash)
+
+
+# ---------------------------------------------------------------------------
+# Teller Bank Account Endpoints
+# ---------------------------------------------------------------------------
+
+
+@router.get("/teller")
+async def get_teller_accounts(
+    admin: User = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    """Return current Teller bank account balances and sync status for all accounts."""
+    accounts = await get_last_sync_status(db)
+    return accounts
+
+
+@router.post("/teller-sync")
+async def trigger_teller_sync(
+    admin: User = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    """Manually trigger a Teller balance sync for all bank accounts."""
+    try:
+        await sync_all_balances(db)
+        return {"success": True, "synced_at": datetime.now(timezone.utc).isoformat()}
+    except Exception as exc:
+        raise HTTPException(
+            status.HTTP_503_SERVICE_UNAVAILABLE,
+            f"Teller sync failed: {exc}",
+        )

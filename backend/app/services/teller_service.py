@@ -168,6 +168,7 @@ async def get_last_sync_status(db: AsyncSession) -> list[dict]:
             "last_synced_at": a.last_synced_at.isoformat() if a.last_synced_at else None,
             "sync_status": a.sync_status,
             "institution_name": a.institution_name,
+            "last_four": a.last_four,
         }
         for a in accounts
     ]

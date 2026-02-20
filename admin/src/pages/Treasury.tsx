@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Copy, Check, ExternalLink, ArrowUpRight, ArrowDownLeft, Filter, Send } from 'lucide-react'
+import { Copy, Check, ExternalLink, ArrowUpRight, ArrowDownLeft, Filter, Send, RefreshCw, Building2, Link as LinkIcon } from 'lucide-react'
 import toast from 'react-hot-toast'
 import LoadingSpinner from '../components/LoadingSpinner'
 import EmptyState from '../components/EmptyState'
 import Modal from '../components/Modal'
-import { getPoolBalances, getTransactionHistory, sendFromPool } from '../api/treasury'
+import { getPoolBalances, getTransactionHistory, sendFromPool, getTellerBankAccounts, triggerTellerSync } from '../api/treasury'
+import type { TellerBankAccount } from '../api/treasury'
 import { formatCurrency, formatDateTime, truncateAddress, getPolygonscanUrl, isValidPolygonAddress } from '../utils/formatters'
 import { POOL_COLORS } from '../utils/constants'
 import type { PoolBalance, TreasuryTransaction } from '../types'
@@ -43,8 +44,51 @@ export default function Treasury() {
   const [confirmText, setConfirmText] = useState('')
   const [sending, setSending] = useState(false)
 
+  // Bank accounts (Teller)
+  const [bankAccounts, setBankAccounts] = useState<TellerBankAccount[]>([])
+  const [bankLoading, setBankLoading] = useState(true)
+  const [bankError, setBankError] = useState(false)
+  const [syncing, setSyncing] = useState(false)
+  const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null)
+
   // Copy tracking
   const [copiedAddr, setCopiedAddr] = useState<string | null>(null)
+
+  const fetchBankAccounts = useCallback(async () => {
+    setBankLoading(true)
+    setBankError(false)
+    try {
+      const data = await getTellerBankAccounts()
+      setBankAccounts(data)
+      if (data.length > 0) {
+        const latestSync = data
+          .map(a => a.last_synced_at)
+          .filter((d): d is string => d !== null)
+          .sort()
+          .at(-1) ?? null
+        setLastSyncedAt(latestSync)
+      }
+    } catch {
+      setBankError(true)
+      setBankAccounts([])
+    } finally {
+      setBankLoading(false)
+    }
+  }, [])
+
+  const handleReSyncNow = async () => {
+    setSyncing(true)
+    try {
+      const res = await triggerTellerSync()
+      setLastSyncedAt(res.synced_at)
+      toast.success('Bank accounts re-synced successfully')
+      await fetchBankAccounts()
+    } catch {
+      toast.error('Teller sync failed. Please try again.')
+    } finally {
+      setSyncing(false)
+    }
+  }
 
   const fetchPools = useCallback(async () => {
     setPoolsLoading(true)
@@ -63,6 +107,7 @@ export default function Treasury() {
 
   useEffect(() => { fetchPools() }, [fetchPools])
   useEffect(() => { fetchTxns() }, [fetchTxns])
+  useEffect(() => { fetchBankAccounts() }, [fetchBankAccounts])
 
   const openSend = (poolName: string) => {
     setSendPool(poolName)
@@ -269,6 +314,85 @@ export default function Treasury() {
                 </div>
               </div>
             )}
+          </div>
+        )}
+      </div>
+
+      {/* Bank Accounts (Teller) */}
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="text-sm font-semibold text-slate-700">Bank Accounts</h3>
+            {lastSyncedAt && (
+              <p className="mt-0.5 text-xs text-slate-400">Last synced: {formatDateTime(lastSyncedAt)}</p>
+            )}
+          </div>
+          <button
+            onClick={handleReSyncNow}
+            disabled={syncing || bankLoading}
+            className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-40"
+          >
+            <RefreshCw size={14} className={syncing ? 'animate-spin' : ''} />
+            {syncing ? 'Syncing…' : 'Re-sync Now'}
+          </button>
+        </div>
+
+        {bankLoading ? (
+          <div className="flex items-center justify-center py-16"><LoadingSpinner /></div>
+        ) : (bankError || bankAccounts.length === 0) ? (
+          <div className="rounded-xl border-2 border-dashed border-slate-200 bg-white p-10 text-center">
+            <Building2 size={36} className="mx-auto mb-3 text-slate-300" />
+            <p className="mb-1 text-sm font-semibold text-slate-600">Bank accounts not connected</p>
+            <p className="mb-4 text-xs text-slate-400">Link your operating, reserve, and comp pool accounts via Teller to see live balances here.</p>
+            <button
+              disabled
+              className="inline-flex items-center gap-2 rounded-lg bg-slate-100 px-4 py-2 text-sm font-medium text-slate-400 cursor-not-allowed"
+            >
+              <LinkIcon size={14} />
+              Connect via Teller
+            </button>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+            {bankAccounts.map(account => (
+              <div key={account.account_type} className="rounded-xl border-2 border-emerald-200 bg-white p-6 shadow-sm">
+                <div className="mb-3 flex items-start justify-between">
+                  <div>
+                    <p className="text-xs font-medium uppercase tracking-wide text-slate-400">{account.name}</p>
+                    <p className="mt-0.5 text-sm font-semibold text-slate-700">
+                      {account.institution_name ?? 'Unknown Institution'}
+                    </p>
+                  </div>
+                  <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
+                    account.sync_status === 'ok'
+                      ? 'bg-emerald-100 text-emerald-700'
+                      : account.sync_status === 'unconfigured'
+                      ? 'bg-slate-100 text-slate-500'
+                      : 'bg-red-100 text-red-600'
+                  }`}>
+                    {account.sync_status}
+                  </span>
+                </div>
+
+                <p className="mb-4 font-mono text-xs text-slate-400">
+                  {account.last_four ? `•••• •••• •••• ${account.last_four}` : 'Account # not on file'}
+                </p>
+
+                <div className="mb-3">
+                  <p className="text-xs text-slate-500">Balance</p>
+                  <p className="text-2xl font-bold text-slate-900">
+                    {formatCurrency(account.balance)}
+                    <span className="ml-1.5 text-sm font-normal text-slate-400">{account.currency}</span>
+                  </p>
+                </div>
+
+                <p className="text-xs text-slate-400">
+                  {account.last_synced_at
+                    ? `Synced ${formatDateTime(account.last_synced_at)}`
+                    : 'Never synced'}
+                </p>
+              </div>
+            ))}
           </div>
         )}
       </div>

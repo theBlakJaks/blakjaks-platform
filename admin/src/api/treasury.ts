@@ -78,3 +78,24 @@ export async function sendFromPool(
     return { tx_hash: `0x${Math.random().toString(16).slice(2, 14)}${Math.random().toString(16).slice(2, 14)}${Math.random().toString(16).slice(2, 14)}` }
   }
 }
+
+export interface TellerBankAccount {
+  name: string
+  account_type: string
+  balance: number
+  currency: string
+  last_synced_at: string | null
+  sync_status: string
+  institution_name: string | null
+  last_four: string | null
+}
+
+export async function getTellerBankAccounts(): Promise<TellerBankAccount[]> {
+  const { data } = await client.get('/admin/treasury/teller')
+  return data
+}
+
+export async function triggerTellerSync(): Promise<{ success: boolean; synced_at: string }> {
+  const { data } = await client.post('/admin/treasury/teller-sync')
+  return data
+}

@@ -10,6 +10,9 @@ import {
   Wallet,
   BarChart3,
   Settings,
+  Activity,
+  Radio,
+  Building2,
 } from 'lucide-react'
 
 export const NAV_ITEMS = [
@@ -18,10 +21,13 @@ export const NAV_ITEMS = [
   { label: 'QR Codes', path: '/qr-codes', icon: QrCode },
   { label: 'Orders', path: '/orders', icon: ShoppingCart },
   { label: 'Comps', path: '/comps', icon: Gift },
+  { label: 'Wholesale', path: '/wholesale', icon: Building2 },
+  { label: 'Live Streams', path: '/live-streams', icon: Radio },
   { label: 'Affiliates', path: '/affiliates', icon: Network },
   { label: 'Social Hub', path: '/social', icon: MessageSquare },
   { label: 'Governance', path: '/governance', icon: Vote },
   { label: 'Treasury', path: '/treasury', icon: Wallet },
+  { label: 'Insights', path: '/insights', icon: Activity },
   { label: 'Analytics', path: '/analytics', icon: BarChart3 },
   { label: 'Settings', path: '/settings', icon: Settings },
 ]

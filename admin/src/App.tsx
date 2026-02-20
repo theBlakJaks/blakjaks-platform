@@ -15,6 +15,9 @@ import Affiliates from './pages/Affiliates'
 import Treasury from './pages/Treasury'
 import Analytics from './pages/Analytics'
 import Settings from './pages/Settings'
+import Insights from './pages/Insights'
+import LiveStreams from './pages/LiveStreams'
+import Wholesale from './pages/Wholesale'
 
 export default function App() {
   return (
@@ -38,6 +41,9 @@ export default function App() {
         <Route path="/social" element={<SocialModeration />} />
         <Route path="/governance" element={<Governance />} />
         <Route path="/treasury" element={<Treasury />} />
+        <Route path="/wholesale" element={<Wholesale />} />
+        <Route path="/live-streams" element={<LiveStreams />} />
+        <Route path="/insights" element={<Insights />} />
         <Route path="/analytics" element={<Analytics />} />
         <Route path="/settings" element={<Settings />} />
       </Route>

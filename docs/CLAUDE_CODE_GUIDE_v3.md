@@ -975,7 +975,7 @@ Every page must have loading state, empty state, and error state.
 
 ---
 
-### Task G1 — Admin Insights Tab `[PENDING]`
+### Task G1 — Admin Insights Tab `[COMPLETE]`
 
 **Dependency check:** Task E2 (Insights API).
 
@@ -988,7 +988,7 @@ Data from: `GET /insights/systems`, `GET /insights/treasury`, `GET /insights/com
 
 ---
 
-### Task G2 — Admin Teller Bank Panel `[PENDING]`
+### Task G2 — Admin Teller Bank Panel `[COMPLETE]`
 
 **Dependency check:** Task D2 (Teller service), `GET /treasury/teller` endpoint live.
 
@@ -1002,7 +1002,7 @@ Data from: `GET /insights/systems`, `GET /insights/treasury`, `GET /insights/com
 
 ---
 
-### Task G3 — Admin Live Streams Management `[PENDING]`
+### Task G3 — Admin Live Streams Management `[COMPLETE]`
 
 **Dependency check:** Task D6 (live stream service + endpoints).
 
@@ -1013,7 +1013,7 @@ Data from: `GET /insights/systems`, `GET /insights/treasury`, `GET /insights/com
 
 ---
 
-### Task G4 — Admin Wholesale Management `[PENDING]`
+### Task G4 — Admin Wholesale Management `[COMPLETE]`
 
 **Dependency check:** Task D7 (wholesale backend).
 
@@ -1024,7 +1024,7 @@ Data from: `GET /insights/systems`, `GET /insights/treasury`, `GET /insights/com
 
 ---
 
-### Task G5 — Admin QR Batch Management `[PENDING]`
+### Task G5 — Admin QR Batch Management `[COMPLETE]`
 
 **Dependency check:** Task D16 (QR batch service + endpoints).
 
@@ -1035,7 +1035,7 @@ Data from: `GET /insights/systems`, `GET /insights/treasury`, `GET /insights/com
 
 ---
 
-### Task G6 — Admin Governance Management `[PENDING]`
+### Task G6 — Admin Governance Management `[COMPLETE]`
 
 **Dependency check:** Task E4 (Governance API).
 
