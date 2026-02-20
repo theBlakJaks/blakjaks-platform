@@ -1,6 +1,6 @@
 # **BlakJaks Platform — Comprehensive Execution Plan**
 
-**Version:** 2.1
+**Version:** 2.2
 **Date:** February 20, 2026
 **Owner:** Joshua Dunn
 **Purpose:** Complete technical specification for Claude Code AI agents to build the BlakJaks loyalty rewards platform. Updated to align with the iOS Master Strategy & Design Brief v5 and incorporate all resolved feature decisions.
@@ -18,6 +18,14 @@
 - Updated shipping to $2.99 flat rate, free over $50+
 - Formalized reconciliation, payout pipeline, and scan velocity APIs
 - Removed Hype Train references (confirmed: no gamification during live events)
+
+**Changelog (v2.1 → v2.2):**
+- Social Hub: reply threading (gold left-border quoted preview), pinned message banner (below channel header, gold pin icon), system event pill messages (tier upgrades, comp payouts), new-message gold pill indicator, date separators, message grouping (consecutive same-user collapses avatar/header), 500-char limit (enforced with counter), 5 fixed reactions (💯 ❤️ 😂 ✅ ❌) on hover action bar, per-tier rate limiting (Standard 5s, VIP+ none)
+- Channel sidebar/navigation: web fixed left sidebar; iOS slide-over drawer from left (Discord iOS pattern); channel rows with # prefix, unread badge, lock icon, gold left-border on active
+- Live stream layout: web side-by-side (video left, chat right); iOS stacked (video top 16:9, chat below — Twitch iOS pattern)
+- Notification deep linking: social notifications navigate to channel+message with gold highlight; URL/iOS deep link schema documented
+- Notification creation triggers: @mention, reply, admin pin → type='social' with channel_id + message_id
+- JSONB data column: payload shapes documented per notification type
 
 **Changelog (v2.0 → v2.1):**
 - Replaced Oobit Plug & Pay SDK with Dwolla ACH payout service (payout-only)
@@ -744,7 +752,11 @@ type                ENUM('system', 'social', 'comp', 'order')
 title               VARCHAR(255)
 body                TEXT
 read                BOOLEAN DEFAULT FALSE
-data                JSONB -- Contextual payload (e.g., comp_id, order_id, channel_id)
+data                JSONB  -- Payload shapes by type:
+  -- type='social': { "channel_id": "ch_001", "message_id": "msg_abc", "sender_username": "whaleDave" }
+  -- type='comp':   { "comp_id": "uuid", "amount": 100.00 }
+  -- type='order':  { "order_id": "uuid", "status": "shipped" }
+  -- type='system': { "action": "tier_upgrade", "new_tier": "vip" }
 created_at          TIMESTAMP DEFAULT NOW()
 ```
 
@@ -1607,14 +1619,16 @@ Two withdrawal paths:
 
 **Chat Functionality**
 
-* Text messages (2,000 characters max)
-* **GIF support: Giphy integration (picker in compose bar)** *(maintained)*
-* **Animated emotes: 7TV integration (emote picker in compose bar)** *(NEW)*
-* **Image upload (optional)** *(NEW)*
-* Reply threading: Reply to specific messages
-* Reactions: Emoji reactions on messages
-* Mentions: @username notifications
-* System messages: Milestone announcements, tier changes
+* Text messages (500 characters max — enforced in compose bar with character counter)
+* **GIF support: Giphy integration (picker in compose bar)**
+* **Animated emotes: 7TV integration (emote picker + Tab-to-autocomplete in compose bar)**
+* Reply threading: Reply to specific messages (shows quoted preview with gold left-border; reply attribution shown in message bubble)
+* Emoji reactions: 5 fixed reactions (💯 ❤️ 😂 ✅ ❌) shown on hover action bar; toggled per user; displayed inline on message
+* Pinned messages: Admin-pinned message shown in a persistent banner below channel header (gold pin icon, admin attribution)
+* System event messages: Tier upgrades and significant comp payouts broadcast as centered pill messages in the feed (e.g. "vipSarah just hit VIP tier!")
+* New message indicator: Gold pill button appears when user is scrolled up and new messages arrive ("N New Messages"); tapping scrolls to the first new message
+* Date separators: Visual divider between messages on different calendar days
+* Message grouping: Consecutive messages from same user collapse avatar/header; only first in group shows avatar + username + timestamp
 
 **User Profiles in Chat** *(UPDATED)*
 
@@ -1636,13 +1650,12 @@ Two withdrawal paths:
 * Cost optimization: Batch translate if multiple messages in quick succession
 * Display: Small flag icon shows original language, tap to see original
 
-**Rate Limiting (Twitch-Style)**
+**Rate Limiting**
 
-* Standard: 1 message per 1 second
-* VIP: 1 message per 0.5 seconds
+* Standard: 5 second cooldown between messages (countdown shown in compose area)
+* VIP: No cooldown
 * High Roller: No cooldown
 * Whale: No cooldown
-* Escalating cooldown: Rapid messages trigger longer cooldowns
 * Spam detection: 5 identical messages = temp mute (1 hour)
 
 **Moderation**
@@ -1660,8 +1673,19 @@ Two withdrawal paths:
 **Pinned Messages**
 
 * Admins/mods can pin important messages
-* Display at top of channel
+* Display as persistent banner below channel header (gold pin icon, admin attribution)
 * Unpin after event/announcement expires
+
+**Channel Sidebar / Navigation**
+
+* Web: Fixed left sidebar (Discord-style, always visible, collapsible categories)
+* iOS: Channel list accessed via a dedicated "Channels" button/tab that opens a slide-over drawer overlay (same visual structure as web sidebar, but slides in from left over the chat area when tapped, dismisses on channel select or swipe-dismiss). Mirrors Discord's iOS app pattern.
+* Both: Channel rows show # prefix, unread badge (gold pill), lock icon for tier-gated channels, gold left-border on active channel
+
+**Live Stream — Platform Layout Differences**
+
+* Web: Video player left, live chat panel right (side-by-side)
+* iOS: Video player on top, live chat panel below (stacked vertically). Mirrors Twitch iOS app pattern. Chat panel is scrollable, video player maintains 16:9 aspect ratio. Hide/show chat toggle available.
 
 ### **9. Live Events**
 
@@ -1707,7 +1731,9 @@ Two withdrawal paths:
 
 * Comp awarded → Create 'comp' notification
 * Order status change → Create 'order' notification
-* @mention in chat → Create 'social' notification
+* @mention in chat message → type='social', includes channel_id + message_id
+* Reply to user's message → type='social', includes channel_id + message_id + sender_username
+* Admin pins a message → type='social' broadcast to all channel members, includes channel_id + message_id
 * Admin broadcast → Create 'system' notification for all users
 
 **Notification Display**
@@ -1716,6 +1742,17 @@ Two withdrawal paths:
 * Notification center: Scrollable list, newest first
 * Each notification: Icon (by type), title, body, timestamp, read/unread indicator
 * Tap notification → Navigate to relevant screen (comp detail, order, chat message)
+
+**Notification Deep Linking**
+
+Social notifications (type='social') support deep linking directly to the originating message:
+
+* When a user is @mentioned in a chat message, or an admin pins a message, or someone replies to a user's message, the notification is created with `data.channel_id` and `data.message_id` populated
+* The notification center (bell icon) displays these notifications with the channel name and a message preview
+* Tapping a social notification navigates the user to the Social Hub, auto-selects the referenced channel, scrolls the message feed to `data.message_id`, and applies a brief 2-second gold outline highlight to the message
+* URL/deep link pattern for web: `/social?channel={channel_id}&msg={message_id}`
+* iOS: Navigate to Social tab, open channel `channel_id`, scroll to `message_id` with highlight
+* If the message has been deleted or is older than retention window, show a toast: "This message is no longer available"
 
 **Push Notifications**
 
@@ -2545,7 +2582,7 @@ INSIGHTS_RECONCILIATION_TOLERANCE=10.00  # USD tolerance
 
 ## **Conclusion**
 
-This execution plan (v2.1) provides a comprehensive, aligned blueprint for Claude Code and its AI agents to build the entire BlakJaks platform. All contradictions between the original platform spec, iOS design brief, and current build decisions have been resolved.
+This execution plan (v2.2) provides a comprehensive, aligned blueprint for Claude Code and its AI agents to build the entire BlakJaks platform. All contradictions between the original platform spec, iOS design brief, and current build decisions have been resolved.
 
 **Key Changes in v2.0:**
 
@@ -2574,5 +2611,14 @@ This execution plan (v2.1) provides a comprehensive, aligned blueprint for Claud
 
 *This document serves as the single source of truth for the BlakJaks platform development. All agents should refer to this plan for requirements, architecture decisions, and implementation details.*
 
-**End of Execution Plan v2.1**
+**Key Changes in v2.2:**
+
+1. **Social Hub feature set aligned with shipped web implementation** — reply threading, pinned message banner, system event pills, new-message indicator, date separators, message grouping, 500-char limit, 5 fixed reactions
+2. **Rate limiting corrected** — Standard: 5s cooldown (not 1s); VIP+: no cooldown (not 0.5s)
+3. **iOS layout adaptations documented** — channel drawer (Discord pattern), live stream stacked layout (Twitch pattern)
+4. **Notification deep linking** — social notifications navigate to channel+message with gold highlight
+5. **JSONB payload shapes documented** — per notification type (social/comp/order/system)
+6. **Notification creation triggers expanded** — @mention, reply, admin pin all create social notifications
+
+**End of Execution Plan v2.2**
 

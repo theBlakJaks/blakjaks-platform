@@ -1,6 +1,6 @@
 # BlakJaks Platform — Claude Code Orchestration Guide
 
-**Version:** 3.1 | **Date:** February 20, 2026 | **Owner:** Joshua Dunn
+**Version:** 3.2 | **Date:** February 20, 2026 | **Owner:** Joshua Dunn
 **Status:** Active Build Guide | CONFIDENTIAL — BlakJaks LLC
 
 ---
@@ -1204,15 +1204,238 @@ Do NOT add Web3Auth, Socket.IO, SDWebImageSwiftUI, or APNs entitlements yet — 
 
 ---
 
-### Tasks I4–I7 `[I4-COMPLETE, I5-COMPLETE, I6-I7-PENDING]`
+### Tasks I4–I6 `[COMPLETE]`
 
-Tasks I4 (Insights Dashboard + QR Scanner), I5 (Scan & Wallet center tab), I6 (Shop + Checkout), and I7 (Social Hub + Profile + Push Notifications + Polish Pass) will be fully detailed when Joshua prompts Phase I beyond Task I3. Each follows the same MockAPIClient-first → real API wiring pattern established in I3.
+Tasks I4 (Insights Dashboard + QR Scanner), I5 (Scan & Wallet), and I6 (Shop + Checkout) are complete.
 
-**Doc references for when these tasks are prompted:**
-- I4: iOS Strategy § "Phase 4: Insights" + § "Phase 3: Scanner", AVFoundation Docs, AVPlayer Docs
-- I5: iOS Strategy § "Phase 3: Scan & Wallet", MetaMask iOS Docs (Web3Auth v11.1.0), Dwolla Docs (Plaid bank linking + ACH withdraw flow)
-- I6: iOS Strategy § "Phase 5: Shop", SDWebImage Docs, AgeChecker Docs
-- I7: iOS Strategy § "Phase 7: Social Hub", Socket Docs (Socket.IO-Client-Swift), AVPlayer Docs (HLS streaming), SevenTV Docs
+---
+
+### Task I7 — iOS Social Hub + Profile + Push Notifications + Polish Pass `[PENDING]`
+
+**Dependency check:** Tasks I2 (Design System), I3 (Auth), I4 (QRScannerController + ScannerViewModel already built), I5 (Scan & Wallet), I6 (Shop) all complete.
+
+**Design reference:** The web app implementation at `web-app/src/app/(app)/social/page.tsx` and `web-app/src/app/(app)/social/live/page.tsx` is the authoritative UI reference. Build iOS to match it visually and functionally, with the platform-specific layout adaptations described below. Read those files before writing any Swift.
+
+**Objective:** Build the Social Hub tab, Profile tab, configure native APNs push notifications, and complete the iOS polish pass.
+
+---
+
+#### I7.a — Social Hub
+
+**SPM dependency to add first:** Socket.IO-Client-Swift (real-time chat)
+
+**Layout — iOS differs from web in two ways:**
+1. **Channel navigation:** No fixed sidebar. Instead, a "Channels" button in the navigation bar (top-left, hamburger/list icon) opens a slide-over drawer from the left edge. The drawer shows the exact same channel list structure as the web sidebar (collapsible categories, # prefix, unread badge, tier lock icon, gold left-border on active). Tapping a channel selects it and dismisses the drawer. Swipe-right from left edge also opens it (standard iOS gesture). This is the Discord iOS pattern.
+2. **Live stream layout:** Video player on top (16:9 aspect ratio, full width), live chat panel below (scrollable, flex remainder of screen). Hide/show chat toggle (chevron button) collapses/expands the chat panel. This is the Twitch iOS pattern.
+
+**Files to create:**
+
+`ios/BlakJaks/Features/Social/Models/SocialModels.swift`
+- `Channel` — id, name, category, description, tierRequired (Tier enum), unreadCount
+- `ChatMessage` — id, channelId, userId, username, userTier, content, gifUrl, emoteIds, timestamp, reactions ([String: [String]]), originalLanguage, replyToId, replyToUsername, replyToContent, isSystem, avatarUrl
+- `LiveStream` — id, title, host, isLive, viewerCount, hlsUrl, thumbnailUrl
+- `NotificationItem` — id, type, title, body, read, channelId (optional), messageId (optional), createdAt
+
+`ios/BlakJaks/Features/Social/ViewModels/SocialViewModel.swift`
+- `loadChannels()` — fetches `/social/channels`, groups by category
+- `loadMessages(channelId:)` — fetches last 50 messages for channel
+- Socket.IO connection to `/social` namespace using Socket.IO-Client-Swift
+  - Connect on view appear, disconnect on disappear
+  - Handle `new_message` event → append to messages, manage auto-scroll flag
+  - Handle `system_event` event → append system pill message
+  - `sendMessage(channelId:text:replyToId:)` — POST `/social/channels/{id}/messages`, emits optimistically
+- `loadLiveStream()` — GET `/streaming/live`
+- `sendReaction(messageId:emoji:)` / `removeReaction(messageId:emoji:)` — POST/DELETE `/social/messages/{id}/reactions`
+- `translateMessage(messageId:)` — POST `/social/messages/{id}/translate` with user's preferredLanguage
+- Auto-scroll logic: `shouldAutoScroll` bool, set to true when near bottom; `newMessageCount` int; `firstNewMessageId` string?
+
+`ios/BlakJaks/Features/Social/ViewModels/NotificationViewModel.swift`
+- `loadNotifications()` — GET `/notifications`
+- `markRead(id:)` — PUT `/notifications/{id}/read`
+- `markAllRead()` — POST `/notifications/read-all`
+- `unreadCount` — GET `/notifications/unread-count`, also updated from APNs badge
+- `navigate(to notification: NotificationItem)` — returns navigation target enum: `.socialMessage(channelId:messageId:)`, `.order(orderId:)`, `.comp(compId:)`, `.system`
+
+`ios/BlakJaks/Features/Social/Views/SocialHubView.swift`
+- Tab root. Navigation bar with title "Social Hub" and two buttons: channels drawer (left), notification bell with badge (right).
+- Channels drawer: SwiftUI `.sheet` or custom slide-over using `DragGesture` + `offset`. Shows `ChannelListDrawerView`.
+- Main area: `ChatView` for current channel.
+- Bottom toolbar or floating LIVE button to navigate to `LiveStreamView`.
+
+`ios/BlakJaks/Features/Social/Views/ChannelListDrawerView.swift`
+- Mirrors web sidebar exactly: category headers (collapsible with chevron), channel rows (# prefix, name, unread gold badge, lock icon for gated), gold left-border highlight on active channel. Tier-locked channels disabled/grayed.
+
+`ios/BlakJaks/Features/Social/Views/ChatView.swift`
+- Channel header: # + channel name, green dot + online count
+- Pinned message banner (if channel has pinned message): gold pin icon, admin name, message text. Dismissible per session.
+- Messages feed: `LazyVStack` inside `ScrollViewReader`. Each message:
+  - System messages: centered pill (gray rounded rectangle, text only)
+  - Date separators: horizontal rule with date label
+  - Grouped messages: only first in consecutive same-user group shows avatar + username + timestamp + tier badge
+  - Message bubble: avatar (SDWebImage), username (tier color), tier badge, timestamp, content with inline 7TV emote rendering (AsyncImage from CDN), GIF (AsyncImage), reactions row
+  - Translation: gold globe icon with "Translated from X" + "Show Original" button
+  - Reply preview: gold left-border card above message content
+  - Hover/long-press action sheet: 5 reaction buttons + Reply option
+- New messages pill: gold button "↑ N New Messages", appears when scrolled up and new messages arrive, tapping scrolls to first new message
+- Compose bar: `EmoteChatInput` equivalent (UITextView wrapper or SwiftUI TextEditor with emote insertion), emoji/GIF/emote picker buttons, Send button. Character counter (500 max) shown when focused. Rate limit countdown shown for Standard tier.
+
+`ios/BlakJaks/Features/Social/Views/EmotePickerView.swift`
+- Grid of 7TV animated emotes (WebP via SDWebImage animated support)
+- Search field with debounced prefix matching
+- Tab-style autocomplete inline in compose bar (show matches above keyboard as horizontal scroll)
+
+`ios/BlakJaks/Features/Social/Views/GiphyPickerView.swift`
+- Search + trending GIFs (via backend `/gifs/trending` and `/gifs/search`)
+- Grid layout, tap to insert GIF URL as message
+
+`ios/BlakJaks/Features/Social/Views/LiveStreamView.swift`
+- AVPlayer with HLS URL from `liveStream.hlsUrl`
+- 16:9 aspect ratio video at top
+- LIVE badge (red, pulsing Radio icon) + viewer count overlay on video
+- Chat panel below: same message bubbles as ChatView but compact (no date separators, no grouped-header collapsing)
+- Hide/show chat: chevron button collapses chat panel with animation
+- Offline state: centered BlakJaks logo + "No Live Stream" + "Check #announcements for upcoming streams"
+
+`ios/BlakJaks/Features/Social/Views/NotificationCenterView.swift`
+- Bell icon in nav bar with red badge count
+- Full-screen sheet or push view: scrollable list of notifications
+- Each row: icon by type (🔔 social, 💰 comp, 📦 order, ⚙️ system), title, body preview, timestamp, unread dot
+- Tap → `notificationViewModel.navigate(to:)` → dismiss sheet → navigate to target (channel+message, order, etc.)
+- When navigating to a social message: open the correct channel in ChatView, scroll to message, apply 2-second gold outline highlight via `ScrollViewReader.scrollTo(_:anchor:)` + brief `.overlay(RoundedRectangle.stroke(Color.gold))`
+- "Mark All Read" button in nav bar
+- Pull to refresh
+
+---
+
+#### I7.b — Profile & Settings
+
+**Files to create/complete** (stubs exist, fill them in):
+
+`ios/BlakJaks/Features/Profile/ViewModels/ProfileViewModel.swift`
+- `loadProfile()` — GET `/users/me`
+- `updateProfile(name:)` — PATCH `/users/me`
+- `uploadAvatar(image: UIImage)` — POST `/users/me/avatar` (multipart/form-data via Alamofire)
+- `loadOrders()` — GET `/orders`
+- `loadAffiliateStats()` — GET `/affiliate/stats` (only if user.isAffiliate)
+- `logout()` — calls AuthViewModel.logout(), clears Keychain, navigates to Welcome
+
+`ios/BlakJaks/Features/Profile/Views/ProfileView.swift`
+- Avatar (tappable → photo picker or camera), username, tier badge, member ID (BJ-XXXX-ST format), join date
+- Stats strip: total scans, lifetime comps, current tier progress bar
+- Navigation list rows: Edit Profile, Order History, Notification Preferences, Language Setting, Affiliate Dashboard (conditional), Support (Intercom), FAQ, Terms & Privacy, Logout
+
+`ios/BlakJaks/Features/Profile/Views/EditProfileView.swift`
+- Name field, avatar upload (camera or photo library → crop → upload)
+- Save button → PATCH `/users/me`
+
+`ios/BlakJaks/Features/Profile/Views/SettingsView.swift`
+- Language preference picker (English, Spanish, Portuguese) — affects chat translation
+- Notification preferences: toggles for each type (comps, social, orders, system) × channel (push, in-app)
+- Biometric toggle (enable/disable Face ID / Touch ID)
+- Change password (navigates to forgot password flow)
+
+`ios/BlakJaks/Features/Profile/Views/AffiliateDashboardView.swift`
+- Referral code with copy + share sheet
+- Stats: referred users, active count, earnings, chip balance
+- Payout history list
+
+`ios/BlakJaks/Features/Profile/Views/OrderHistoryView.swift`
+- List of orders (date, total, status badge)
+- Tap → order detail (items, shipping address, tracking)
+
+Intercom: Integrate in-app support in Profile → Support. Present `IntercomModule` (per existing `intercom_service.py` and Intercom iOS SDK). Call `Intercom.presentMessenger()` on tap.
+
+---
+
+#### I7.c — Push Notifications (APNs — iOS ONLY, NO Firebase)
+
+⚠️ iOS uses native APNs. Do NOT add Firebase to the iOS project. Firebase/FCM is Android only.
+
+**Xcode capabilities to enable:**
+- Push Notifications (Signing & Capabilities)
+- Background Modes → Remote notifications checked
+
+**Files to create/modify:**
+
+`ios/BlakJaks/App/AppDelegate.swift` — add:
+- `UNUserNotificationCenter.current().delegate = self`
+- `application(_:didRegisterForRemoteNotificationsWithDeviceToken:)` — encode token as hex string, POST to `PATCH /users/me/push-token` with `{ "device_token": "hex", "platform": "ios" }`
+- `application(_:didFailToRegisterForRemoteNotificationsWithError:)` — log error
+- `UNUserNotificationCenterDelegate` conformance: `userNotificationCenter(_:willPresent:)` → show banner even when app is foreground; `userNotificationCenter(_:didReceive:)` → parse notification `userInfo`, call `NotificationViewModel.navigate(to:)`
+
+`ios/BlakJaks/Core/Services/PushNotificationService.swift` — complete the stub:
+- `requestPermission()` — call `UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .badge, .sound])` then `UIApplication.shared.registerForRemoteNotifications()`
+- Do NOT call this on app launch — call it from Profile → Notifications or after first scan (contextual prompt)
+- `updateBadgeCount(_ count: Int)` — `UNUserNotificationCenter.current().setBadgeCount(count)`
+
+Backend expects notification payload format:
+```json
+{
+  "aps": { "alert": { "title": "...", "body": "..." }, "badge": 3, "sound": "default" },
+  "type": "social",
+  "channel_id": "ch_001",
+  "message_id": "msg_abc"
+}
+```
+
+---
+
+#### I7.d — Polish Pass
+
+**Animations** (apply throughout all tabs):
+- Spring: `Animation.spring(response: 0.35, dampingFraction: 0.85)` as default interactive spring
+- Page transitions: `.transition(.move(edge: .trailing))` for push navigation
+- Drawer open/close: spring animation on x-offset
+
+**Haptics** (apply throughout):
+- `UIImpactFeedbackGenerator(style: .medium).impactOccurred()` — button taps
+- `UINotificationFeedbackGenerator().notificationOccurred(.success)` — scan success, order placed, message sent
+- `UINotificationFeedbackGenerator().notificationOccurred(.error)` — errors, failed actions
+- `UISelectionFeedbackGenerator().selectionChanged()` — tab switches, picker selection
+
+**Loading states:** Every ViewModel that fetches data needs a `isLoading` bool. While true, show `LoadingView` (shimmer skeleton). Use the existing `LoadingView` component from Design System.
+
+**Empty states:** Every list/feed needs an empty state using `EmptyStateView` component:
+- No channels: "No channels available"
+- No messages: "Be the first to say something in #channel-name"
+- No notifications: "You're all caught up"
+- No orders: "No orders yet — check out the Shop!"
+- Stream offline: "No live stream right now — check #announcements"
+
+**Error states:** Every network call needs catch → set `errorMessage` String? → show `ErrorView` with retry button.
+
+**Accessibility:**
+- All interactive elements need `.accessibilityLabel`
+- Support Dynamic Type (use `.font(.body)` semantic sizes, not fixed pt)
+- Minimum tap target: 44×44pt
+
+**Performance:**
+- `LazyVStack` for all message lists and channel lists
+- SDWebImage for all remote images (already a dependency)
+- `[weak self]` in all closures
+- Cancellables cleanup in `deinit`
+
+**Dark mode:** All colors via `Color+Theme.swift` semantic tokens — already dark-mode ready.
+
+**Device testing targets:** iPhone SE (375pt width) and iPhone 15 Pro Max (430pt width). No layout should break at either extreme.
+
+**Memory leak audit:** Run Xcode Instruments (Leaks template) against SocialHubView and LiveStreamView specifically — Socket.IO and AVPlayer are the most likely leak sources.
+
+---
+
+#### I7 Tests
+
+**Unit test files to create:**
+- `ios/BlakJaksTests/SocialViewModelTests.swift` — channel loading, message send, Socket.IO event handling (mock socket), translation toggle, reaction toggle, auto-scroll logic, new message count
+- `ios/BlakJaksTests/NotificationViewModelTests.swift` — load notifications, mark read, unread count, deep link navigation target resolution
+- `ios/BlakJaksTests/ProfileViewModelTests.swift` — load profile, update profile, order history loading, logout clears Keychain
+
+Target: 25+ test cases across the 3 files.
+
+---
+
+**Doc references for I7:**
+- Platform v2.2 § "8. Social Hub" + § "Notification Deep Linking", iOS Strategy § "Phase 7-9", Socket Docs, AVPlayer Docs, SevenTV Docs, SDWebImageSwiftUI Docs
 
 ---
 
