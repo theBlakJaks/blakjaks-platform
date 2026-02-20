@@ -1,6 +1,6 @@
 # BlakJaks Platform — Claude Code Orchestration Guide
 
-**Version:** 2.0 | **Date:** February 19, 2026 | **Owner:** Joshua Dunn
+**Version:** 3.0 | **Date:** February 19, 2026 | **Owner:** Joshua Dunn
 **Status:** Active Build Guide | CONFIDENTIAL — BlakJaks LLC
 
 ---
@@ -162,6 +162,13 @@ blakjaks-platform/
 - Blockchain: `POLYGON_CHAIN_ID`, `BLOCKCHAIN_POLYGON_NODE_URL`, `BLOCKCHAIN_POLYGON_NODE_WS_URL`, `BLOCKCHAIN_MEMBER_TREASURY_ADDRESS`, `BLOCKCHAIN_AFFILIATE_TREASURY_ADDRESS`, `BLOCKCHAIN_WHOLESALE_TREASURY_ADDRESS`
 - Third-party: `STREAMYARD_API_KEY`, `SELERY_API_KEY`
 - Celery: `CELERY_BROKER_URL`, `CELERY_RESULT_BACKEND`
+- Sentry: `SENTRY_DSN`, `SENTRY_ENVIRONMENT`, `SENTRY_RELEASE`, `SENTRY_TRACES_SAMPLE_RATE`
+- Intercom: `INTERCOM_APP_ID`, `INTERCOM_API_KEY`, `INTERCOM_IDENTITY_VERIFICATION_SECRET`, `INTERCOM_IOS_API_KEY`, `INTERCOM_ANDROID_API_KEY`
+- Google Cloud Translation: `TRANSLATION_GOOGLE_PROJECT_ID`, `TRANSLATION_GOOGLE_CREDENTIALS_PATH`, `TRANSLATION_ENABLED`, `TRANSLATION_SUPPORTED_LANGUAGES`, `TRANSLATION_CACHE_TTL`
+- Google Analytics: `GA4_MEASUREMENT_ID`
+- Google Cloud KMS: `GCP_KMS_KEY_RING`, `GCP_KMS_KEY_NAME`, `GCP_KMS_LOCATION`, `GCP_PROJECT_ID`
+- Kintsugi (tax): `KINTSUGI_API_KEY`, `KINTSUGI_API_URL`
+- Payment processor (TBD): `PAYMENT_PROCESSOR` (value: `stripe` | `square` | `authorize`), `PAYMENT_SECRET_KEY`, `PAYMENT_PUBLISHABLE_KEY`, `PAYMENT_WEBHOOK_SECRET`
 
 **Doc references:**
 - Env Vars Ref — read the complete document. Every section maps to a variable group above.
@@ -227,6 +234,9 @@ blakjaks-platform/
 - `017_tier_history.py` — columns: id, user_id, quarter, tier_name, scan_count, achieved_at, expires_at, is_permanent
 - `018_audit_logs.py` — columns per Platform v2 § "audit_logs" schema
 - `019_020_wholesale.py` — create `wholesale_accounts` and `wholesale_orders` only if they don't already exist; check first
+- `021_governance.py` — create `governance_votes` and `governance_ballots` tables per Platform v2 § "Database Schema — Governance"; `governance_votes` columns: id, title, description, vote_type (flavor/loyalty/corporate), tier_eligibility (vip/high_roller/whale), options (JSONB array), status (draft/active/closed), created_by_admin, voting_ends_at, results_published
+- `022_social_reactions.py` — create `social_message_reactions` table; columns: id, message_id, user_id, emoji (Unicode), created_at; UNIQUE(message_id, user_id, emoji)
+- `023_social_translations.py` — create `social_message_translations` table; columns: id, message_id, language (VARCHAR 5), translated_text (TEXT), translated_at; UNIQUE(message_id, language)
 
 **Files to create (ORM models):**
 - `backend/app/models/transparency_metric.py`
@@ -237,6 +247,10 @@ blakjaks-platform/
 - `backend/app/models/audit_log.py`
 - `backend/app/models/wholesale_account.py` (if not already exists)
 - `backend/app/models/wholesale_order.py` (if not already exists)
+- `backend/app/models/governance_vote.py`
+- `backend/app/models/governance_ballot.py`
+- `backend/app/models/social_message_reaction.py`
+- `backend/app/models/social_message_translation.py`
 
 Register all new models in `backend/app/models/__init__.py`.
 
@@ -353,7 +367,27 @@ Stubs should log that they ran and return a status dict. Real logic is wired in 
 
 ---
 
-# PHASE D — BACKEND SERVICES
+### Task C5 — Sentry + Monitoring Setup `[PENDING]`
+
+**Dependency check:** Task A2 complete (Sentry, Prometheus, Grafana env vars), Task C1 complete (docker-compose exists).
+
+**Objective:** The platform has zero error tracking or observability infrastructure. Sentry, Prometheus, Grafana, and AlertManager are all required by Platform v2 spec but absent from the repo. Without these, production issues are invisible.
+
+**Files to create:**
+- `infrastructure/monitoring/prometheus.yml` — Prometheus scrape config targeting FastAPI `/metrics`, Celery worker, Postgres exporter, Redis exporter
+- `infrastructure/monitoring/grafana/` — datasource config pointing to Prometheus; placeholder dashboard JSON for: API latency, error rates, scan velocity, DB connections, Redis memory
+- `infrastructure/monitoring/alertmanager.yml` — alert rules for: API error rate >1%, Celery queue depth >100, DB connection pool exhausted, Redis memory >80%
+
+**Files to modify:**
+- `docker-compose.yml` — add prometheus, grafana, alertmanager services
+- `backend/app/main.py` — instrument with `prometheus-fastapi-instrumentator`; expose `/metrics` endpoint
+- `backend/app/core/config.py` — Sentry init using `SENTRY_DSN` on app startup; set environment, release, traces_sample_rate from config
+- `backend/pyproject.toml` — add `sentry-sdk[fastapi]>=1.40.0`, `prometheus-fastapi-instrumentator>=6.1.0`
+
+**Doc references:**
+- Env Vars Ref § "Monitoring & Logging" — Sentry, Prometheus, Grafana config values
+
+**Tests:** `/metrics` endpoint returns Prometheus-formatted text. Sentry init does not crash on startup with blank DSN (dev mode). Alertmanager config parses cleanly.
 *⚡ Requires: Phase B complete (migrations applied), Phase C complete (Redis and Celery running)*
 
 ---
@@ -541,7 +575,169 @@ Register `wholesale` router in `main.py`.
 
 ---
 
-# PHASE E — MISSING API ENDPOINTS
+### Task D10 — Giphy Service `[PENDING]`
+
+**Dependency check:** Task D1 (Redis service), Task A2 (`GIPHY_API_KEY` configured).
+
+**Objective:** The Code Guide covers 7TV emotes (D4) but Giphy GIFs are equally required for the chat media picker. Like 7TV, clients must fetch through the backend — never hit Giphy directly (API key exposure + CORS). Giphy search results are short-lived so caching strategy differs from emotes.
+
+**Files to create:**
+- `backend/app/services/giphy_service.py` — `search_gifs(query, limit, offset)` calls Giphy REST API, returns normalized list of `{id, title, url_mp4, url_webp, url_gif, width, height}`; `get_trending(limit)` fetches trending GIFs; results cached in Redis with 5-minute TTL per query string
+
+**Files to modify:**
+- Appropriate router — add `GET /gifs/search?q={query}&limit={n}&offset={n}` and `GET /gifs/trending` endpoints. Auth required (rate-limit per user).
+
+**Doc references:**
+- Platform v2 § "Social Hub" — GIF picker integration requirements
+- Env Vars Ref § "Chat Media" — Giphy config
+
+**Tests:** Mock Giphy API. Cache hit returns same result without second HTTP call. Search with empty query returns 400.
+
+---
+
+### Task D11 — Notification Center REST API `[PENDING]`
+
+**Dependency check:** Task B2 complete (`notifications` table exists), Task D8 complete (push service wired).
+
+**Objective:** The notification table exists and push_service.py can deliver notifications, but there are no REST endpoints for clients to fetch, read, or manage their notification inbox. Without these endpoints the web app `/notifications` page (Task F3) and iOS notification center (Task I7) have nothing to call.
+
+**Files to create:**
+- `backend/app/services/notification_service.py` — `create_notification(db, user_id, type, title, body, data)`, `get_notifications(db, user_id, type_filter, limit, offset)`, `mark_read(db, notification_id, user_id)`, `mark_all_read(db, user_id)`, `get_unread_count(db, user_id)`, `delete_notification(db, notification_id, user_id)`
+- `backend/app/routers/notifications.py` — endpoints: `GET /notifications` (paginated, filterable by type), `POST /notifications/{id}/read`, `POST /notifications/read-all`, `DELETE /notifications/{id}`, `GET /notifications/unread-count`
+
+Register `notifications` router in `main.py`. Notification creation must also call `push_service.send()` and increment Redis unread counter via `redis_service.increment_unread()`.
+
+**Doc references:**
+- Platform v2 § "In-App Notifications" — notification types, payload shape, delivery rules
+
+**Tests:** Unread count decrements on read. Mark-all-read sets all to read for that user only. Pagination returns correct page. Creating a notification triggers both push + Redis increment.
+
+---
+
+### Task D12 — Google Cloud Translation Service `[PENDING]`
+
+**Dependency check:** Task A2 complete (Translation env vars), Task B2 complete (`social_message_translations` table exists).
+
+**Objective:** Chat messages are stored with their original language. Users tap to translate any message to their preferred language. Translations are cached in the `social_message_translations` table — same message + language never hits the API twice.
+
+**Files to create:**
+- `backend/app/services/translation_service.py` — `detect_language(text)` returns ISO language code; `translate_message(db, message_id, target_language)` checks `social_message_translations` table first (cache hit returns immediately), falls back to Google Cloud Translation API, stores result in table; `get_supported_languages()` returns list of enabled language codes from config
+
+**Files to modify:**
+- `backend/app/routers/social.py` (or chat router) — add `POST /social/messages/{id}/translate` endpoint with `{target_language}` in body; auth required; returns `{translated_text, source_language, cached}`
+
+**Doc references:**
+- Platform v2 § "Social Hub — Chat Translation" — translation flow, caching rules, language detection
+- Env Vars Ref § "Translation" — Google Cloud Translation config
+
+**Tests:** Second request for same message+language returns cached result (no API call). Unsupported language returns 400. Source language detected correctly.
+
+---
+
+### Task D13 — Intercom Integration `[PENDING]`
+
+**Dependency check:** Task A2 complete (Intercom env vars), Intercom account and API keys obtained.
+
+> If Intercom credentials not obtained: "Intercom credentials are required for live chat support. Log in to Intercom dashboard → Settings → Installation to get APP_ID, API_KEY, and Identity Verification secret. Claude Code can wire the integration now, but the widget will not load until credentials are set."
+
+**Objective:** Intercom provides in-app live chat support. Backend must generate identity verification HMACs so users are authenticated to Intercom. Frontend and mobile embed the Intercom widget.
+
+**Files to create:**
+- `backend/app/services/intercom_service.py` — `generate_identity_hash(user_id)` returns HMAC-SHA256 of user_id using `INTERCOM_IDENTITY_VERIFICATION_SECRET`; `create_or_update_user(user)` syncs user data to Intercom on login (name, email, created_at, tier, member_id)
+
+**Files to modify:**
+- `backend/app/routers/auth.py` (or users router) — add `GET /intercom/token` endpoint; returns `{app_id, user_id, user_hash}` for client-side Intercom init
+- `web-app/src/lib/api.ts` — fetch Intercom token on login, initialize Intercom widget with `window.Intercom('boot', {...})`
+
+**Doc references:**
+- Platform v2 § "Third-Party Services — Intercom"
+- Env Vars Ref § "Intercom" — all config values
+
+**Tests:** `generate_identity_hash()` produces consistent HMAC for same user_id. Token endpoint requires auth.
+
+---
+
+### Task D14 — Member ID Generation `[PENDING]`
+
+**Dependency check:** Task B2 complete (users table exists with `member_id` column).
+
+**Objective:** The Platform v2 spec defines a `BJ-0001-ST` format member ID for every user. The column exists in the users table schema but no generation logic exists anywhere. New members currently have null member IDs, which breaks profile display and tier tracking.
+
+**Files to modify:**
+- `backend/app/services/user_service.py` (or wherever user creation lives) — add `generate_member_id(db, user_id, tier)` that: fetches next sequential number from a `member_id_seq` PostgreSQL sequence (not auto-increment — must be consistent across migrations), formats as `BJ-XXXX-{SUFFIX}` where suffix is ST/VIP/HR/WH; add `update_member_id_tier_suffix(db, user_id, new_tier)` called whenever a user's tier changes (number stays, suffix updates)
+- `backend/migrations/versions/024_member_id_seq.py` — create `member_id_seq` PostgreSQL sequence starting at 1; add `member_id` VARCHAR(20) UNIQUE column to users table if not present; backfill existing users with sequential IDs
+
+**Doc references:**
+- Platform v2 § "Database Schema — Users — Member ID Generation Logic" — exact format and suffix mapping
+
+**Tests:** Generated IDs match `BJ-XXXX-ST` format. Sequential numbers don't collide under concurrent inserts (test with thread pool). Tier suffix updates on tier change, number unchanged.
+
+---
+
+### Task D15 — Avatar Upload Service `[PENDING]`
+
+**Dependency check:** Task A2 complete (`GCS_BUCKET_AVATARS` configured), GCS bucket `user-avatars` provisioned.
+
+> If GCS bucket not provisioned: "The user-avatars GCS bucket must exist before this service can write to it. Create it in GCP Console → Cloud Storage → Create Bucket, named per GCS_BUCKET_AVATARS config value. Claude Code can build the service now, but uploads will fail until the bucket exists."
+
+**Objective:** Users can set a profile picture. The `avatar_url` column exists on the users table but no upload endpoint or GCS write logic exists.
+
+**Files to create:**
+- `backend/app/services/avatar_service.py` — `upload_avatar(user_id, file_bytes, content_type)` validates file type (JPEG/PNG/WebP only, max 5MB), resizes to 400×400 via Pillow, uploads to GCS at `avatars/{user_id}/avatar.{ext}`, returns CDN URL; `delete_avatar(user_id)` removes from GCS
+
+**Files to modify:**
+- Appropriate router — add `POST /users/me/avatar` (multipart upload, auth required) and `DELETE /users/me/avatar`; update `avatar_url` on users table after successful upload
+- `backend/pyproject.toml` — add `Pillow>=10.0.0`, `google-cloud-storage>=2.10.0`
+
+**Doc references:**
+- Platform v2 § "User Management — Profile" — avatar size, format requirements
+- Env Vars Ref § "Cloud Storage" — GCS bucket names, CDN URL pattern
+
+**Tests:** Non-image files rejected. Oversized files rejected. Successful upload returns HTTPS CDN URL. Avatar URL on user record updated.
+
+---
+
+### Task D16 — QR Code Batch Admin System `[PENDING]`
+
+**Dependency check:** Task B2 complete (`qr_batches` table exists).
+
+**Objective:** QR codes are generated in batches for physical product manufacturing. The `qr_codes` and `qr_batches` tables exist but there is no admin service or endpoints to generate, track, or export batches. Manufacturing cannot proceed without this.
+
+**Files to create:**
+- `backend/app/services/qr_service.py` — `generate_batch(db, name, count, product_sku, manufacturer_name, notes)` generates `count` unique 14-character codes (format: `XXXX-XXXX-XXXX`), stores in `qr_codes` + `qr_batches` tables, returns batch_id; `export_batch_csv(db, batch_id)` returns CSV bytes with columns: code, batch_id, product_sku, status; `get_batch_status(db, batch_id)` returns total/scanned/remaining counts
+
+**Files to modify:**
+- `backend/app/routers/admin.py` — add: `POST /admin/qr/batches` (create batch), `GET /admin/qr/batches` (list all batches), `GET /admin/qr/batches/{id}` (batch detail + stats), `GET /admin/qr/batches/{id}/export` (download CSV)
+
+**Doc references:**
+- Platform v2 § "QR Code System" — code format, batch workflow, manufacturer export
+
+**Tests:** Generated codes match `XXXX-XXXX-XXXX` format. No duplicate codes across batches. CSV export contains correct column headers. Batch status counts are accurate.
+
+---
+
+### Task D17 — Google Cloud KMS Configuration `[PENDING]`
+
+**Dependency check:**
+- Task A2 complete (KMS env vars configured)
+- GCP KMS key ring and key must be provisioned
+
+> If KMS key ring not provisioned: "Google Cloud KMS requires a key ring and asymmetric signing key to be created in GCP Console → Security → Key Management. Create a key ring named per GCP_KMS_KEY_RING config, then create an asymmetric signing key (ECDSA P-256). Claude Code can write the KMS client code, but signing will fail until the key exists."
+
+**Objective:** `blockchain.py` signs treasury transactions using Cloud KMS but the KMS client is not properly initialized or abstracted. Task D5 (Stargate bridge) and any future admin treasury operations depend on a working KMS client. This task creates the centralized KMS service used by all signing operations.
+
+**Files to create:**
+- `backend/app/services/kms_service.py` — `get_kms_client()` initializes GCP KMS client from service account credentials; `sign_transaction(tx_hash_bytes)` signs a 32-byte hash using the configured asymmetric key, returns DER-encoded signature; `get_public_key()` returns the KMS public key for on-chain verification
+
+**Files to modify:**
+- `backend/app/services/blockchain.py` — replace any inline KMS calls with `kms_service.sign_transaction()`
+
+**Doc references:**
+- Platform v2 § "Blockchain Infrastructure — Key Management"
+- Env Vars Ref § "Google Cloud KMS"
+- Web3py Docs — transaction signing with external signer
+
+**Tests:** `sign_transaction()` returns bytes of correct length. Mock KMS client in all unit tests — never call real KMS in tests.
 *⚡ Requires: Phase D complete (services built and running)*
 
 ---
@@ -623,7 +819,46 @@ Register `wholesale` router in `main.py`.
 
 ---
 
-# PHASE F — WEB APP WIRING
+### Task E4 — Governance Voting API `[PENDING]`
+
+**Dependency check:** Task B2 complete (`governance_votes` and `governance_ballots` tables exist).
+
+**Objective:** Platform v2 spec includes a governance system where VIP+ members vote on flavors, loyalty rules, and corporate decisions. The tables exist but no service or endpoints were built. The iOS Social Hub has a Governance channel category that expects these endpoints.
+
+**Files to create:**
+- `backend/app/services/governance_service.py` — `create_vote(db, admin_user_id, title, description, vote_type, tier_eligibility, options, voting_ends_at)`, `cast_ballot(db, vote_id, user_id, selected_option)` validates tier eligibility + one vote per user, `close_vote(db, vote_id, admin_user_id)` tallies results + sets results_published, `get_active_votes(db, user_tier)` returns votes the user is eligible for, `get_vote_results(db, vote_id)` returns tally per option
+
+**Files to create:**
+- `backend/app/routers/governance.py` — public endpoints: `GET /governance/votes` (active votes for user's tier), `GET /governance/votes/{id}` (vote detail + user's ballot if cast), `POST /governance/votes/{id}/ballot` (cast ballot — auth required, tier check); admin endpoints: `POST /admin/governance/votes` (create), `PUT /admin/governance/votes/{id}/close` (close + tally), `GET /admin/governance/votes` (all votes including drafts)
+
+Register `governance` router in `main.py`.
+
+**Doc references:**
+- Platform v2 § "Governance & Voting" — vote types, tier eligibility rules, ballot constraints
+- Platform v2 § "Database Schema — governance_votes, governance_ballots"
+
+**Tests:** User below required tier cannot cast ballot (403). User cannot vote twice on same vote (409). Closing a vote correctly tallies all options. Admin can see draft votes, public cannot.
+
+---
+
+### Task E5 — Social Message Reactions API `[PENDING]`
+
+**Dependency check:** Task B2 complete (`social_message_reactions` table exists).
+
+**Objective:** The `social_message_reactions` table exists in the schema but no service or endpoints were built. The iOS and web chat UI spec includes emoji reactions on messages.
+
+**Files to create:**
+- `backend/app/services/reaction_service.py` — `add_reaction(db, message_id, user_id, emoji)` enforces UNIQUE(message_id, user_id, emoji) constraint; `remove_reaction(db, message_id, user_id, emoji)`; `get_reactions(db, message_id)` returns grouped counts per emoji with a `reacted_by_me` flag for the requesting user
+
+**Files to modify:**
+- `backend/app/routers/social.py` (or chat router) — add: `POST /social/messages/{id}/reactions` with `{emoji}` in body (auth required), `DELETE /social/messages/{id}/reactions/{emoji}` (auth required), `GET /social/messages/{id}/reactions` (public)
+- Socket.IO chat namespace — emit `reaction_added` and `reaction_removed` events to the channel room when reactions change, so all connected clients update in real time
+
+**Doc references:**
+- Platform v2 § "Social Hub — Reactions"
+- Socket Docs — emitting to room
+
+**Tests:** Adding same emoji twice returns 409. Removing non-existent reaction returns 404. `get_reactions()` correctly groups and counts. WebSocket event fires on add and remove.
 *⚡ Requires: Phase E endpoints live*
 
 ---
@@ -672,6 +907,21 @@ Register `wholesale` router in `main.py`.
 ### Task F3 — Web App Missing Pages `[PENDING]`
 
 **Dependency check:** Task F2 (API client wired), relevant backend endpoints live.
+
+**⚠️ PAYMENT PROCESSOR DECISION REQUIRED:** The checkout page requires a real payment processor. The spec says TBD/pluggable. Before beginning this task, Claude Code must check whether `PAYMENT_PROCESSOR` is set in config. If it is not set or is blank, output this Dependency Briefing and stop:
+
+```
+⛔ DEPENDENCY NOT MET — Cannot complete checkout page
+
+BLOCKED BY: Payment processor selection
+WHAT IT PROVIDES: Actual payment collection at checkout
+WHY THIS TASK NEEDS IT: The checkout page is non-functional without a real payment processor
+SUGGESTED RESOLUTION: Joshua must choose: Stripe (recommended for ease), Square, or Authorize.net.
+  Once decided: obtain API keys, set PAYMENT_PROCESSOR + PAYMENT_SECRET_KEY + PAYMENT_PUBLISHABLE_KEY.
+READY TO PROCEED WHEN: PAYMENT_PROCESSOR env var is set and keys are in GitHub Secrets.
+```
+
+Build all other pages (shop, cart, wallet, scans, leaderboard, notifications) while waiting. Return to checkout when payment processor is confirmed.
 
 **Objective:** Build 7 pages that exist in the spec but not in the codebase.
 
@@ -748,7 +998,25 @@ Data from: `GET /insights/systems`, `GET /insights/treasury`, `GET /insights/com
 
 ---
 
-# PHASE H — AFFILIATE & WHOLESALE PORTALS
+### Task G5 — Admin QR Batch Management `[PENDING]`
+
+**Dependency check:** Task D16 (QR batch service + endpoints).
+
+**Objective:** Add QR code batch generation and export to the admin portal. Manufacturing teams need this to generate and download code sheets for physical product printing.
+
+**Files to create:**
+- New QR Codes section in admin portal — "Generate New Batch" form (batch name, code count, product SKU, manufacturer name, notes), batch list table (name, code count, scanned/remaining counts, date generated, export button), batch detail view showing scan rate and individual code status; "Export CSV" button calls `GET /admin/qr/batches/{id}/export` and triggers file download
+
+---
+
+### Task G6 — Admin Governance Management `[PENDING]`
+
+**Dependency check:** Task E4 (Governance API).
+
+**Objective:** Add governance vote creation and management to the admin portal.
+
+**Files to create:**
+- New Governance section in admin portal — "Create Vote" form (title, description, vote type, tier eligibility, options as multi-input, end date/time), votes list table (title, status, tier, end date, total ballots cast), vote detail view showing real-time tally per option as bar chart, "Close Vote" button with confirmation, "Publish Results" toggle
 *⚡ Requires: Respective backend systems complete*
 
 ---
@@ -944,15 +1212,25 @@ Full security audit, load testing, staging QA, app store assets, and production 
 | `teller_service.py` | Celery beat (6h), Admin, Insights treasury | Bank balance sync |
 | `timescale_service.py` | Celery beat (hourly), Insights treasury | Treasury sparkline data |
 | `emote_service.py` | `GET /emotes` | 7TV emote set, Redis-cached |
+| `giphy_service.py` | `GET /gifs/search`, `GET /gifs/trending` | GIF search, Redis-cached |
 | `stargate_service.py` | `POST /admin/treasury/bridge` | ETH → Polygon USDT bridge (admin only) |
 | `livestream_service.py` | Stream endpoints, RTMP webhook | Stream lifecycle management |
 | `wholesale_service.py` | Wholesale + admin endpoints | Account management, orders, chips |
 | `blockchain.py` | Wallet endpoints, Insights, Celery snapshot | USDT transfers, pool balances, node health |
+| `kms_service.py` | `blockchain.py`, `stargate_service.py` | GCP KMS signing for treasury transactions |
 | `celery_app.py` | Beat scheduler (autonomous) | Schedules 5 recurring background jobs |
-| `push_service.py` | Notification triggers throughout | APNs (iOS) + FCM (Android) delivery |
+| `push_service.py` | `notification_service.py` | APNs (iOS) + FCM (Android) delivery |
+| `notification_service.py` | Scan endpoint, order events, comp awards, admin broadcast | Notification creation, inbox management, push trigger |
+| `translation_service.py` | `POST /social/messages/{id}/translate` | On-demand chat message translation, DB-cached |
+| `intercom_service.py` | Auth login, `GET /intercom/token` | Identity verification + user sync to Intercom |
+| `avatar_service.py` | `POST /users/me/avatar` | Profile picture upload to GCS |
+| `qr_service.py` | Admin QR batch endpoints | Batch code generation and CSV export |
+| `governance_service.py` | Governance endpoints, admin governance endpoints | Vote creation, ballot casting, result tallying |
+| `reaction_service.py` | Social message reaction endpoints | Emoji reactions on chat messages |
+| `user_service.py` | User creation, tier changes | Member ID generation and tier suffix updates |
 
 ---
 
-*End of Claude Code Orchestration Guide v2.0*
+*End of Claude Code Orchestration Guide v3.0*
 *BlakJaks LLC — Confidential*
 *Built for Claude Code. Managed by Joshua Dunn.*
