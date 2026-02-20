@@ -1,0 +1,1 @@
+Review the Alamofire documentation and source code at [https://github.com/Alamofire/Alamofire/blob/master/Documentation/Usage.md](https://github.com/Alamofire/Alamofire/blob/master/Documentation/Usage.md) before implementing the real-time features

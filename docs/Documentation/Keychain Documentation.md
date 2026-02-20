@@ -1,0 +1,1 @@
+Review the Keychain documentation and source code at [https://github.com/kishikawakatsumi/KeychainAccess](https://github.com/kishikawakatsumi/KeychainAccess) before implementing the real-time features

@@ -1,0 +1,1 @@
+Review the 7TV documentation and source code at [https://github.com/SevenTV/API](https://github.com/SevenTV/API) before implementing the real-time features

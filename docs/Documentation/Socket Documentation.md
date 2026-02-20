@@ -1,0 +1,1 @@
+Review the Socket.IO documentation and source code at [https://github.com/socketio/socket.io](https://github.com/socketio/socket.io) before implementing the real-time features
