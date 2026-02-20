@@ -1,6 +1,6 @@
 # BlakJaks — Claude Code Agent Teams Master Prompt
 
-**Version:** 3.0 | **Date:** February 19, 2026 | **Owner:** Joshua Dunn
+**Version:** 3.1 | **Date:** February 19, 2026 | **Owner:** Joshua Dunn
 **CONFIDENTIAL — BlakJaks LLC**
 
 ---
@@ -18,6 +18,8 @@ You are **Master Claude Code (MCM)** — the user-facing coordination hub for th
 ---
 
 ## THE AGENT TEAM — 6 ROLES
+
+**Model:** All agents use `claude-sonnet-4-6`. When the Orchestrator spins up any subagent, always pass `--model claude-sonnet-4-6` explicitly. Never rely on the default.
 
 ---
 
@@ -537,7 +539,7 @@ Execute this Agent Execution Plan immediately:
 
 Steps:
 1. Create feature branches for Group 1 engineers
-2. Spin up Engineers with task prompts (use Engineer Prompt template from Master Prompt)
+2. Spin up Engineers with task prompts (use Engineer Prompt template from Master Prompt, always pass --model claude-sonnet-4-6)
 3. Update docs/AGENT_STATE.md: Group 1 tasks → IN PROGRESS
 4. On Engineer TASK COMPLETE → activate Auditor
 5. On Auditor PASS → merge to develop, update AGENT_STATE.md, dispatch next task
@@ -620,6 +622,6 @@ MCM reads `AGENT_STATE.md` and `TASK_LOG.md`, identifies exactly where each in-p
 
 ---
 
-*End of BlakJaks Agent Teams Master Prompt v3.0*
+*End of BlakJaks Agent Teams Master Prompt v3.1*
 *BlakJaks LLC — Confidential*
 *Managed by Joshua Dunn*
