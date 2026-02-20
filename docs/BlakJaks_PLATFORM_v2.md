@@ -1,6 +1,6 @@
 # **BlakJaks Platform — Comprehensive Execution Plan**
 
-**Version:** 2.2
+**Version:** 2.3
 **Date:** February 20, 2026
 **Owner:** Joshua Dunn
 **Purpose:** Complete technical specification for Claude Code AI agents to build the BlakJaks loyalty rewards platform. Updated to align with the iOS Master Strategy & Design Brief v5 and incorporate all resolved feature decisions.
@@ -18,6 +18,14 @@
 - Updated shipping to $2.99 flat rate, free over $50+
 - Formalized reconciliation, payout pipeline, and scan velocity APIs
 - Removed Hype Train references (confirmed: no gamification during live events)
+
+**Changelog (v2.2 → v2.3):**
+- Android App: full tech stack spec (Retrofit 2.11, OkHttp 4.12, Koin 3.5, Coil 2.7+coil-gif, Media3 ExoPlayer, socket.io-client-java, FCM, BiometricPrompt, DataStore, EncryptedSharedPreferences)
+- iOS → Android SDK equivalents mapping table added
+- Nicotine Warning Banner: Android page list specified; Android implementation note added
+- Push Notifications: Android FCM implementation spec, FCM payload format, notification channels (Android 8+), deep linking behavior documented
+- Social Hub: Android uses `ModalNavigationDrawer` (Material 3) for channel navigation; swipe-right from left edge gesture added
+- Live Events: Android uses ExoPlayer / Media3 HLS with stacked layout (same as iOS)
 
 **Changelog (v2.1 → v2.2):**
 - Social Hub: reply threading (gold left-border quoted preview), pinned message banner (below channel header, gold pin icon), system event pill messages (tier upgrades, comp payouts), new-message gold pill indicator, date separators, message grouping (consecutive same-user collapses avatar/header), 500-char limit (enforced with counter), 5 fixed reactions (💯 ❤️ 😂 ✅ ❌) on hover action bar, per-tier rate limiting (Standard 5s, VIP+ none)
@@ -132,16 +140,38 @@ BlakJaks is a premium nicotine pouch brand with an integrated loyalty rewards pl
 **Android App**
 
 * **Language:** Kotlin 1.9+
-* **UI Framework:** Jetpack Compose
-* **Architecture:** MVVM + Clean Architecture
-* **Networking:** Retrofit + OkHttp
-* **State Management:** StateFlow + LiveData
-* **Local Storage:** Room Database + EncryptedSharedPreferences
+* **UI Framework:** Jetpack Compose (no XML layouts)
+* **Architecture:** MVVM + Repository pattern
+* **Networking:** Retrofit 2.11 + OkHttp 4.12 (AuthInterceptor with silent 401 → refresh → retry)
+* **State Management:** StateFlow + coroutines
+* **Local Storage:** EncryptedSharedPreferences (tokens), DataStore (preferences)
+* **Image Loading:** Coil 2.7 with coil-gif (animated WebP support for 7TV emotes)
 * **Camera/QR:** CameraX + ML Kit Barcode Scanning
-* **Push Notifications:** FCM (Firebase Cloud Messaging)
-* **Biometrics:** BiometricPrompt
-* **Crypto Wallet:** MetaMask Embedded Wallets SDK for Android (formerly Web3Auth)
-* **Real-Time:** Socket.io-client-java (Socket.io compatible)
+* **Push Notifications:** FCM (Firebase Cloud Messaging) — NOT APNs (APNs is iOS only)
+* **Biometrics:** BiometricPrompt API
+* **Crypto Wallet:** MetaMask Embedded Wallets SDK for Android (Web3Auth Android SDK v8+)
+* **Real-Time Chat:** socket.io-client-java 2.1.0 (Socket.IO compatible)
+* **Video Playback:** ExoPlayer / Media3 HLS (Android equivalent of AVPlayer)
+* **DI:** Koin 3.5
+* **Navigation:** Jetpack Navigation Compose
+
+### **iOS → Android SDK Equivalents**
+
+| iOS | Android |
+|-----|---------|
+| AVPlayer (HLS) | ExoPlayer / Media3 HLS |
+| AVFoundation + Vision (QR) | CameraX + ML Kit Barcode Scanning |
+| APNs | FCM (Firebase Cloud Messaging) |
+| KeychainAccess | EncryptedSharedPreferences |
+| Socket.IO-Client-Swift | socket.io-client-java |
+| Alamofire | Retrofit + OkHttp |
+| SDWebImage (animated WebP) | Coil + coil-gif |
+| SwiftUI | Jetpack Compose |
+| LAContext (BiometricPrompt) | BiometricPrompt API |
+| UserDefaults | DataStore Preferences |
+| URLSession | OkHttp |
+| Combine / async-await | StateFlow + coroutines |
+| SwiftUI NavigationStack | Jetpack Navigation Compose |
 
 ### **Backend**
 
@@ -1680,12 +1710,14 @@ Two withdrawal paths:
 
 * Web: Fixed left sidebar (Discord-style, always visible, collapsible categories)
 * iOS: Channel list accessed via a dedicated "Channels" button/tab that opens a slide-over drawer overlay (same visual structure as web sidebar, but slides in from left over the chat area when tapped, dismisses on channel select or swipe-dismiss). Mirrors Discord's iOS app pattern.
-* Both: Channel rows show # prefix, unread badge (gold pill), lock icon for tier-gated channels, gold left-border on active channel
+* Android: `ModalNavigationDrawer` (Material 3) slides in from left. Hamburger button in `TopAppBar` opens drawer. Same channel list structure as iOS drawer. Swipe-right from left edge also opens it.
+* All platforms: Channel rows show # prefix, unread badge (gold pill), lock icon for tier-gated channels, gold left-border on active channel
 
 **Live Stream — Platform Layout Differences**
 
 * Web: Video player left, live chat panel right (side-by-side)
 * iOS: Video player on top, live chat panel below (stacked vertically). Mirrors Twitch iOS app pattern. Chat panel is scrollable, video player maintains 16:9 aspect ratio. Hide/show chat toggle available.
+* Android: Same as iOS — ExoPlayer video at top (16:9 `AspectRatioFrameLayout`), live chat `LazyColumn` below. Hide/show chat toggle. Mirrors Twitch Android pattern.
 
 ### **9. Live Events**
 
@@ -1756,11 +1788,40 @@ Social notifications (type='social') support deep linking directly to the origin
 
 **Push Notifications**
 
-* iOS: APNs (Apple Push Notification service)
+* iOS: APNs (Apple Push Notification service) — native, no Firebase on iOS
 * Android: FCM (Firebase Cloud Messaging)
-* Trigger: Same events as in-app notifications
+* Trigger: Same events as in-app notifications (comp award, order status, @mention, reply, admin pin)
 * User preferences: Toggle per notification type in settings
 * Silent at night: Respect device Do Not Disturb settings
+
+**Android FCM Implementation**
+
+* `BlakJaksFirebaseMessagingService` extends `FirebaseMessagingService`
+* `onNewToken(token)` → POST to `PATCH /users/me/push-token` with `{ "device_token": token, "platform": "android" }`
+* `onMessageReceived(message)` → parse `message.data["type"]`, `message.data["channel_id"]`, `message.data["message_id"]`; build `NotificationCompat` notification; set `PendingIntent` with deep link to correct screen
+* Android 13+ (API 33+): runtime `POST_NOTIFICATIONS` permission required — request contextually, not on launch
+* Notification channels (required Android 8+):
+  * `social_messages` — importance HIGH
+  * `comp_awards` — importance HIGH
+  * `order_updates` — importance DEFAULT
+  * `system` — importance LOW
+
+**FCM Payload Format**
+
+```json
+{
+  "data": {
+    "type": "social",
+    "channel_id": "ch_001",
+    "message_id": "msg_abc",
+    "title": "whaleDave replied to you",
+    "body": "That's a great point!"
+  }
+}
+```
+
+**Notification deep linking (Android):**
+On FCM notification tap → navigate to `SocialHubScreen`, select `channel_id`, scroll `LazyListState` to `message_id`, apply 2-second gold border highlight. Same behavior as iOS.
 
 ### **11. Nicotine Warning Banner (FDA Compliance)**
 
@@ -1772,7 +1833,7 @@ Social notifications (type='social') support deep linking directly to the origin
 |---|---|
 | Web | Home page, wholesale portal, affiliate portal |
 | iOS | Initial loading/splash screen (pre-login), shop page, cart, checkout |
-| Android | Same pages as iOS |
+| Android | Splash/loading screen (pre-login), shop page, cart, checkout |
 
 **NOT shown on:** Social, insights, wallet, scanner, profile, admin portal, affiliate portal app
 
@@ -1794,6 +1855,7 @@ Social notifications (type='social') support deep linking directly to the origin
 
 * Web: Reusable `<NicotineWarningBanner />` component imported individually on each required page — NOT in root layout
 * iOS: `NicotineWarningBanner.swift` SwiftUI view added to SplashView, ShopView, CartView, CheckoutView
+* Android: `NicotineWarningBanner` Composable added to `SplashScreen`, `ShopScreen`, `CartScreen`, `CheckoutScreen`. Black `Box` at 20% screen height, white bold text, `FontWeight.Bold`, never dismissible.
 * Component is uppercase, white-on-black, fills banner area with no close/dismiss capability
 
 ### **12. Insights (Transparency Dashboard)**

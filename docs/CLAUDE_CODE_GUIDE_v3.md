@@ -1,7 +1,9 @@
 # BlakJaks Platform — Claude Code Orchestration Guide
 
-**Version:** 3.2 | **Date:** February 20, 2026 | **Owner:** Joshua Dunn
+**Version:** 3.3 | **Date:** February 20, 2026 | **Owner:** Joshua Dunn
 **Status:** Active Build Guide | CONFIDENTIAL — BlakJaks LLC
+
+**Changelog (v3.2 → v3.3):** Phase J Android full task definition added (J1–J6, 96+ test cases, commit strategy, doc references). Phase J is no longer a stub.
 
 ---
 
@@ -1440,11 +1442,281 @@ Target: 25+ test cases across the 3 files.
 ---
 
 # PHASE J — ANDROID APP
-*⚡ Recommended: Complete iOS (I7) first. Backend APIs fully stable by then.*
+*⚡ Requires: iOS Phase H complete (I7). Backend APIs fully stable.*
 
-Full Android task detail will be provided when Joshua prompts Phase J.
+**Design reference:** The iOS app at `ios/BlakJaks/` is the authoritative reference for every screen, ViewModel, business rule, and mock data set. Read the corresponding iOS Swift file before writing any Kotlin. Android is a translation exercise, not a design exercise.
 
-**Doc references:** MetaMask Android Docs, Socket Java Docs, Platform v2 § "Android"
+**Strategy:** Build in 6 commits, one per feature layer (see commit strategy at end of Phase J).
+
+---
+
+### Task J1 — Android Project Setup + Design System `[PENDING]`
+
+**Objective:** Initialize the Android project and build the design system before any feature screens.
+
+**Project configuration:**
+- Directory: `android/` in repo root
+- Package: `com.blakjaks.app`
+- Min SDK: 26 (Android 8.0), Target SDK: 35
+- Language: Kotlin 1.9+, UI: Jetpack Compose, Architecture: MVVM + Repository
+- Build: Gradle with `libs.versions.toml` version catalog
+
+**All Gradle dependencies — add at project init, do not defer:**
+```
+Retrofit 2.11.0 + converter-gson
+OkHttp 4.12.0 + logging-interceptor
+kotlinx-coroutines-android 1.8.1
+Koin 3.5.6 (koin-android + koin-androidx-compose)
+Coil 2.7.0 + coil-gif (animated WebP/GIF — required for 7TV emotes)
+CameraX 1.3.4 (camera2, lifecycle, view)
+ML Kit barcode-scanning 17.3.0
+androidx.biometric 1.2.0-alpha05
+Web3Auth Android SDK 8.0.0 (MetaMask Embedded Wallets)
+socket.io-client-java 2.1.0
+Firebase BOM 33.1.2 + firebase-messaging-ktx
+androidx.security:security-crypto 1.1.0-alpha06
+Media3 ExoPlayer 1.3.1 + exoplayer-hls + media3-ui
+navigation-compose 2.7.7
+datastore-preferences 1.1.1
+accompanist-permissions 0.34.0
+JUnit 4.13.2 + kotlinx-coroutines-test 1.8.1 + MockK 1.13.11 + compose-ui-test-junit4
+```
+
+**Folder structure:**
+```
+android/app/src/main/java/com/blakjaks/app/
+├── core/
+│   ├── network/      ← RetrofitClient, ApiService, ApiEndpoints, AuthInterceptor, TokenRefreshInterceptor, NetworkMonitor, Config
+│   ├── storage/      ← TokenManager (EncryptedSharedPreferences), UserPreferences (DataStore)
+│   ├── theme/        ← BlakJaksTheme, Color, Typography, Spacing
+│   └── components/   ← GoldButton, BlakJaksCard, TierBadge, LoadingView, EmptyStateView, ErrorView, NicotineWarningBanner
+├── features/
+│   ├── auth/
+│   ├── insights/
+│   ├── scanwallet/
+│   ├── shop/
+│   ├── social/
+│   └── profile/
+├── mock/             ← MockApiClient, MockData (mirrors ios/BlakJaks/MockData/ exactly)
+└── MainActivity.kt
+```
+
+**Design system files to create:**
+
+`core/theme/Color.kt` — Exact values from `ios/BlakJaks/Shared/Theme/Color+Theme.swift`:
+- Gold = `0xFFD4AF37`, GoldDark = `0xFFC9A961`
+- BackgroundPrimary = `0xFF0A0A1A`, BackgroundCard = `0xFF111125`, BackgroundSurface = `0xFF1A1A2E`
+- TextPrimary = `0xFFFFFFFF`, TextSecondary = `0xFFB0B0C0`, TextDim = `0xFF6B6B80`
+- BorderColor = `0xFF2A2A3E`
+- TierStandard = `0xFFFF4444`, TierVIP = `0xFFC0C0C0`, TierHighRoller = `0xFFD4AF37`, TierWhale = `0xFFE5E4E2`
+
+`core/theme/BlakJaksTheme.kt` — MaterialTheme dark color scheme wrapper. All screens wrapped in this theme.
+
+`core/theme/Typography.kt` — Material 3 type scale mapped from iOS typography. `displayLarge` for hero wallet numbers (Roboto Mono), `titleMedium` for section headers, `bodyMedium` for body, `labelSmall` for captions.
+
+`core/theme/Spacing.kt` — 8pt grid: `xs=4dp, sm=8dp, md=16dp, lg=24dp, xl=32dp, xxl=48dp`
+
+**Shared components** (each must visually match its iOS counterpart):
+- `GoldButton.kt` — Gold background, black text, 12dp radius, 50dp height
+- `BlakJaksCard.kt` — BackgroundCard fill, 16dp radius, subtle elevation
+- `TierBadge.kt` — Colored chip with tier symbol + name
+- `NicotineWarningBanner.kt` — Black Box at 20% screen height, white bold text, FDA exact text, never dismissible. Added to: SplashScreen, ShopScreen, CartScreen, CheckoutScreen ONLY.
+- `LoadingView.kt` — Animated shimmer skeleton (linearGradient brush)
+- `EmptyStateView.kt` — Centered icon + title + subtitle
+- `ErrorView.kt` — Error message + retry GoldButton
+
+**Networking layer:**
+- `ApiEndpoints.kt` — All route constants. Mirror `ios/BlakJaks/Networking/APIEndpoints.swift` exactly.
+- `ApiService.kt` — Retrofit interface, one method per endpoint, grouped by feature.
+- `TokenManager.kt` — EncryptedSharedPreferences wrapper. `saveTokens()`, `getAccessToken()`, `getRefreshToken()`, `clearAll()`, `hasCredentials()`. Android equivalent of iOS `KeychainManager`.
+- `AuthInterceptor.kt` — OkHttp interceptor adding Bearer token. On 401: refresh, save new tokens, retry once. Mirrors iOS `TokenRefreshInterceptor`.
+- `NetworkMonitor.kt` — `ConnectivityManager.NetworkCallback` as `StateFlow<Boolean>`.
+- `Config.kt` — Read `API_BASE_URL` from `BuildConfig`. Dev default: `http://10.0.2.2:8000`.
+- `MockApiClient.kt` — Same mock responses as `ios/BlakJaks/MockData/MockAPIClient.swift`.
+
+**`MainActivity.kt`** — Single-Activity, `NavHost` with auth gate: no tokens → auth graph, tokens present → main graph.
+
+**Bottom navigation** — `NavigationBar` (Material 3), 5 tabs: Insights, Shop, Scan & Wallet (center elevated gold FAB overlaid via `Box`), Social (with unread badge), Profile. Active: Gold, inactive: TextDim. Center FAB: use `Box` to overlay a larger gold `FloatingActionButton` centered on the `NavigationBar` — this replicates the iOS center bubble.
+
+**Tests:** `TokenManagerTest.kt` — store/retrieve/clear tokens. `AuthInterceptorTest.kt` — 401 triggers refresh + retry.
+
+---
+
+### Task J2 — Authentication `[PENDING]`
+
+**⚡ Requires:** J1 complete.
+**Reference:** Read all files in `ios/BlakJaks/Features/Authentication/` before writing any Kotlin.
+
+**`AuthViewModel.kt`** — `login()`, `signup()`, `logout()`, `loginWithBiometrics()`, `isOldEnough(dob)`, `ValidationError` sealed class, `isLoading: StateFlow<Boolean>`, `error: StateFlow<ValidationError?>`. Mirror `ios/.../AuthViewModel.swift` exactly.
+
+**Screens:**
+- `WelcomeScreen.kt` — Logo, 3-card `HorizontalPager` onboarding carousel with page dots, Create Account GoldButton, Sign In text button
+- `LoginScreen.kt` — Email/password `OutlinedTextField`s, BiometricPrompt button (adapts to device capability), forgot password bottom sheet
+- `SignupScreen.kt` — Name, email, password, confirm, DOB (`DatePickerDialog`, max = 21 years ago), T&C checkbox; submit disabled until all valid
+- `BiometricPromptScreen.kt` — `BiometricPrompt` API, enrollment flag in DataStore, skip option
+- `AgeGateScreen.kt` — 21+ confirmation on first launch
+
+**Tests:** `AuthViewModelTest.kt` — 8+ cases: login success, invalid email, short password, missing name, under-21, age boundary (exactly 21), loading state reset, clearError. Mirror `ios/BlakJaksTests/AuthViewModelTests.swift`.
+
+---
+
+### Task J3 — Insights Dashboard + QR Scanner `[PENDING]`
+
+**⚡ Requires:** J2 complete.
+**Reference:** Read all files in `ios/BlakJaks/Features/Insights/` + `ios/BlakJaks/Features/ScanWallet/QRScannerController.swift`.
+
+**`InsightsViewModel.kt`** — Lazy per-tab loading, concurrent async fetches, caching, `refresh()`, `InsightsTab` enum. Mirror `ios/.../InsightsViewModel.swift`.
+
+**Screens** (each matches iOS counterpart visually):
+- `InsightsMenuScreen.kt` — 5 full-width animated buttons, header stats strip
+- `OverviewScreen.kt` — Hero scan counter (large Roboto Mono), vitals row, milestone progress bars, live activity feed
+- `TreasuryScreen.kt` — On-chain, Teller, Dwolla balance panels, reconciliation badge
+- `SystemsScreen.kt` — Budget health bar (green/amber/red), pipeline cards, Polygon node status
+- `CompsScreen.kt` — Prize tier rows, milestone bars, guaranteed comps
+- `PartnersScreen.kt` — Affiliate metrics, wholesale stats, sunset engine badge
+
+**QR Scanner:**
+- `QRScannerAnalyzer.kt` — `ImageAnalysis.Analyzer` using ML Kit; fires callback on first QR detection, stops analysis
+- `CameraPreviewView.kt` — `AndroidView` wrapping `PreviewView`
+- `ScannerViewModel.kt` — Camera permission via Accompanist `rememberPermissionState`, `submitCode()`, `submitManualEntry()`, `ScanResult` sealed class. Mirror `ios/.../ScannerViewModel.swift`.
+
+**Tests:** `InsightsViewModelTest.kt` — 10+ cases. Mirror `ios/BlakJaksTests/InsightsViewModelTests.swift`.
+
+---
+
+### Task J4 — Scan & Wallet `[PENDING]`
+
+**⚡ Requires:** J3 complete (QR infrastructure).
+**Reference:** Read all files in `ios/BlakJaks/Features/ScanWallet/`.
+
+**`Web3AuthManager.kt`** — Initialize `Web3Auth` SDK with clientId, network MAINNET, redirectUrl. `createWallet(email)` on signup. `getAddress()`, `getBalance()`. Mirror `ios/.../Web3AuthManager.swift`.
+
+**`ScanWalletViewModel.kt`** — Scan submission, wallet balance, transaction history, comp vault. Mirror `ios/.../ScanWalletViewModel.swift`.
+
+**Screens:**
+- `ScanWalletScreen.kt` — Member card top, center scan FAB (gold, elevated), wallet section below
+- `MemberCardScreen.kt` — Tier, member ID (BJ-XXXX-ST), progress bar, scan stats
+- `ScanModalScreen.kt` — CameraPreview + scan overlay, manual entry, rich confirmation modal
+- `WalletScreen.kt` — USD balance, "Withdraw to Bank" (Plaid → Dwolla), "Withdraw as Crypto"
+- `TransactionsScreen.kt` — Transaction history `LazyColumn`
+- `ScanHistoryScreen.kt` — Scan history `LazyColumn`
+- `CompVaultScreen.kt` — Comp vault tier breakdown
+
+**Tests:** `ScanWalletViewModelTest.kt` + `ScannerViewModelTest.kt` — 15+ cases combined.
+
+---
+
+### Task J5 — Shop + Checkout `[PENDING]`
+
+**⚡ Requires:** J2 complete.
+**Reference:** Read all files in `ios/BlakJaks/Features/Shop/`.
+
+**`ShopViewModel.kt`** + **`CartViewModel.kt`** — Mirror iOS equivalents exactly. Same `CheckoutStep` enum, same `CheckoutError` sealed class, same 4-step checkout flow.
+
+**Screens:**
+- `ShopScreen.kt` — 2-column `LazyVerticalGrid`, search `SearchBar`, cart badge, `NicotineWarningBanner` at top
+- `ProductDetailScreen.kt` — Coil hero image, strength selector `FilterChip`s, quantity stepper, add-to-cart snackbar
+- `CartScreen.kt` — Item rows with quantity controls, pricing summary, free shipping threshold
+- `CheckoutScreen.kt` — 4-step stepper: shipping form → AgeChecker.net (`AndroidView` WebView) → Authorize.net Accept.js (WebView) → review + place order
+- `OrderConfirmationScreen.kt` — Success animation, order summary, continue shopping
+
+**Tests:** `ShopViewModelTest.kt` + `CartViewModelTest.kt` — 20+ cases. Mirror iOS test structure.
+
+---
+
+### Task J6 — Social Hub + Profile + FCM + Polish `[PENDING]`
+
+**⚡ Requires:** J4, J5 complete.
+**Reference:** Read all files in `ios/BlakJaks/Features/Social/` and `ios/BlakJaks/Features/Profile/`. Also read `web-app/src/app/(app)/social/page.tsx` for visual reference.
+
+**Real-time: socket.io-client-java**
+
+`SocketManager.kt` — Singleton Socket.IO client:
+- Connect to `/social` namespace
+- `connect()` / `disconnect()`
+- `on("new_message")` → parse JSON → emit to `newMessageFlow: SharedFlow<ChatMessage>`
+- `on("system_event")` → emit to `systemEventFlow: SharedFlow<SystemEvent>`
+- `emit("send_message", data)` for outgoing messages
+
+**`SocialViewModel.kt`** — Mirror `ios/.../SocialViewModel.swift`: channel loading, message loading, SocketManager collection in viewModelScope, `sendMessage()`, `sendReaction()` / `removeReaction()`, `translateMessage()`, auto-scroll logic (`shouldAutoScroll`, `newMessageCount`, `firstNewMessageId`), 5s Standard-tier rate limit.
+
+**`NotificationViewModel.kt`** — `loadNotifications()`, `markRead(id)`, `markAllRead()`, `unreadCount`, `navigate(notification)` returning `NavigationTarget` sealed class.
+
+**Layout adaptations (same as iOS, different implementation):**
+- Channel navigation: `ModalNavigationDrawer` (Material 3). Hamburger in `TopAppBar` opens drawer. `ChannelListDrawer.kt` mirrors iOS `ChannelListDrawerView` — collapsible categories, # prefix, unread gold chip, tier lock icon, gold left-border on active.
+- Live stream: ExoPlayer at top (16:9 `AspectRatioFrameLayout`), chat `LazyColumn` below. Hide/show chevron toggle. Mirrors Twitch Android.
+
+**Social screens:**
+- `SocialHubScreen.kt` — `ModalNavigationDrawer` + `TopAppBar` (drawer button left, notification bell badge right), `ChatScreen` for active channel, LIVE floating button
+- `ChatScreen.kt` — Channel header, pinned message banner, `LazyColumn` with `rememberLazyListState`, message grouping, system pill messages, date separators, reactions, reply threading, translation badge, new messages pill (`AnimatedVisibility`), compose bar
+- `EmotePickerSheet.kt` — `ModalBottomSheet`, 7TV animated WebP grid (Coil), search
+- `GiphyPickerSheet.kt` — `ModalBottomSheet`, GIF trending + search grid
+- `LiveStreamScreen.kt` — ExoPlayer HLS + LIVE badge + viewer count + stacked chat + offline state
+- `NotificationCenterScreen.kt` — Notification list, type icons, deep link on tap, mark all read, pull-to-refresh
+
+**Notification deep linking (Android):** FCM tap → navigate to `SocialHubScreen`, select `channel_id`, `LazyListState.scrollToItem` to `message_id`, 2-second gold `BorderStroke` animation highlight.
+
+**Profile screens** (mirror `ios/BlakJaks/Features/Profile/` exactly):
+- `ProfileScreen.kt`, `EditProfileScreen.kt`, `SettingsScreen.kt`, `AffiliateDashboardScreen.kt`, `OrderHistoryScreen.kt`
+- Intercom: `Intercom.client().present()` in Profile → Support
+
+**FCM — `BlakJaksFirebaseMessagingService.kt`:**
+- `onNewToken(token)` → `PATCH /users/me/push-token` `{ "device_token": token, "platform": "android" }`
+- `onMessageReceived(message)` → parse data payload, build `NotificationCompat` with correct channel, set `PendingIntent` deep link
+- Android 13+ `POST_NOTIFICATIONS` permission: request contextually via Accompanist
+
+**Notification channels (Android 8+ required):**
+- `social_messages` HIGH, `comp_awards` HIGH, `order_updates` DEFAULT, `system` LOW
+
+**Polish pass:**
+- Navigation transitions: `slideInHorizontally` / `slideOutHorizontally`
+- Haptics: `HapticFeedbackConstants.VIRTUAL_KEY` (taps), `CONFIRM` (success), `REJECT` (errors)
+- Accessibility: `Modifier.semantics { contentDescription }` on all interactive elements, `minimumInteractiveComponentSize()`, `sp` for text sizes
+- Performance: `LazyColumn`/`LazyVerticalGrid` everywhere, `remember`/`derivedStateOf` for computations, cancel coroutines in `onCleared()`
+- Device targets: Pixel 4a (small) and Pixel 8 Pro (large)
+
+**Tests:**
+- `SocialViewModelTest.kt` + `NotificationViewModelTest.kt` — 20+ cases
+- `ProfileViewModelTest.kt` — 15+ cases
+
+---
+
+### Phase J Commit Strategy
+
+```
+feat(android): J1 — project setup, design system, networking layer
+feat(android): J2 — authentication (welcome, login, signup, biometrics, age gate)
+feat(android): J3 — insights dashboard + QR scanner (CameraX + ML Kit)
+feat(android): J4 — scan & wallet (Web3Auth, wallet UI, transactions, comp vault)
+feat(android): J5 — shop + checkout (product grid, cart, AgeChecker, Authorize.net)
+feat(android): J6 — social hub + profile + FCM push notifications + polish pass
+```
+
+### Phase J Test Targets
+
+| Test File | Cases |
+|-----------|-------|
+| TokenManagerTest + AuthInterceptorTest | 8+ |
+| AuthViewModelTest | 8+ |
+| InsightsViewModelTest | 10+ |
+| ScanWalletViewModelTest + ScannerViewModelTest | 15+ |
+| ShopViewModelTest + CartViewModelTest | 20+ |
+| SocialViewModelTest + NotificationViewModelTest | 20+ |
+| ProfileViewModelTest | 15+ |
+| **Total** | **96+ cases** |
+
+### Phase J Doc References
+
+- Platform v2.3 § "Android App" tech stack
+- Platform v2.3 § "iOS → Android SDK Equivalents" mapping table
+- Platform v2.3 § "8. Social Hub" — iOS/Android layout adaptations
+- Platform v2.3 § "9. Live Events" — ExoPlayer HLS
+- Platform v2.3 § "11. Nicotine Warning Banner" — FDA compliance, Android pages
+- Platform v2.3 § "Notification Deep Linking" — FCM payload + Android navigation
+- iOS source at `ios/BlakJaks/` — authoritative design + logic reference for every screen
+- `web-app/src/app/(app)/social/` — social hub visual reference
+- `docs/sdk/Metamask_Android_Documentation.md`
+- `docs/sdk/Socket_java_Documentation.md`
 
 ---
 
