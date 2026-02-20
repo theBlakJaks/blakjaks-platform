@@ -115,13 +115,13 @@ async def _get_user_tier_name(db: AsyncSession, user_id: uuid.UUID) -> str:
 
 
 async def _get_total_comps_received(db: AsyncSession, user_id: uuid.UUID) -> Decimal:
-    """Sum of all completed comp_award transactions for a user."""
+    """Sum of all accepted comp_award transactions for a user (not pending_choice)."""
     result = await db.execute(
         select(func.coalesce(func.sum(Transaction.amount), Decimal("0")))
         .where(
             Transaction.user_id == user_id,
-            Transaction.type == "comp_award",
-            Transaction.status == "completed",
+            Transaction.type.in_(["comp_award", "guaranteed_comp"]),
+            Transaction.status.notin_(["pending_choice"]),
         )
     )
     return result.scalar_one()
@@ -149,32 +149,22 @@ async def award_crypto_comp(
     db: AsyncSession,
     user_id: uuid.UUID,
     amount: Decimal,
-    comp_type: str = "crypto_comp",
+    comp_type: str = "comp_award",
 ) -> Transaction:
-    """Award a comp to a user: create transaction, update wallet balance.
+    """Award a comp to a user: create pending_choice transaction.
 
-    Also triggers 21% affiliate reward matching if the user was referred.
+    Balance is NOT credited until the user makes a payout choice.
+    Affiliate reward matching triggers when user makes payout choice.
     """
-    # Update wallet balance
-    wallet_result = await db.execute(select(Wallet).where(Wallet.user_id == user_id))
-    wallet = wallet_result.scalar_one_or_none()
-    if wallet:
-        wallet.balance_available += amount
-
-    # Record the comp transaction
     txn = Transaction(
         user_id=user_id,
-        type="comp_award",
+        type=comp_type,
         amount=amount,
-        status="completed",
+        status="pending_choice",
     )
     db.add(txn)
     await db.commit()
     await db.refresh(txn)
-
-    # Trigger affiliate reward matching
-    await process_affiliate_reward_match(db, user_id, amount)
-
     return txn
 
 
@@ -251,28 +241,28 @@ async def check_guaranteed_comp(db: AsyncSession, user_id: uuid.UUID) -> bool:
     if now > first_year_end:
         return False
 
-    # Count guaranteed comps already received
+    # Count guaranteed comps already received (exclude pending_choice)
     result = await db.execute(
         select(func.count())
         .select_from(Transaction)
         .where(
             Transaction.user_id == user_id,
             Transaction.type == "guaranteed_comp",
-            Transaction.status == "completed",
+            Transaction.status.notin_(["pending_choice"]),
         )
     )
     guaranteed_count = result.scalar_one()
     if guaranteed_count >= GUARANTEED_COMP_COUNT:
         return False
 
-    # Check if they received any comp (organic or guaranteed) this month
+    # Check if they received any comp (organic or guaranteed) this month (exclude pending_choice)
     month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
     result = await db.execute(
         select(func.coalesce(func.sum(Transaction.amount), Decimal("0")))
         .where(
             Transaction.user_id == user_id,
             Transaction.type.in_(["comp_award", "guaranteed_comp"]),
-            Transaction.status == "completed",
+            Transaction.status.notin_(["pending_choice"]),
             Transaction.created_at >= month_start,
         )
     )
@@ -303,10 +293,6 @@ async def process_guaranteed_comps(db: AsyncSession) -> list[Transaction]:
     for uid in user_ids:
         if await check_guaranteed_comp(db, uid):
             txn = await award_crypto_comp(db, uid, GUARANTEED_COMP_AMOUNT, comp_type="guaranteed_comp")
-            # Update the type to guaranteed_comp (award_crypto_comp uses comp_award)
-            txn.type = "guaranteed_comp"
-            await db.commit()
-            await db.refresh(txn)
             awarded.append(txn)
 
     logger.info("Guaranteed comps processed: %d awards", len(awarded))

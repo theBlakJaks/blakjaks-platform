@@ -31,6 +31,11 @@ final class ScanWalletViewModel: ObservableObject {
     @Published var showBankLinkSheet  = false
     @Published var plaidLinkToken: PlaidLinkToken?
 
+    // Payout choice
+    @Published var showPayoutChoiceSheet = false
+    @Published var pendingChoiceComp: CompEarned? = nil
+    @Published var isSubmittingPayoutChoice = false
+
     // Transaction filter
     @Published var txFilter: TxFilter = .all
 
@@ -70,6 +75,12 @@ final class ScanWalletViewModel: ObservableObject {
         defer { isRefreshing = false }
         memberCard = nil; wallet = nil; transactions = []; scans = []; compVault = nil
         await loadAll()
+    }
+
+    // MARK: - Computed
+
+    var compBalance: Double {
+        wallet?.compBalance ?? 0
     }
 
     // MARK: - Filtered transactions
@@ -117,6 +128,21 @@ final class ScanWalletViewModel: ObservableObject {
             return true
         } catch {
             self.error = error; return false
+        }
+    }
+
+    // MARK: - Payout Choice
+
+    func submitPayoutChoice(compId: String, method: String) async {
+        isSubmittingPayoutChoice = true
+        defer { isSubmittingPayoutChoice = false }
+        do {
+            _ = try await apiClient.submitPayoutChoice(compId: compId, method: method)
+            showPayoutChoiceSheet = false
+            pendingChoiceComp = nil
+            await refresh()
+        } catch {
+            self.error = error
         }
     }
 

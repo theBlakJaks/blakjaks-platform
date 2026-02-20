@@ -7,6 +7,7 @@ import SwiftUI
 struct ScanModalView: View {
     @ObservedObject var viewModel: ScannerViewModel
     @Binding var isPresented: Bool
+    var onPayoutChoice: ((String, String) -> Void)? = nil  // (compId, method)
     @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
@@ -14,10 +15,16 @@ struct ScanModalView: View {
             Color.black.ignoresSafeArea()
 
             if let result = viewModel.scanResult {
-                ScanConfirmationView(result: result) {
+                ScanConfirmationView(result: result, onDone: {
                     viewModel.dismissResult()
                     isPresented = false
-                }
+                }, onPayoutChoice: { method in
+                    if let comp = result.compEarned {
+                        onPayoutChoice?(comp.id, method)
+                    }
+                    viewModel.dismissResult()
+                    isPresented = false
+                })
             } else if viewModel.isShowingManualEntry {
                 ManualEntryView(viewModel: viewModel)
             } else {
@@ -245,9 +252,11 @@ private struct ManualEntryView: View {
 struct ScanConfirmationView: View {
     let result: ScanResult
     let onDone: () -> Void
+    var onPayoutChoice: ((String) -> Void)? = nil
 
     @State private var checkmarkTrim: CGFloat = 0
     @State private var showDetails    = false
+    @State private var showPayoutChoice = false
 
     // Haptics
     private let impact   = UIImpactFeedbackGenerator(style: .heavy)
@@ -284,10 +293,18 @@ struct ScanConfirmationView: View {
                             .transition(.move(edge: .bottom).combined(with: .opacity))
                     }
 
-                    // Done button
-                    GoldButton("Done") { onDone() }
+                    // Done / Claim button
+                    if let comp = result.compEarned, comp.requiresPayoutChoice {
+                        GoldButton("Claim Comp") {
+                            showPayoutChoice = true
+                        }
                         .padding(.horizontal, Layout.screenMargin)
                         .transition(.opacity)
+                    } else {
+                        GoldButton("Done") { onDone() }
+                            .padding(.horizontal, Layout.screenMargin)
+                            .transition(.opacity)
+                    }
                 }
 
                 Spacer().frame(height: Spacing.xxl)
@@ -295,6 +312,15 @@ struct ScanConfirmationView: View {
             .padding(.horizontal, Layout.screenMargin)
         }
         .onAppear { triggerHapticsAndAnimate() }
+        .sheet(isPresented: $showPayoutChoice) {
+            if let comp = result.compEarned {
+                PayoutChoiceSheet(comp: comp) { method in
+                    showPayoutChoice = false
+                    onPayoutChoice?(method)
+                    onDone()
+                }
+            }
+        }
     }
 
     private var animatedCheckmark: some View {
@@ -342,43 +368,26 @@ struct ScanConfirmationView: View {
                 .font(.caption.weight(.medium))
                 .foregroundColor(.secondary)
 
-            Text("+$\(comp.amount.formatted(.number.precision(.fractionLength(2)))) USDT")
+            Text("+$\(comp.amount.formatted(.number.precision(.fractionLength(2))))")
                 .font(.walletBalance)
                 .foregroundColor(.gold)
                 .contentTransition(.numericText(value: comp.amount))
 
-            Text("USDT added to your vault · Pending payout")
-                .font(.footnote)
-                .foregroundColor(.secondary)
-                .multilineTextAlignment(.center)
-
-            Divider()
-
-            HStack(spacing: 0) {
-                statItem(label: "Lifetime Comps", value: "$\(comp.lifetimeComps.formatted(.number.precision(.fractionLength(0))))")
-                Divider().frame(height: 32)
-                statItem(label: "Balance", value: "$\(comp.walletBalance.formatted(.number.precision(.fractionLength(2))))")
-                Divider().frame(height: 32)
-                statItem(label: "Gold Chips", value: "♠ \(comp.goldChips)")
+            if comp.requiresPayoutChoice {
+                Text("Choose how to receive your comp below.")
+                    .font(.footnote)
+                    .foregroundColor(.secondary)
+                    .multilineTextAlignment(.center)
+            } else {
+                Text("Comp added to your virtual balance · Pending payout")
+                    .font(.footnote)
+                    .foregroundColor(.secondary)
+                    .multilineTextAlignment(.center)
             }
         }
         .padding(Spacing.md)
         .background(Color.backgroundSecondary)
         .cornerRadius(Layout.cardCornerRadius)
-    }
-
-    private func statItem(label: String, value: String) -> some View {
-        VStack(spacing: 2) {
-            Text(value)
-                .font(.system(.footnote, design: .monospaced).weight(.semibold))
-                .foregroundColor(.primary)
-                .minimumScaleFactor(0.8)
-                .lineLimit(1)
-            Text(label)
-                .font(.caption2)
-                .foregroundColor(.secondary)
-        }
-        .frame(maxWidth: .infinity)
     }
 
     private func triggerHapticsAndAnimate() {

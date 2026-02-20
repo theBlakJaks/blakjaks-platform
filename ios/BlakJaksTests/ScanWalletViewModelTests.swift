@@ -138,6 +138,65 @@ final class ScanWalletViewModelTests: XCTestCase {
     }
 }
 
+// MARK: - PayoutChoiceTests
+
+@MainActor
+final class PayoutChoiceTests: XCTestCase {
+
+    private var viewModel: ScanWalletViewModel!
+
+    override func setUp() {
+        super.setUp()
+        viewModel = ScanWalletViewModel(apiClient: MockAPIClient())
+    }
+
+    override func tearDown() {
+        viewModel = nil
+        super.tearDown()
+    }
+
+    func testSubmitPayoutChoiceClearsSheet() async {
+        viewModel.showPayoutChoiceSheet = true
+        viewModel.pendingChoiceComp = CompEarned(
+            id: "mock-uuid", amount: 100.00, status: "pending_choice", requiresPayoutChoice: true
+        )
+        await viewModel.submitPayoutChoice(compId: "mock-uuid", method: "crypto")
+        XCTAssertFalse(viewModel.showPayoutChoiceSheet)
+        XCTAssertNil(viewModel.pendingChoiceComp)
+        XCTAssertNil(viewModel.error)
+    }
+
+    func testSubmitPayoutChoiceBankSucceeds() async {
+        await viewModel.submitPayoutChoice(compId: "mock-uuid", method: "bank")
+        XCTAssertNil(viewModel.error)
+        XCTAssertFalse(viewModel.isSubmittingPayoutChoice)
+    }
+
+    func testSubmitPayoutChoiceLaterSucceeds() async {
+        await viewModel.submitPayoutChoice(compId: "mock-uuid", method: "later")
+        XCTAssertNil(viewModel.error)
+    }
+
+    func testCompBalanceFromWallet() async {
+        await viewModel.loadAll()
+        XCTAssertEqual(viewModel.compBalance, viewModel.wallet?.compBalance ?? 0)
+        XCTAssertGreaterThan(viewModel.compBalance, 0)
+    }
+
+    func testMockScanResultHasRequiresPayoutChoice() {
+        let comp = MockScans.scanResult.compEarned
+        XCTAssertNotNil(comp)
+        XCTAssertTrue(comp?.requiresPayoutChoice ?? false)
+        XCTAssertEqual(comp?.status, "pending_choice")
+    }
+
+    func testWalletHasCompBalance() async {
+        await viewModel.loadAll()
+        XCTAssertNotNil(viewModel.wallet)
+        XCTAssertGreaterThan(viewModel.wallet?.compBalance ?? 0, 0)
+    }
+}
+
 // MARK: - ScannerViewModelTests
 
 @MainActor

@@ -139,17 +139,11 @@ async def submit_scan(db: AsyncSession, user: User, raw_qr: str) -> dict:
         if milestone:
             milestone_hit = True
             txn = await award_crypto_comp(db, user.id, milestone["amount"])
-            from app.services.comp_engine import _get_total_comps_received
-            lifetime_comps = float(await _get_total_comps_received(db, user.id))
-            # Refresh wallet balance after comp
-            wresult = await db.execute(select(Wallet).where(Wallet.user_id == user.id))
-            w = wresult.scalar_one_or_none()
-            wallet_balance = w.balance_available if w else wallet_balance
             comp_earned = {
+                "id": txn.id,
                 "amount": float(milestone["amount"]),
-                "type": "crypto_comp",
-                "lifetime_comps": lifetime_comps,
-                "wallet_balance": float(wallet_balance),
+                "status": "pending_choice",
+                "requires_payout_choice": True,
             }
     except Exception as exc:
         logger.warning("Comp milestone check failed for user %s: %s", user.id, exc)

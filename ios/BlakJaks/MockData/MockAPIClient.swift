@@ -107,6 +107,15 @@ final class MockAPIClient: APIClientProtocol {
         )
     }
 
+    func submitPayoutChoice(compId: String, method: String) async throws -> CompPayoutResult {
+        return CompPayoutResult(
+            compId: compId,
+            method: method,
+            status: "held",
+            amount: 100.00
+        )
+    }
+
     // MARK: - Dwolla
 
     func getDwollaFundingSources() async throws -> [DwollaFundingSource] {

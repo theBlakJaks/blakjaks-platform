@@ -43,10 +43,10 @@ struct WalletSectionView: View {
             // Balance card
             GoldAccentCard {
                 VStack(spacing: Spacing.sm) {
-                    Text("Available Balance")
+                    Text("Comp Balance")
                         .font(.caption.weight(.medium))
                         .foregroundColor(.secondary)
-                    Text("$\(wallet.availableBalance.formatted(.number.precision(.fractionLength(2))))")
+                    Text("$\(wallet.compBalance.formatted(.number.precision(.fractionLength(2))))")
                         .font(.walletBalance)
                         .foregroundColor(.gold)
                     if wallet.pendingBalance > 0 {
@@ -54,7 +54,7 @@ struct WalletSectionView: View {
                             .font(.caption)
                             .foregroundColor(.secondary)
                     }
-                    Text("USDT · Polygon")
+                    Text("BlakJaks Virtual Balance")
                         .font(.caption2.weight(.medium))
                         .foregroundColor(.secondary.opacity(0.7))
                         .padding(.top, 2)

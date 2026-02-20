@@ -31,11 +31,10 @@ struct TierProgress: Codable {
 }
 
 struct CompEarned: Codable {
+    let id: String
     let amount: Double
-    let type: String
-    let lifetimeComps: Double
-    let walletBalance: Double
-    let goldChips: Int
+    let status: String
+    let requiresPayoutChoice: Bool
 }
 
 struct CompVault: Codable {

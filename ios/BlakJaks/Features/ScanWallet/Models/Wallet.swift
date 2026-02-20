@@ -1,6 +1,7 @@
 import Foundation
 
 struct Wallet: Codable {
+    let compBalance: Double
     let availableBalance: Double
     let pendingBalance: Double
     let currency: String

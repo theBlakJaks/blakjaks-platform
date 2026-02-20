@@ -12,7 +12,12 @@ enum MockScans {
             nextTier: "High Roller",
             scansRequired: 32
         ),
-        compEarned: nil,
+        compEarned: CompEarned(
+            id: "mock-comp-uuid-001",
+            amount: 100.00,
+            status: "pending_choice",
+            requiresPayoutChoice: true
+        ),
         milestoneHit: false,
         walletBalance: 1252.25,
         globalScanCount: 1487392

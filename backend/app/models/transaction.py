@@ -20,5 +20,6 @@ class Transaction(UUIDPrimaryKey, TimestampMixin, Base):
     tx_hash: Mapped[str | None] = mapped_column(String(255), nullable=True, index=True)
     from_address: Mapped[str | None] = mapped_column(String(255), nullable=True)
     to_address: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    payout_destination: Mapped[str | None] = mapped_column(String(10), nullable=True)
 
     user = relationship("User", back_populates="transactions")

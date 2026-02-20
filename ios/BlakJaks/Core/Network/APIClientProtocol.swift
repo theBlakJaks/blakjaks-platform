@@ -59,6 +59,7 @@ protocol APIClientProtocol {
     func getTransactions(limit: Int, offset: Int, statusFilter: String?) async throws -> [Transaction]
     func getCompVault() async throws -> CompVault
     func withdrawCrypto(address: String, amount: Double) async throws -> WithdrawalResult
+    func submitPayoutChoice(compId: String, method: String) async throws -> CompPayoutResult
 
     // MARK: - Dwolla (ACH Bank Withdraw)
     func getDwollaFundingSources() async throws -> [DwollaFundingSource]
@@ -331,4 +332,11 @@ struct ReferralCode: Codable {
     let code: String
     let referralUrl: String
     let totalUses: Int
+}
+
+struct CompPayoutResult: Codable {
+    let compId: String
+    let method: String
+    let status: String
+    let amount: Double
 }

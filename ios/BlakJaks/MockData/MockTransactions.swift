@@ -2,6 +2,7 @@ import Foundation
 
 enum MockTransactions {
     static let wallet = Wallet(
+        compBalance: 847.50,
         availableBalance: 1250.75,
         pendingBalance: 85.00,
         currency: "USD",

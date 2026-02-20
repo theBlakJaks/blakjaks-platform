@@ -16,10 +16,10 @@ class TierProgress(BaseModel):
 
 
 class CompEarned(BaseModel):
+    id: uuid.UUID
     amount: float
-    type: str
-    lifetime_comps: float
-    wallet_balance: float
+    status: str
+    requires_payout_choice: bool
 
 
 class ScanResponse(BaseModel):

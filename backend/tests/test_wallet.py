@@ -126,24 +126,26 @@ async def test_withdrawal_below_minimum(registered_user, db: AsyncSession):
 async def test_successful_withdrawal(registered_user, db: AsyncSession):
     user_id = uuid.UUID(registered_user["user"]["id"])
 
-    # Fund the wallet first
-    from app.services.wallet_service import get_user_wallet
+    # Fund the user's comp_balance first
+    from app.models.user import User
+    from sqlalchemy import select
 
-    wallet = await get_user_wallet(db, user_id)
-    wallet.balance_available = Decimal("100.00")
+    user_result = await db.execute(select(User).where(User.id == user_id))
+    user = user_result.scalar_one()
+    user.comp_balance = Decimal("100.00")
     await db.commit()
 
     to_addr = "0x" + "dd" * 20
-    txn = await request_withdrawal(db, user_id, Decimal("25.00"), to_addr)
+    txn = await request_withdrawal(db, user_id, Decimal("25.00"), to_addr, method="crypto")
     assert txn.type == "withdrawal"
     assert txn.amount == Decimal("25.00")
     assert txn.status == "pending"
     assert txn.to_address == to_addr
+    assert txn.payout_destination == "crypto"
 
-    # Check balances updated
-    await db.refresh(wallet)
-    assert wallet.balance_available == Decimal("75.00")
-    assert wallet.balance_pending == Decimal("25.00")
+    # Check comp_balance deducted
+    await db.refresh(user)
+    assert user.comp_balance == Decimal("75.00")
 
 
 # ── Transaction history ──────────────────────────────────────────────
@@ -189,3 +191,141 @@ async def test_withdraw_endpoint_validation(client: AsyncClient, auth_headers):
 async def test_dwolla_customer_endpoint_unauthenticated(client: AsyncClient):
     resp = await client.post("/api/dwolla/customer")
     assert resp.status_code == 401
+
+
+# ── Comp payout choice ───────────────────────────────────────────────
+
+async def test_comp_payout_choice_crypto_credits_comp_balance(registered_user, db: AsyncSession):
+    """Choosing crypto credits user.comp_balance."""
+    user_id = uuid.UUID(registered_user["user"]["id"])
+
+    # Award a comp (now creates pending_choice transaction)
+    from app.services.comp_engine import award_crypto_comp
+    txn = await award_crypto_comp(db, user_id, Decimal("100.00"))
+    assert txn.status == "pending_choice"
+
+    # Apply payout choice: crypto
+    from app.services.wallet_service import apply_comp_payout_choice
+    from app.models.user import User
+    from sqlalchemy import select
+
+    updated_txn = await apply_comp_payout_choice(db, user_id, txn.id, "crypto")
+    assert updated_txn.status == "held"
+    assert updated_txn.payout_destination == "crypto"
+
+    user_result = await db.execute(select(User).where(User.id == user_id))
+    user = user_result.scalar_one()
+    assert user.comp_balance == Decimal("100.00")
+
+
+async def test_comp_payout_choice_bank_credits_comp_balance(registered_user, db: AsyncSession):
+    user_id = uuid.UUID(registered_user["user"]["id"])
+    from app.services.comp_engine import award_crypto_comp
+    txn = await award_crypto_comp(db, user_id, Decimal("50.00"))
+
+    from app.services.wallet_service import apply_comp_payout_choice
+    from app.models.user import User
+    from sqlalchemy import select
+
+    updated_txn = await apply_comp_payout_choice(db, user_id, txn.id, "bank")
+    assert updated_txn.status == "held"
+    assert updated_txn.payout_destination == "bank"
+
+    user_result = await db.execute(select(User).where(User.id == user_id))
+    user = user_result.scalar_one()
+    assert user.comp_balance == Decimal("50.00")
+
+
+async def test_comp_payout_choice_later_does_not_credit_balance(registered_user, db: AsyncSession):
+    user_id = uuid.UUID(registered_user["user"]["id"])
+    from app.services.comp_engine import award_crypto_comp
+    txn = await award_crypto_comp(db, user_id, Decimal("75.00"))
+
+    from app.services.wallet_service import apply_comp_payout_choice
+    from app.models.user import User
+    from sqlalchemy import select
+
+    updated_txn = await apply_comp_payout_choice(db, user_id, txn.id, "later")
+    assert updated_txn.status == "held"
+    assert updated_txn.payout_destination == "held"
+
+    user_result = await db.execute(select(User).where(User.id == user_id))
+    user = user_result.scalar_one()
+    assert user.comp_balance == Decimal("0.00")
+
+
+async def test_comp_payout_choice_invalid_method(registered_user, db: AsyncSession):
+    user_id = uuid.UUID(registered_user["user"]["id"])
+    from app.services.comp_engine import award_crypto_comp
+    txn = await award_crypto_comp(db, user_id, Decimal("25.00"))
+
+    from app.services.wallet_service import apply_comp_payout_choice
+    with pytest.raises(ValueError, match="method must be"):
+        await apply_comp_payout_choice(db, user_id, txn.id, "invalid")
+
+
+async def test_comp_payout_choice_not_found(registered_user, db: AsyncSession):
+    user_id = uuid.UUID(registered_user["user"]["id"])
+    from app.services.wallet_service import apply_comp_payout_choice
+    fake_id = uuid.uuid4()
+    with pytest.raises(ValueError, match="not found"):
+        await apply_comp_payout_choice(db, user_id, fake_id, "crypto")
+
+
+async def test_award_crypto_comp_does_not_credit_wallet(registered_user, db: AsyncSession):
+    """award_crypto_comp should NOT update wallet.balance_available."""
+    user_id = uuid.UUID(registered_user["user"]["id"])
+    from app.services.comp_engine import award_crypto_comp
+    from app.services.wallet_service import get_user_wallet
+
+    wallet_before = await get_user_wallet(db, user_id)
+    balance_before = wallet_before.balance_available if wallet_before else Decimal("0")
+
+    await award_crypto_comp(db, user_id, Decimal("100.00"))
+
+    wallet_after = await get_user_wallet(db, user_id)
+    balance_after = wallet_after.balance_available if wallet_after else Decimal("0")
+
+    assert balance_after == balance_before  # Balance unchanged
+
+
+async def test_withdrawal_deducts_comp_balance(registered_user, db: AsyncSession):
+    """request_withdrawal now deducts from user.comp_balance."""
+    user_id = uuid.UUID(registered_user["user"]["id"])
+
+    # Give the user some comp_balance first
+    from app.models.user import User
+    from sqlalchemy import select
+    user_result = await db.execute(select(User).where(User.id == user_id))
+    user = user_result.scalar_one()
+    user.comp_balance = Decimal("200.00")
+    await db.commit()
+
+    to_addr = "0x" + "dd" * 20
+    txn = await request_withdrawal(db, user_id, Decimal("50.00"), to_address=to_addr, method="crypto")
+    assert txn.status == "pending"
+    assert txn.payout_destination == "crypto"
+
+    await db.refresh(user)
+    assert user.comp_balance == Decimal("150.00")
+
+
+async def test_comp_payout_choice_api_endpoint(client: AsyncClient, auth_headers):
+    """POST /api/wallet/comp-payout-choice endpoint."""
+    # Test that the endpoint exists and validates input
+    resp = await client.post(
+        "/api/wallet/comp-payout-choice",
+        json={"comp_id": str(uuid.uuid4()), "method": "crypto"},
+        headers=auth_headers,
+    )
+    # Should be 400 (comp not found) not 404/422
+    assert resp.status_code == 400
+
+
+async def test_wallet_detail_endpoint(client: AsyncClient, auth_headers):
+    resp = await client.get("/api/wallet/detail", headers=auth_headers)
+    assert resp.status_code == 200
+    data = resp.json()
+    assert "comp_balance" in data
+    assert "pending_comps" in data
+    assert "address" in data
