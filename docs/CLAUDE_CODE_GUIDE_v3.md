@@ -410,7 +410,7 @@ Stubs should log that they ran and return a status dict. Real logic is wired in 
 
 ---
 
-### Task D1 — Redis Service `[PENDING]`
+### Task D1 — Redis Service `[COMPLETE]`
 
 **Dependency check:** Task C1 (Redis running), Task B3 (`redis_keys.py` defined).
 
@@ -428,7 +428,7 @@ All functions use `redis_keys.py` constants — zero hardcoded key strings.
 
 ---
 
-### Task D2 — Teller.io Bank Sync Service `[PENDING]`
+### Task D2 — Teller.io Bank Sync Service `[COMPLETE]`
 
 **Dependency check:**
 - Task C3 complete (Celery running)
@@ -453,7 +453,7 @@ All functions use `redis_keys.py` constants — zero hardcoded key strings.
 
 ---
 
-### Task D3 — TimescaleDB Analytics Service `[PENDING]`
+### Task D3 — TimescaleDB Analytics Service `[COMPLETE]`
 
 **Dependency check:** Task C3 (Celery running), Task B2 (hypertables created).
 
@@ -472,7 +472,7 @@ All functions use `redis_keys.py` constants — zero hardcoded key strings.
 
 ---
 
-### Task D4 — 7TV Emote Service `[PENDING]`
+### Task D4 — 7TV Emote Service `[SKIP]`
 
 **Dependency check:** Task D1 (Redis service), Task A2 (`SEVEN_TV_EMOTE_SET_ID` configured).
 
@@ -491,7 +491,7 @@ All functions use `redis_keys.py` constants — zero hardcoded key strings.
 
 ---
 
-### Task D5 — Stargate Finance Bridge Service `[PENDING]`
+### Task D5 — Stargate Finance Bridge Service `[COMPLETE]`
 
 **Dependency check:**
 - Task C2 complete (Polygon node running, `blockchain.py` updated)
@@ -515,7 +515,7 @@ All functions use `redis_keys.py` constants — zero hardcoded key strings.
 
 ---
 
-### Task D6 — Live Stream Service `[PENDING]`
+### Task D6 — Live Stream Service `[COMPLETE]`
 
 **Dependency check:** Task B2 complete (`live_streams` table exists).
 
@@ -535,7 +535,7 @@ Register `streams` router in `main.py`.
 
 ---
 
-### Task D7 — Wholesale Backend System `[PENDING]`
+### Task D7 — Wholesale Backend System `[COMPLETE]`
 
 **Dependency check:** Task B2 complete (`wholesale_accounts` and `wholesale_orders` tables exist).
 
@@ -554,7 +554,7 @@ Register `wholesale` router in `main.py`.
 
 ---
 
-### Task D8 — Push Notification Service (Real Implementation) `[PENDING]`
+### Task D8 — Push Notification Service (Real Implementation) `[COMPLETE]`
 
 **Dependency check:** Task A2 complete (APNs + FCM env vars), APNs `.p8` key file present.
 
@@ -572,7 +572,7 @@ Register `wholesale` router in `main.py`.
 
 ---
 
-### Task D9 — Oobit Widget Token Generation `[PENDING]`
+### Task D9 — Oobit Widget Token Generation `[COMPLETE]`
 
 **Dependency check:** Task A2 (Oobit API key configured), Oobit credentials obtained.
 
@@ -593,7 +593,7 @@ Register `wholesale` router in `main.py`.
 
 ---
 
-### Task D10 — Giphy Service `[PENDING]`
+### Task D10 — Giphy Service `[COMPLETE]`
 
 **Dependency check:** Task D1 (Redis service), Task A2 (`GIPHY_API_KEY` configured).
 
@@ -613,7 +613,7 @@ Register `wholesale` router in `main.py`.
 
 ---
 
-### Task D11 — Notification Center REST API `[PENDING]`
+### Task D11 — Notification Center REST API `[COMPLETE]`
 
 **Dependency check:** Task B2 complete (`notifications` table exists), Task D8 complete (push service wired).
 
@@ -632,7 +632,7 @@ Register `notifications` router in `main.py`. Notification creation must also ca
 
 ---
 
-### Task D12 — Google Cloud Translation Service `[PENDING]`
+### Task D12 — Google Cloud Translation Service `[COMPLETE]`
 
 **Dependency check:** Task A2 complete (Translation env vars), Task B2 complete (`social_message_translations` table exists).
 
@@ -652,7 +652,7 @@ Register `notifications` router in `main.py`. Notification creation must also ca
 
 ---
 
-### Task D13 — Intercom Integration `[PENDING]`
+### Task D13 — Intercom Integration `[COMPLETE]`
 
 **Dependency check:** Task A2 complete (Intercom env vars), Intercom account and API keys obtained.
 
@@ -675,7 +675,7 @@ Register `notifications` router in `main.py`. Notification creation must also ca
 
 ---
 
-### Task D14 — Member ID Generation `[PENDING]`
+### Task D14 — Member ID Generation `[COMPLETE]`
 
 **Dependency check:** Task B2 complete (users table exists with `member_id` column).
 
@@ -692,7 +692,7 @@ Register `notifications` router in `main.py`. Notification creation must also ca
 
 ---
 
-### Task D15 — Avatar Upload Service `[PENDING]`
+### Task D15 — Avatar Upload Service `[COMPLETE]`
 
 **Dependency check:** Task A2 complete (`GCS_BUCKET_AVATARS` configured), GCS bucket `user-avatars` provisioned.
 
@@ -715,7 +715,7 @@ Register `notifications` router in `main.py`. Notification creation must also ca
 
 ---
 
-### Task D16 — QR Code Batch Admin System `[PENDING]`
+### Task D16 — QR Code Batch Admin System `[COMPLETE]`
 
 **Dependency check:** Task B2 complete (`qr_batches` table exists).
 
@@ -734,7 +734,7 @@ Register `notifications` router in `main.py`. Notification creation must also ca
 
 ---
 
-### Task D17 — Google Cloud KMS Configuration `[PENDING]`
+### Task D17 — Google Cloud KMS Configuration `[COMPLETE]`
 
 **Dependency check:**
 - Task A2 complete (KMS env vars configured)

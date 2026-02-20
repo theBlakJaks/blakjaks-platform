@@ -33,6 +33,7 @@ from app.services.wallet_service import create_user_wallet
 from app.services.email_service import send_password_reset, send_welcome_email
 from app.services.intercom_service import create_or_update_contact
 from app.services.affiliate_service import attribute_referral, get_or_create_affiliate
+from app.services.user_service import assign_member_id
 
 logger = logging.getLogger(__name__)
 
@@ -71,6 +72,12 @@ async def signup(body: SignupRequest, db: AsyncSession = Depends(get_db)):
 
     # Auto-create wallet for the new user
     await create_user_wallet(db, user.id, email=body.email)
+
+    # Assign a sequential member ID (BJ-XXXX-ST for new standard members)
+    try:
+        await assign_member_id(db, user)
+    except Exception:
+        logger.exception("Failed to assign member ID for %s", body.email)
 
     # Auto-create affiliate record (all members are affiliates until sunset)
     try:

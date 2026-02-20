@@ -1,0 +1,125 @@
+"""Admin treasury bridge endpoints — admin-only, requires 2FA confirmation header."""
+
+from decimal import Decimal
+
+from fastapi import APIRouter, Depends, Header, HTTPException, status
+from pydantic import BaseModel, Field
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.api.deps import get_current_user, get_db
+from app.models.audit_log import AuditLog
+from app.models.user import User
+from app.services.stargate_service import execute_bridge, get_bridge_quote, get_bridge_status
+
+router = APIRouter(prefix="/admin/treasury", tags=["admin-treasury"])
+
+
+def require_admin(user: User = Depends(get_current_user)) -> User:
+    if not user.is_admin:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Admin access required")
+    return user
+
+
+# ---------------------------------------------------------------------------
+# Schemas
+# ---------------------------------------------------------------------------
+
+
+class BridgeRequest(BaseModel):
+    amount_usdt: Decimal = Field(..., gt=0, description="USDT amount to bridge")
+    destination_address: str = Field(..., description="Polygon recipient address")
+
+
+class BridgeQuoteResponse(BaseModel):
+    native_fee_wei: int
+    native_fee_eth: float
+    amount_usdt: float
+
+
+class BridgeResponse(BaseModel):
+    tx_hash: str
+    layerzero_scan_url: str
+    amount_usdt: float
+
+
+# ---------------------------------------------------------------------------
+# Endpoints
+# ---------------------------------------------------------------------------
+
+
+@router.get("/bridge/quote", response_model=BridgeQuoteResponse)
+async def bridge_quote(
+    amount_usdt: Decimal = Depends(lambda amount_usdt: amount_usdt),
+    admin: User = Depends(require_admin),
+):
+    """Get LayerZero fee estimate for bridging USDT to Polygon."""
+    from fastapi import Query
+
+    raise HTTPException(
+        status.HTTP_422_UNPROCESSABLE_ENTITY,
+        "Use query param: /quote?amount_usdt=100",
+    )
+
+
+@router.get("/bridge/quote-amount")
+async def bridge_quote_amount(
+    amount_usdt: Decimal,
+    admin: User = Depends(require_admin),
+):
+    """Get LayerZero fee estimate for bridging a specific USDT amount."""
+    try:
+        quote = get_bridge_quote(amount_usdt)
+    except RuntimeError as exc:
+        raise HTTPException(status.HTTP_502_BAD_GATEWAY, str(exc))
+    return quote
+
+
+@router.post("/bridge", response_model=BridgeResponse)
+async def bridge_usdt(
+    body: BridgeRequest,
+    admin: User = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+    x_2fa_token: str | None = Header(None, alias="X-2FA-Token"),
+):
+    """Bridge USDT from Ethereum treasury to Polygon.
+
+    Requires the X-2FA-Token header to be present (admin 2FA confirmation).
+    Logs the action to audit_logs.
+    """
+    if not x_2fa_token:
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN,
+            "X-2FA-Token header is required for bridge operations",
+        )
+
+    try:
+        result = execute_bridge(body.amount_usdt, body.destination_address)
+    except Exception as exc:
+        raise HTTPException(status.HTTP_502_BAD_GATEWAY, f"Bridge failed: {exc}")
+
+    # Log to audit trail
+    audit = AuditLog(
+        actor_id=admin.id,
+        action="admin_treasury_bridge",
+        resource_type="stargate_bridge",
+        resource_id=result["tx_hash"],
+        details={
+            "amount_usdt": str(body.amount_usdt),
+            "destination_address": body.destination_address,
+            "tx_hash": result["tx_hash"],
+            "layerzero_scan_url": result["layerzero_scan_url"],
+        },
+    )
+    db.add(audit)
+    await db.commit()
+
+    return BridgeResponse(**result)
+
+
+@router.get("/bridge/status/{tx_hash}")
+async def bridge_status(
+    tx_hash: str,
+    admin: User = Depends(require_admin),
+):
+    """Poll LayerZero for the status of a bridge transaction."""
+    return get_bridge_status(tx_hash)

@@ -166,6 +166,13 @@ class Settings(BaseSettings):
     PAYMENT_WEBHOOK_SECRET: str = ""
 
     # -------------------------------------------------------------------------
+    # Oobit (crypto payment widget)
+    # -------------------------------------------------------------------------
+    OOBIT_API_KEY: str = ""
+    OOBIT_SECRET_KEY: str = ""
+    OOBIT_WIDGET_URL: str = "https://widget.oobit.com"
+
+    # -------------------------------------------------------------------------
     # Third-party integrations
     # -------------------------------------------------------------------------
     STREAMYARD_API_KEY: str = ""

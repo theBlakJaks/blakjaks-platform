@@ -12,10 +12,10 @@ import logging
 from decimal import Decimal
 
 from eth_account._utils.signing import to_standard_v  # noqa: F401 (kept for signing utility)
-from google.cloud import kms
 from web3 import Web3
 
 from app.core.config import settings
+from app.services import kms_service
 
 logger = logging.getLogger(__name__)
 
@@ -168,14 +168,7 @@ def _kms_key_version_path(key_name: str | None = None) -> str:
 
 def get_kms_public_key(key_name: str | None = None) -> bytes:
     """Retrieve the uncompressed public key from Cloud KMS."""
-    client = kms.KeyManagementServiceClient()
-    response = client.get_public_key(request={"name": _kms_key_version_path(key_name)})
-    from cryptography.hazmat.primitives.serialization import load_pem_public_key
-
-    pub_key = load_pem_public_key(response.pem.encode())
-    from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
-
-    return pub_key.public_bytes(Encoding.X962, PublicFormat.UncompressedPoint)
+    return kms_service.get_public_key(key_name=key_name)
 
 
 def kms_public_key_to_eth_address(pub_key_bytes: bytes) -> str:
@@ -275,17 +268,11 @@ def sign_transaction_with_kms(tx: dict, key_name: str | None = None) -> bytes:
     unsigned_tx = serializable_unsigned_transaction_from_dict(tx)
     tx_hash = unsigned_tx.hash()
 
-    client = kms.KeyManagementServiceClient()
-    sign_response = client.asymmetric_sign(
-        request={
-            "name": _kms_key_version_path(key_name),
-            "digest": {"sha256": tx_hash},
-        }
-    )
+    der_signature = kms_service.sign_transaction(tx_hash_bytes=tx_hash, key_name=key_name)
 
     from cryptography.hazmat.primitives.asymmetric.utils import decode_dss_signature
 
-    r, s = decode_dss_signature(sign_response.signature)
+    r, s = decode_dss_signature(der_signature)
 
     SECP256K1_N = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141
     if s > SECP256K1_N // 2:

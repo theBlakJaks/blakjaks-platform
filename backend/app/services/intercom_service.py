@@ -2,8 +2,13 @@
 
 Uses the Intercom REST API for contact management and event tracking.
 Failures are logged but never raised — Intercom issues must not break app functionality.
+
+Identity verification uses HMAC-SHA256 over user_id with
+INTERCOM_IDENTITY_VERIFICATION_SECRET, per Intercom's security model.
 """
 
+import hashlib
+import hmac
 import logging
 import uuid
 
@@ -93,3 +98,40 @@ async def track_event(
     except Exception:
         logger.exception("Intercom track_event failed for user=%s event=%s", user_id, event_name)
         return None
+
+
+def generate_identity_hash(user_id: uuid.UUID) -> str | None:
+    """Generate the Intercom identity verification HMAC for a user.
+
+    Computed over str(user_id) with INTERCOM_IDENTITY_VERIFICATION_SECRET.
+
+    Returns:
+        Hex-encoded HMAC-SHA256 string, or None if not configured.
+    """
+    secret = settings.INTERCOM_IDENTITY_VERIFICATION_SECRET
+    if not secret:
+        return None
+    return hmac.new(
+        secret.encode(),
+        str(user_id).encode(),
+        hashlib.sha256,
+    ).hexdigest()
+
+
+def get_widget_config(user_id: uuid.UUID, email: str, name: str | None = None) -> dict:
+    """Return the Intercom widget boot config for a user.
+
+    Embed this in mobile responses so the client can boot the Intercom SDK.
+
+    Returns:
+        Dict with app_id, user_id, email, user_hash, and platform API keys.
+    """
+    return {
+        "app_id": settings.INTERCOM_APP_ID,
+        "user_id": str(user_id),
+        "email": email,
+        "name": name,
+        "user_hash": generate_identity_hash(user_id),
+        "ios_api_key": settings.INTERCOM_IOS_API_KEY or None,
+        "android_api_key": settings.INTERCOM_ANDROID_API_KEY or None,
+    }

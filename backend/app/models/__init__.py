@@ -24,6 +24,15 @@ from app.models.sunset_status import SunsetStatus
 from app.models.governance_proposal import GovernanceProposal
 from app.models.vote import Vote
 from app.models.vote_ballot import VoteBallot
+from app.models.teller_account import TellerAccount
+from app.models.treasury_snapshot import TreasurySnapshot
+from app.models.transparency_metric import TransparencyMetric
+from app.models.live_stream import LiveStream
+from app.models.wholesale_account import WholesaleAccount
+from app.models.wholesale_order import WholesaleOrder
+from app.models.audit_log import AuditLog
+from app.models.tier_history import TierHistory
+from app.models.social_message_translation import SocialMessageTranslation
 
 __all__ = [
     "Base",
@@ -52,4 +61,13 @@ __all__ = [
     "GovernanceProposal",
     "Vote",
     "VoteBallot",
+    "TellerAccount",
+    "TreasurySnapshot",
+    "TransparencyMetric",
+    "LiveStream",
+    "WholesaleAccount",
+    "WholesaleOrder",
+    "AuditLog",
+    "TierHistory",
+    "SocialMessageTranslation",
 ]

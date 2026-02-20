@@ -31,6 +31,7 @@ class User(UUIDPrimaryKey, UpdateTimestampMixin, Base):
     referral_code: Mapped[str | None] = mapped_column(
         String(20), unique=True, nullable=True, index=True
     )
+    member_id: Mapped[str | None] = mapped_column(String(20), nullable=True, unique=True, index=True)
     referred_by: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id"), nullable=True, index=True
     )
