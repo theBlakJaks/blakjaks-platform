@@ -880,19 +880,22 @@ Register `governance` router in `main.py`.
 **Objective:** The always-visible nicotine warning banner and age gate are legally required and absent from all portals. Must be present before any portal goes live.
 
 **Nicotine Warning Banner — Exact Specifications:**
-- Fixed to the top of the viewport at all times (position: fixed, top: 0, z-index: 9999)
-- Excluded from all admin portal pages — does not render on any /admin/* routes
+- Appears ONLY on these three pages: shop/product page, cart page, checkout page
+- Does NOT appear on any other pages (home, wallet, scans, social, profile, admin, etc.)
+- Implemented as a reusable component imported individually into those three pages only — NOT in the root layout
 - Height: exactly 20vh (20% of the viewport height) — no more, no less
 - Background: black (#000000)
 - Text: white, Helvetica Bold (font-family: Helvetica, Arial, sans-serif; font-weight: bold)
 - Text must be sized dynamically to fill as much of the banner as possible — use CSS clamp() or a JS text-fit solution to maximize font size within the banner bounds without overflow
 - Text content: "WARNING: This product contains nicotine. Nicotine is an addictive chemical."
-- All page content below the banner must be offset by 20vh (add padding-top: 20vh to the root layout body)
-- Banner must be implemented in the root layout so it appears on every non-admin page without being added to individual pages
+- Fixed to the top of the viewport (position: fixed, top: 0, z-index: 9999) when present
+- Pages that include the banner must offset their content by 20vh (padding-top: 20vh on the page wrapper)
 
 **Files to create/modify:**
 - `web-app/src/components/WarningBanner.tsx` — new component per exact specifications above; never dismissible, no close button
-- `web-app/src/app/layout.tsx` — add `<WarningBanner />` in root layout; exclude on /admin/* routes; add padding-top: 20vh to body
+- `web-app/src/app/shop/page.tsx` — import and render `<WarningBanner />` at top; add padding-top: 20vh to page wrapper
+- `web-app/src/app/cart/page.tsx` — import and render `<WarningBanner />` at top; add padding-top: 20vh to page wrapper
+- `web-app/src/app/checkout/page.tsx` — import and render `<WarningBanner />` at top; add padding-top: 20vh to page wrapper
 - `web-app/src/components/AgeGate.tsx` — new component; full-screen overlay on first visit; localStorage flag `blakjaks_age_verified`; "Are you 21 or older?" with Yes (set flag, show site) / No (redirect to google.com) buttons
 - `web-app/src/app/layout.tsx` — wrap root content in `<AgeGate>`
 - `affiliate/src/app/layout.tsx` — add WarningBanner (no age gate — internal tool)
