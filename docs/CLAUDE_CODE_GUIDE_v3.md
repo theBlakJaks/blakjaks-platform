@@ -168,7 +168,12 @@ blakjaks-platform/
 - Google Analytics: `GA4_MEASUREMENT_ID`
 - Google Cloud KMS: `GCP_KMS_KEY_RING`, `GCP_KMS_KEY_NAME`, `GCP_KMS_LOCATION`, `GCP_PROJECT_ID`
 - Kintsugi (tax): `KINTSUGI_API_KEY`, `KINTSUGI_API_URL`
-- Payment processor (TBD): `PAYMENT_PROCESSOR` (value: `stripe` | `square` | `authorize`), `PAYMENT_SECRET_KEY`, `PAYMENT_PUBLISHABLE_KEY`, `PAYMENT_WEBHOOK_SECRET`
+- Payment processor (**Authorize.net — confirmed**): all 5 credentials stored in GCP Secret Manager (`blakjaks-production`):
+  - `payment-authorize-api-login-id` — API Login ID
+  - `payment-authorize-transaction-key` — Transaction Key
+  - `payment-authorize-public-client-key` — Public Client Key (Accept.js / hosted form)
+  - `payment-authorize-signature-key` — Signature Key (webhook HMAC-SHA512 validation)
+  - `payment-authorize-env` — `sandbox` (flip to `production` at go-live via `gcloud secrets versions add`)
 
 **Doc references:**
 - Env Vars Ref — read the complete document. Every section maps to a variable group above.
@@ -913,20 +918,9 @@ Register `governance` router in `main.py`.
 
 **Dependency check:** Task F2 (API client wired), relevant backend endpoints live.
 
-**⚠️ PAYMENT PROCESSOR DECISION REQUIRED:** The checkout page requires a real payment processor. The spec says TBD/pluggable. Before beginning this task, Claude Code must check whether `PAYMENT_PROCESSOR` is set in config. If it is not set or is blank, output this Dependency Briefing and stop:
+**Payment processor: Authorize.net (confirmed).** All 5 credentials are in GCP Secret Manager (`blakjaks-production`). Use Accept.js (hosted payment form) for the checkout page — load the public client key from `payment-authorize-public-client-key`. Do not implement Stripe or Square. Environment is `sandbox` until go-live.
 
-```
-⛔ DEPENDENCY NOT MET — Cannot complete checkout page
-
-BLOCKED BY: Payment processor selection
-WHAT IT PROVIDES: Actual payment collection at checkout
-WHY THIS TASK NEEDS IT: The checkout page is non-functional without a real payment processor
-SUGGESTED RESOLUTION: Joshua must choose: Stripe (recommended for ease), Square, or Authorize.net.
-  Once decided: obtain API keys, set PAYMENT_PROCESSOR + PAYMENT_SECRET_KEY + PAYMENT_PUBLISHABLE_KEY.
-READY TO PROCEED WHEN: PAYMENT_PROCESSOR env var is set and keys are in GitHub Secrets.
-```
-
-Build all other pages (shop, cart, wallet, scans, leaderboard, notifications) while waiting. Return to checkout when payment processor is confirmed.
+Build all other pages (shop, cart, wallet, scans, notifications) while the checkout integration is in progress.
 
 **Objective:** Build 7 pages that exist in the spec but not in the codebase.
 
