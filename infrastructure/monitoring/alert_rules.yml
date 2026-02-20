@@ -1,0 +1,63 @@
+groups:
+  - name: blakjaks-api
+    rules:
+      # API error rate >1% over a 5-minute window
+      - alert: HighAPIErrorRate
+        expr: |
+          (
+            sum(rate(http_requests_total{status=~"5.."}[5m]))
+            /
+            sum(rate(http_requests_total[5m]))
+          ) > 0.01
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "High API error rate ({{ $value | humanizePercentage }})"
+          description: "API 5xx error rate exceeds 1% for the past 2 minutes."
+
+  - name: blakjaks-celery
+    rules:
+      # Celery queue depth >100 tasks
+      - alert: CeleryQueueBacklog
+        expr: celery_queue_length > 100
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Celery queue backlog ({{ $value }} tasks)"
+          description: "Celery queue has {{ $value }} pending tasks for 5+ minutes."
+
+  - name: blakjaks-database
+    rules:
+      # PostgreSQL connection pool near exhaustion (>80% used)
+      - alert: DatabaseConnectionPoolExhausted
+        expr: |
+          (
+            pg_stat_activity_count{state="active"}
+            /
+            pg_settings_max_connections
+          ) > 0.80
+        for: 3m
+        labels:
+          severity: critical
+        annotations:
+          summary: "DB connection pool near exhaustion ({{ $value | humanizePercentage }})"
+          description: "PostgreSQL is using more than 80% of available connections."
+
+  - name: blakjaks-redis
+    rules:
+      # Redis memory usage >80%
+      - alert: RedisMemoryHigh
+        expr: |
+          (
+            redis_memory_used_bytes
+            /
+            redis_memory_max_bytes
+          ) > 0.80
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Redis memory high ({{ $value | humanizePercentage }})"
+          description: "Redis is using more than 80% of its configured maxmemory."

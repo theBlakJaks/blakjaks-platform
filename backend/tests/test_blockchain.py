@@ -7,6 +7,7 @@ from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 from web3 import Web3
 
+import app.services.blockchain as bc_module
 from app.services.blockchain import (
     AFFILIATE_POOL,
     COMPANY_RETAINED,
@@ -14,10 +15,15 @@ from app.services.blockchain import (
     ERC20_ABI,
     WHOLESALE_POOL,
     _kms_key_version_path,
+    get_w3,
+    get_node_health,
     get_wallet_balance,
     get_usdt_balance,
+    get_consumer_pool_address,
+    get_affiliate_pool_address,
+    get_wholesale_pool_address,
+    get_all_pool_addresses,
     kms_public_key_to_eth_address,
-    w3,
 )
 from app.services.wallet_service import (
     create_user_wallet,
@@ -34,8 +40,80 @@ pytestmark = pytest.mark.asyncio
 
 def test_web3_initializes():
     """Web3 instance should exist and have a provider configured."""
+    bc_module._w3_http = None  # reset singleton
+    w3 = get_w3()
     assert w3 is not None
     assert w3.provider is not None
+    bc_module._w3_http = None  # clean up
+
+
+# ── Node health ─────────────────────────────────────────────────────
+
+
+def test_get_node_health_connected():
+    mock_w3 = MagicMock()
+    mock_w3.eth.block_number = 12345678
+    mock_w3.eth.syncing = False
+    bc_module._w3_http = mock_w3
+
+    result = get_node_health()
+
+    assert result["connected"] is True
+    assert result["block_number"] == 12345678
+    assert result["syncing"] is False
+    assert "provider_url" in result
+    bc_module._w3_http = None
+
+
+def test_get_node_health_disconnected():
+    mock_w3 = MagicMock()
+    mock_w3.eth.block_number = MagicMock(side_effect=ConnectionError("timeout"))
+    bc_module._w3_http = mock_w3
+
+    result = get_node_health()
+
+    assert result["connected"] is False
+    assert result["block_number"] is None
+    bc_module._w3_http = None
+
+
+def test_get_node_health_redacts_infura_key():
+    mock_w3 = MagicMock()
+    mock_w3.eth.block_number = 1
+    mock_w3.eth.syncing = False
+    bc_module._w3_http = mock_w3
+
+    from app.core.config import settings
+    with patch.object(settings, "BLOCKCHAIN_POLYGON_NODE_URL",
+                      "https://polygon-amoy.infura.io/v3/supersecretkey123"):
+        result = get_node_health()
+
+    assert "supersecretkey123" not in result["provider_url"]
+    assert "[REDACTED]" in result["provider_url"]
+    bc_module._w3_http = None
+
+
+# ── Treasury addresses from config ──────────────────────────────────
+
+
+def test_get_consumer_pool_address_from_config():
+    from app.core.config import settings
+    with patch.object(settings, "BLOCKCHAIN_MEMBER_TREASURY_ADDRESS",
+                      "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045"):
+        addr = get_consumer_pool_address()
+    assert addr == "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045"
+
+
+def test_get_all_pool_addresses_returns_all_keys():
+    from app.core.config import settings
+    with patch.object(settings, "BLOCKCHAIN_MEMBER_TREASURY_ADDRESS",
+                      "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045"):
+        with patch.object(settings, "BLOCKCHAIN_AFFILIATE_TREASURY_ADDRESS",
+                          "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045"):
+            with patch.object(settings, "BLOCKCHAIN_WHOLESALE_TREASURY_ADDRESS",
+                              "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045"):
+                addrs = get_all_pool_addresses()
+    assert set(addrs.keys()) == {"consumer", "affiliate", "wholesale"}
 
 
 # ── Treasury pool constants ─────────────────────────────────────────
@@ -107,11 +185,15 @@ def test_get_treasury_address_with_mock():
 def test_get_wallet_balance_with_mock():
     """Mock web3 and test get_wallet_balance returns a Decimal."""
     fake_address = "0x" + "a1" * 20
-
-    with patch.object(w3.eth, "get_balance", return_value=1_000_000_000_000_000_000):
+    mock_w3 = MagicMock()
+    mock_w3.eth.get_balance.return_value = 1_000_000_000_000_000_000
+    bc_module._w3_http = mock_w3
+    try:
         balance = get_wallet_balance(fake_address)
         assert isinstance(balance, Decimal)
         assert balance == Decimal("1")
+    finally:
+        bc_module._w3_http = None
 
 
 def test_get_usdt_balance_no_contract_on_testnet():

@@ -262,7 +262,7 @@ Register all new models in `backend/app/models/__init__.py`.
 
 ---
 
-### Task B3 — Redis Key Schema `[PENDING]`
+### Task B3 — Redis Key Schema `[COMPLETE]`
 
 **Dependency check:** None — this is a constants-only file.
 No live Redis connection required.
@@ -306,7 +306,7 @@ No live Redis connection required.
 
 ---
 
-### Task C1 — Redis Setup `[PENDING]`
+### Task C1 — Redis Setup `[COMPLETE]`
 
 **Dependency check:** Task A2 must be complete (`REDIS_URL` in config).
 
@@ -320,7 +320,7 @@ No live Redis connection required.
 
 ---
 
-### Task C2 — Polygon RPC Configuration (Infura) `[PENDING]`
+### Task C2 — Polygon RPC Configuration (Infura) `[COMPLETE]`
 
 **Dependency check:** Task A2 complete (blockchain env vars in config).
 
@@ -348,7 +348,7 @@ No live Redis connection required.
 
 ---
 
-### Task C3 — Celery Infrastructure `[PENDING]`
+### Task C3 — Celery Infrastructure `[COMPLETE]`
 
 **Dependency check:** Task C1 complete (Redis as broker).
 
@@ -371,7 +371,7 @@ Stubs should log that they ran and return a status dict. Real logic is wired in 
 
 ---
 
-### Task C4 — Local Development Environment `[PENDING]`
+### Task C4 — Local Development Environment `[COMPLETE]`
 
 **Dependency check:** Task A2 complete, Task C1 complete (docker-compose started there).
 
@@ -385,7 +385,7 @@ Stubs should log that they ran and return a status dict. Real logic is wired in 
 
 ---
 
-### Task C5 — Sentry + Monitoring Setup `[PENDING]`
+### Task C5 — Sentry + Monitoring Setup `[COMPLETE]`
 
 **Dependency check:** Task A2 complete (Sentry, Prometheus, Grafana env vars), Task C1 complete (docker-compose exists).
 
