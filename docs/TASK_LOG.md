@@ -6,12 +6,12 @@ Last updated: 2026-02-19 by Eng-1
 ### Task B1 — Restore Multiplier Columns
 Engineer: Eng-1 | Branch: feature/B1 | Started: 2026-02-19 UTC
 
-CHECKPOINT 1 [IN PROGRESS]: Create migration 012_restore_multipliers.py — re-add multiplier to tiers, tier_multiplier to scans, seed correct values
-CHECKPOINT 2 [PENDING]: Add multiplier field to tier.py ORM model
-CHECKPOINT 3 [PENDING]: Add tier_multiplier field to scan.py ORM model
-CHECKPOINT 4 [PENDING]: Write tests
+CHECKPOINT 1 [DONE]: Created 012_restore_multipliers.py — re-adds multiplier to tiers, tier_multiplier to scans, seeds Standard=1.0x VIP=1.5x HR=2.0x Whale=3.0x
+CHECKPOINT 2 [DONE]: Added multiplier: Mapped[Decimal] to tier.py ORM model
+CHECKPOINT 3 [DONE]: Added tier_multiplier: Mapped[Decimal] to scan.py ORM model
+CHECKPOINT 4 [DONE]: Tests written in backend/tests/test_b1_multipliers.py (6 tests)
 
-LAST KNOWN STATE: Starting implementation on feature/B1
+LAST KNOWN STATE: COMPLETE — all files committed on feature/B1
 
 ## Completed Tasks
 
