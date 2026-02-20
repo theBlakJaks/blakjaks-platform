@@ -1,6 +1,6 @@
 # **BlakJaks Platform — Comprehensive Execution Plan**
 
-**Version:** 2.3
+**Version:** 2.4
 **Date:** February 20, 2026
 **Owner:** Joshua Dunn
 **Purpose:** Complete technical specification for Claude Code AI agents to build the BlakJaks loyalty rewards platform. Updated to align with the iOS Master Strategy & Design Brief v5 and incorporate all resolved feature decisions.
@@ -18,6 +18,16 @@
 - Updated shipping to $2.99 flat rate, free over $50+
 - Formalized reconciliation, payout pipeline, and scan velocity APIs
 - Removed Hype Train references (confirmed: no gamification during live events)
+
+**Changelog (v2.3 → v2.4):**
+- Comp payout architecture corrected: virtual `comp_balance` field in database (IOU), no on-chain transfer until user explicitly requests withdrawal; 3-choice modal at comp award time (MetaMask / Bank / Choose Later); 2-choice prompt at withdrawal time
+- MetaMask receive-restriction note added: EOA addresses cannot be restricted from receiving; app does not surface this capability
+- §5 Crypto Wallet & Transactions fully rewritten with virtual balance architecture, comp award flow, withdrawal flow, comp status enum, schema additions
+- New `comp_balance DECIMAL(10,2)` field on users table
+- `comps` table: status enum updated to `pending_choice/held/processing/confirmed/completed/failed`; added `payout_destination`, `payout_tx_hash`, `dwolla_transfer_id` columns
+- `wallet_transactions` table: added `destination ENUM('crypto','bank','held')` and `comp_id` FK
+- New API endpoints: `POST /wallet/comp-payout-choice`, `GET /users/me/wallet`
+- Wallet API updated: `POST /wallet/withdraw` description updated; withdraw-as-crypto now uses registered wallet address (no user-provided address)
 
 **Changelog (v2.2 → v2.3):**
 - Android App: full tech stack spec (Retrofit 2.11, OkHttp 4.12, Koin 3.5, Coil 2.7+coil-gif, Media3 ExoPlayer, socket.io-client-java, FCM, BiometricPrompt, DataStore, EncryptedSharedPreferences)
@@ -503,11 +513,10 @@ Insights API serves aggregated data on demand
     "quarter_label": "Q1 2026"
   },
   "comp_earned": {
-    "amount": 4.50,
-    "type": "crypto",
-    "lifetime_comps": 1250.00,
-    "wallet_balance": 847.50,
-    "gold_chips": 42
+    "id": "uuid",
+    "amount": 100.00,
+    "status": "pending_choice",
+    "requires_payout_choice": true
   },
   "milestone_hit": null
 }
@@ -517,8 +526,10 @@ Insights API serves aggregated data on demand
 
 | Method | Endpoint | Description | Auth |
 |--------|----------|-------------|------|
+| GET | `/users/me/wallet` | Returns comp_balance, wallet_address, pending comps, transaction history | Yes |
 | GET | `/transactions` | Wallet transaction history (filterable: all/deposits/withdrawals) | Yes |
-| POST | `/wallet/withdraw` | Withdraw USDT to external address | Yes |
+| POST | `/wallet/withdraw` | Withdraw comp_balance to bank (ACH via Dwolla) or crypto (MetaMask wallet address) | Yes |
+| POST | `/wallet/comp-payout-choice` | Choose payout method for a pending_choice comp (body: comp_id, method: 'crypto'\|'bank'\|'later') | Yes |
 
 ### **Shop & Orders**
 
@@ -638,7 +649,7 @@ Insights API serves aggregated data on demand
 
 ### **Core Tables**
 
-**users** *(UPDATED — added member_id, avatar_url, member_since)*
+**users** *(UPDATED — added member_id, avatar_url, member_since, comp_balance)*
 
 ```sql
 id                  UUID PRIMARY KEY
@@ -658,6 +669,7 @@ country             VARCHAR(2) DEFAULT 'US'
 tier                ENUM('standard', 'vip', 'high_roller', 'whale')
 tier_status         ENUM('active', 'locked') DEFAULT 'active'
 wallet_address      VARCHAR(42) -- Polygon address
+comp_balance        DECIMAL(10, 2) NOT NULL DEFAULT 0.00 -- Virtual IOU balance; transferred on withdrawal
 dwolla_customer_id  VARCHAR(255)
 dwolla_customer_url VARCHAR(500)
 dwolla_status       VARCHAR(50) DEFAULT 'none' -- none|created|verified|suspended
@@ -749,10 +761,13 @@ type                ENUM('crypto_100', 'crypto_1k', 'crypto_10k', 'trip', 'casin
 amount              DECIMAL(10, 2)
 awarded_at          TIMESTAMP DEFAULT NOW()
 paid_at             TIMESTAMP
-status              ENUM('pending', 'paid', 'failed', 'cancelled')
-transaction_hash    VARCHAR(66) -- Polygon tx hash
+status              ENUM('pending_choice', 'held', 'processing', 'confirmed', 'completed', 'failed') DEFAULT 'pending_choice'
+transaction_hash    VARCHAR(66) -- Polygon tx hash (legacy, use payout_tx_hash)
 trigger_scan_id     UUID REFERENCES scans(id)
 milestone           VARCHAR(50)
+payout_destination  ENUM('crypto', 'bank', 'held')  -- set when user makes choice
+payout_tx_hash      VARCHAR(66)  -- on-chain tx hash if crypto
+dwolla_transfer_id  VARCHAR(255) -- Dwolla transfer ID if bank
 notes               TEXT
 ```
 
@@ -763,6 +778,7 @@ id                  UUID PRIMARY KEY
 user_id             UUID REFERENCES users(id)
 type                ENUM('comp_deposit', 'withdrawal', 'external_deposit')
 amount              DECIMAL(18, 6) -- USDT supports 6 decimals
+destination         ENUM('crypto', 'bank', 'held') -- payout destination for withdrawals
 transaction_hash    VARCHAR(66)
 from_address        VARCHAR(42)
 to_address          VARCHAR(42)
@@ -1386,55 +1402,106 @@ async def process_scan(user_id, code):
 
 ### **5. Crypto Wallet & Transactions**
 
+**Wallet Architecture**
+
+The BlakJaks wallet is a hybrid system:
+
+* **On-chain component:** Each user has a MetaMask Embedded Wallet (Web3Auth MPC wallet) on Polygon. The `wallet_address` is stored in the users table. This is a real, non-custodial EOA — the user's private key is managed by Web3Auth MPC split-key infrastructure.
+* **Virtual balance component:** The app displays a `comp_balance` — a database field representing comps won but not yet withdrawn. This is BlakJaks' IOU to the user. **No USDC moves from treasury wallets until the user explicitly requests a withdrawal.** The displayed balance is always the database value, not an on-chain query.
+
+**Why virtual balance:**
+* Reduces on-chain gas costs (no automatic transfer for every comp)
+* Reduces treasury transaction frequency and complexity
+* Gives users flexibility to choose payout method per-comp or in bulk
+
+**MetaMask wallet note:** A Polygon EOA address is public and cannot be restricted from receiving inbound transfers. BlakJaks does not advertise or surface the wallet's receive capability in the app UI. If a user discovers their wallet address and uses it as a general-purpose MetaMask wallet, that is acceptable — MetaMask supports multiple tokens and chains. The app does not need to handle, display, or account for externally-deposited funds.
+
+---
+
 **Wallet Creation**
 
-* Auto-create on user signup
-* Use MetaMask Embedded Wallets SDK (formerly Web3Auth)
-* SDK creates non-custodial wallet with MPC security
+* Auto-create on user signup via MetaMask Embedded Wallets SDK (Web3Auth)
+* SDK creates non-custodial MPC wallet — private key never stored in BlakJaks database
 * Network: Polygon PoS
-* Store wallet_address in users table
-* Private key managed by Web3Auth (split via MPC, user owns)
-* No private key stored in our database
+* Store `wallet_address` in users table on creation
+* `comp_balance` initialized to 0.00 on user creation
+
+---
 
 **Wallet Display**
 
-* Single USD balance (available vs pending)
-* Transaction history with status filters
-* Two withdrawal actions:
-  * **"Withdraw to Bank"** — ACH payout via Dwolla to linked bank account (1–2 business days standard ACH); Plaid Link for instant bank account verification (Dwolla-managed, no separate Plaid account needed)
-  * **"Withdraw as Crypto"** — Send USDC/USDT to a user-provided Polygon wallet address (on-chain transfer via `blockchain.py`)
-* Linked bank account display (name + last-4 digits from Dwolla funding sources)
-* No crypto spend card or debit card functionality
+* **Primary balance shown:** `comp_balance` from database (USD-denominated, e.g. "$847.50")
+* Label: "Available Balance" with subtitle "Your earned comps"
+* Does NOT show on-chain wallet balance by default
+* Does NOT show wallet address on the main wallet screen
+* Transaction history shows comp deposits (type='comp_deposit') and withdrawals (type='withdrawal') from `wallet_transactions` table
 
-**Comp Deposits**
+**Withdrawal actions (two equal-weight buttons):**
+* **"Withdraw to Bank"** — ACH payout via Dwolla to linked bank account (USD, 1–2 business days); requires linked bank (Plaid one-time setup); minimum $1.00
+* **"Withdraw as Crypto"** — Send USDC from BlakJaks treasury directly to user's MetaMask `wallet_address` on Polygon; minimum $1.00; no address entry required (uses the user's registered wallet address)
 
-* Background worker processes comp awards
-* Fetch treasury private key from Google Cloud KMS
-* Sign transaction using self-hosted Polygon node
-* Broadcast to network
-* Monitor confirmations (wait for 10 blocks)
-* Update database status: pending → confirmed
-* Create notification (type: 'comp')
-* Send email notification
-* Update transparency dashboard
+No payout preference setting. User chooses method at time of each withdrawal. Both buttons always visible.
 
-**Withdrawals**
+---
 
-Two withdrawal paths:
+**Comp Award Flow**
 
-1. **Withdraw to Bank (ACH via Dwolla)**
-   * User links bank account once via Plaid Link (Dwolla-managed; no separate Plaid account required)
-   * User selects amount and confirms
-   * Backend calls `POST /users/me/dwolla/withdraw` → `dwolla_service.initiate_ach_payout()`
-   * Standard ACH credit: 1–2 business days
-   * Same-Day ACH available (requires Dwolla account-level approval; max $1M/transfer)
-   * Confirmation modal before withdrawal; email notification on completion
+When a comp is awarded (at scan milestone):
 
-2. **Withdraw as Crypto (On-chain USDC/USDT)**
-   * User provides destination Polygon wallet address
-   * Backend signs and broadcasts transfer from member wallet via `blockchain.py` + KMS
-   * Standard Polygon gas fees apply
-   * Confirmation modal before transfer; email notification on completion
+1. Backend records the comp in the `comps` table (status: `pending_choice`)
+2. Backend returns comp details in the scan response payload
+3. App displays scan confirmation modal with comp won
+4. Immediately within the scan confirmation modal (or as the next step), user sees a **payout choice prompt**:
+
+   > **🎉 You won $100!**
+   > How would you like to receive it?
+   >
+   > [Send to MetaMask]   [Send to Bank]   [Choose Later]
+
+5. **"Send to MetaMask":**
+   * Backend calls `blockchain.py` to transfer USDC from Member Treasury wallet to user's `wallet_address`
+   * Comp status updated: `pending_choice` → `processing` → `confirmed`
+   * `wallet_transactions` record created (type='comp_deposit', destination='crypto')
+   * Push notification: "Your $100 comp has been sent to your MetaMask wallet"
+
+6. **"Send to Bank":**
+   * Backend calls `dwolla_service.initiate_ach_payout()` — requires user to have linked bank
+   * If no bank linked: Plaid Link sheet appears first, then ACH initiated after linking
+   * Comp status updated: `pending_choice` → `processing` → `completed`
+   * `wallet_transactions` record created (type='comp_deposit', destination='bank')
+   * Push notification: "Your $100 comp is on its way to your bank (1–2 business days)"
+
+7. **"Choose Later":**
+   * `comp_balance` incremented by comp amount in users table
+   * Comp status updated: `pending_choice` → `held`
+   * `wallet_transactions` record created (type='comp_deposit', destination='held')
+   * No push notification (comp is visible in wallet balance)
+
+---
+
+**Withdrawal Flow (from wallet screen)**
+
+When user taps "Withdraw to Bank" or "Withdraw as Crypto" from wallet screen:
+
+* A confirmation sheet appears showing amount (full comp_balance or custom amount entry) and destination
+* **"Withdraw as Crypto":** Transfers USDC from treasury to `wallet_address`; deducts from `comp_balance`; creates `wallet_transactions` record (type='withdrawal', destination='crypto')
+* **"Withdraw to Bank":** Initiates Dwolla ACH; deducts from `comp_balance`; creates `wallet_transactions` record (type='withdrawal', destination='bank')
+* Minimum $1.00 enforced on both paths
+* Confirmation modal shown before any action; email notification on completion
+
+---
+
+**Comp Status Enum:**
+```
+pending_choice  — awarded, waiting for user payout choice
+held            — user chose "Later"; added to comp_balance
+processing      — on-chain transfer or ACH in progress
+confirmed       — on-chain tx confirmed (10 blocks) or ACH cleared
+completed       — fully settled
+failed          — transfer failed; comp_balance restored if deducted
+```
+
+---
 
 **Treasury Management**
 
@@ -1442,14 +1509,16 @@ Two withdrawal paths:
   * Member Treasury (50% GP pool)
   * Affiliate Treasury (5% GP pool)
   * Wholesale Treasury (5% GP pool)
-* Each wallet: Self-custodied hot wallet on self-hosted Polygon node
+* Each wallet: Self-custodied hot wallet on Polygon via Infura RPC
 * Private keys: Stored in Google Cloud KMS
 * Multi-sig for manual transfers: 2-of-3 signatures required
-* Automated comp payouts: Single-sig (system controlled)
+* Automated comp payouts: Single-sig (system controlled), triggered only on user request
 * Daily transaction limits: Flag >$50K for manual review
 * Velocity monitoring: Alert if >$500K/hour outflows
 * Backup reserves: Kept on exchanges (Coinbase, Gemini, Kraken, Binance)
-* Admin can send USDC/USDT from any pool to external Polygon address (requires 2FA)
+* Admin can send USDC from any pool to external Polygon address (requires 2FA)
+* `comp_balance` totals across all users represent BlakJaks' total outstanding IOU liability
+* Admin transparency dashboard shows: on-chain treasury balance + total outstanding `comp_balance` liability
 
 **Blockchain Node**
 
@@ -1464,8 +1533,17 @@ Two withdrawal paths:
 * Transaction signing inside HSM
 * Rate limiting: 100 comp payouts/minute
 * Audit trail: All transactions logged
-* Daily reconciliation: Database vs blockchain (5AM UTC, ±$10 tolerance)
+* Daily reconciliation: Database `comp_balance` totals vs treasury outflows (5AM UTC, ±$10 tolerance)
 * Auto-pause on suspicious activity
+
+**Transaction History Display**
+
+`wallet_transactions` records display in wallet history as:
+* `comp_deposit` (destination='crypto') → "Comp sent to MetaMask · +$X.XX"
+* `comp_deposit` (destination='bank') → "Comp sent to bank · +$X.XX"
+* `comp_deposit` (destination='held') → "Comp added to balance · +$X.XX"
+* `withdrawal` (destination='crypto') → "Withdrawn to MetaMask · -$X.XX"
+* `withdrawal` (destination='bank') → "Withdrawn to bank · -$X.XX"
 
 ### **6. Affiliate Program**
 
@@ -2644,7 +2722,7 @@ INSIGHTS_RECONCILIATION_TOLERANCE=10.00  # USD tolerance
 
 ## **Conclusion**
 
-This execution plan (v2.2) provides a comprehensive, aligned blueprint for Claude Code and its AI agents to build the entire BlakJaks platform. All contradictions between the original platform spec, iOS design brief, and current build decisions have been resolved.
+This execution plan (v2.4) provides a comprehensive, aligned blueprint for Claude Code and its AI agents to build the entire BlakJaks platform. All contradictions between the original platform spec, iOS design brief, and current build decisions have been resolved.
 
 **Key Changes in v2.0:**
 

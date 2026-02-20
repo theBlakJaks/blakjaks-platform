@@ -1,9 +1,11 @@
 # BlakJaks Platform — Claude Code Orchestration Guide
 
-**Version:** 3.3 | **Date:** February 20, 2026 | **Owner:** Joshua Dunn
+**Version:** 3.4 | **Date:** February 20, 2026 | **Owner:** Joshua Dunn
 **Status:** Active Build Guide | CONFIDENTIAL — BlakJaks LLC
 
 **Changelog (v3.2 → v3.3):** Phase J Android full task definition added (J1–J6, 96+ test cases, commit strategy, doc references). Phase J is no longer a stub.
+
+**Changelog (v3.3 → v3.4):** Comp architecture corrected. Comps are now virtual IOU balances (`comp_balance` on users table). No on-chain transfer occurs at award time. User chooses payout method (crypto/bank/later) at comp award or at withdrawal. `comps.status` enum updated to `pending_choice/held/processing/confirmed/completed/failed`. New endpoints: `POST /wallet/comp-payout-choice`, `GET /users/me/wallet`. See BlakJaks_PLATFORM_v2.md §5 for full architecture.
 
 ---
 
