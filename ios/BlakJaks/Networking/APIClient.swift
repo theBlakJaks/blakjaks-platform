@@ -198,9 +198,8 @@ final class APIClient: APIClientProtocol {
 
     // MARK: - Scan
 
-    func submitScan(qrCode: String, productId: Int?) async throws -> ScanResult {
-        var params: Parameters = ["qr_code": qrCode]
-        if let productId { params["product_id"] = productId }
+    func submitScan(qrCode: String) async throws -> ScanResult {
+        let params: Parameters = ["qr_code": qrCode]
         return try await request(APIEndpoints.scan, method: .post, parameters: params)
     }
 
@@ -214,20 +213,22 @@ final class APIClient: APIClientProtocol {
         try await request(APIEndpoints.wallet)
     }
 
-    func getTransactions(limit: Int, offset: Int) async throws -> [Transaction] {
-        try await request(APIEndpoints.transactions, parameters: ["limit": limit, "offset": offset], encoding: URLEncoding.default)
+    func getTransactions(limit: Int, offset: Int, statusFilter: String? = nil) async throws -> [Transaction] {
+        var params: Parameters = ["limit": limit, "offset": offset]
+        if let statusFilter { params["status"] = statusFilter }
+        return try await request(APIEndpoints.transactions, parameters: params, encoding: URLEncoding.default)
     }
 
     func getCompVault() async throws -> CompVault {
         try await request(APIEndpoints.compVault)
     }
 
-    func withdrawCrypto(amount: Double, toAddress: String) async throws -> Transaction {
-        let params: Parameters = ["amount": amount, "to_address": toAddress]
+    func withdrawCrypto(address: String, amount: Double) async throws -> WithdrawalResult {
+        let params: Parameters = ["address": address, "amount": amount]
         return try await request(APIEndpoints.cryptoWithdraw, method: .post, parameters: params)
     }
 
-    func withdrawBank(amount: Double, fundingSourceId: String) async throws -> Transaction {
+    func withdrawToBank(amount: Double, fundingSourceId: String) async throws -> DwollaTransfer {
         let params: Parameters = ["amount": amount, "funding_source_id": fundingSourceId]
         return try await request(APIEndpoints.bankWithdraw, method: .post, parameters: params)
     }
@@ -238,25 +239,17 @@ final class APIClient: APIClientProtocol {
         try await request(APIEndpoints.dwollaFundingSources)
     }
 
-    func getDwollaPlaidLinkToken() async throws -> PlaidLinkToken {
+    func createDwollaCustomer() async throws -> DwollaCustomer {
+        try await request(APIEndpoints.dwollaFundingSources, method: .post)  // POST /dwolla/customers
+    }
+
+    func getPlaidLinkToken() async throws -> PlaidLinkToken {
         try await request(APIEndpoints.dwollaPlaidToken, method: .post)
     }
 
-    func createDwollaExchangeSession(publicToken: String, accountId: String) async throws -> DwollaFundingSource {
+    func linkBankAccount(publicToken: String, accountId: String) async throws -> DwollaFundingSource {
         let params: Parameters = ["public_token": publicToken, "account_id": accountId]
         return try await request(APIEndpoints.dwollaExchangeSession, method: .post, parameters: params)
-    }
-
-    func removeDwollaFundingSource(id: String) async throws {
-        try await requestVoid(APIEndpoints.dwollaFundingSource(id), method: .delete)
-    }
-
-    func getDwollaTransfer(id: String) async throws -> DwollaTransfer {
-        try await request(APIEndpoints.dwollaTransfer(id))
-    }
-
-    func getDwollaTransfers() async throws -> [DwollaTransfer] {
-        try await request(APIEndpoints.dwollaTransfers)
     }
 
     // MARK: - Shop

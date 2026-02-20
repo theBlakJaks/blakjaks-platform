@@ -68,6 +68,7 @@
 		A010DB401AF85EB4A792F3D9 /* MockTransactions.swift in Sources */ = {isa = PBXBuildFile; fileRef = E3CA7190BE69B0AB4B0FBDE3 /* MockTransactions.swift */; };
 		A020B8EEF30D729A6F22A46C /* ScannerViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = CACD4CE50CF4D65744B9D177 /* ScannerViewModel.swift */; };
 		A0E0C34D8011E09D93CF331B /* InsightsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A77D9DA3ECC7676A8A5D09F0 /* InsightsViewModel.swift */; };
+		A163AC889A71AAFC57A46E62 /* ScanWalletViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7FC5EFF587B8E40D482F5902 /* ScanWalletViewModelTests.swift */; };
 		A2CFFE6DCEC4256C0FED2026 /* ScanWalletView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 876B779710420B5B69C6AB5C /* ScanWalletView.swift */; };
 		A51886AE17FC83649100B3F3 /* Wallet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 72DA6906832397FF7F63E043 /* Wallet.swift */; };
 		A8781BA223C07BC3E3D4D47C /* MockUser.swift in Sources */ = {isa = PBXBuildFile; fileRef = 231DC849B067220887ACF366 /* MockUser.swift */; };
@@ -172,6 +173,7 @@
 		7B52675F6367FC0940D88066 /* BlakJaksUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BlakJaksUITests.swift; sourceTree = "<group>"; };
 		7DA1BE4FAF0C807DD29E09CB /* KeychainManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainManager.swift; sourceTree = "<group>"; };
 		7F24100B3AB27C0AFEF7ECFD /* Product.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Product.swift; sourceTree = "<group>"; };
+		7FC5EFF587B8E40D482F5902 /* ScanWalletViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScanWalletViewModelTests.swift; sourceTree = "<group>"; };
 		82AD7B5FF5404D9F9F7995D2 /* Color+Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Color+Theme.swift"; sourceTree = "<group>"; };
 		85C6DA46B7D297C9B285ED92 /* FaceIDPromptView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FaceIDPromptView.swift; sourceTree = "<group>"; };
 		8648D382F478C1AEF9987B4D /* APIError.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIError.swift; sourceTree = "<group>"; };
@@ -367,6 +369,7 @@
 				1EC26812A8ECFC434C495E5A /* DesignSystemTests.swift */,
 				B9FC82DA18C4DB7F304ED58B /* InsightsViewModelTests.swift */,
 				E36AE885D64321622181AAA1 /* KeychainManagerTests.swift */,
+				7FC5EFF587B8E40D482F5902 /* ScanWalletViewModelTests.swift */,
 			);
 			path = BlakJaksTests;
 			sourceTree = "<group>";
@@ -818,6 +821,7 @@
 				7CDE6A37B2B8999A04A1CF88 /* DesignSystemTests.swift in Sources */,
 				62A1D5F643B37A2DD0AC4C16 /* InsightsViewModelTests.swift in Sources */,
 				7558893FEE829D17C30C1233 /* KeychainManagerTests.swift in Sources */,
+				A163AC889A71AAFC57A46E62 /* ScanWalletViewModelTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

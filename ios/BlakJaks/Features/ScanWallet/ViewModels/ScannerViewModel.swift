@@ -54,7 +54,7 @@ final class ScannerViewModel: ObservableObject {
         isLoading = true
         defer { isLoading = false }
         do {
-            scanResult = try await apiClient.submitScan(qrCode: code, productId: nil)
+            scanResult = try await apiClient.submitScan(qrCode: code)
         } catch {
             self.error = error
             scanner.resetForNextScan()
