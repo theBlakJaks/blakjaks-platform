@@ -410,8 +410,7 @@ Push all docs to `docs/` so all agents can read them via GitHub.
 
 | Document | Repo Path |
 |---|---|
-| Code Guide | `docs/CLAUDE_CODE_GUIDE_v2.md` |
-| Revised Checklist | `docs/CHECKLIST_REVISED.md` |
+| Code Guide | `docs/CLAUDE_CODE_GUIDE_v3.md` |
 | Platform v2 | `docs/BlakJaks_PLATFORM_v2.md` |
 | Environment Variables Ref | `docs/BlakJaks_Environment_Variables_Reference_v2.md` |
 | iOS Strategy & Design Brief | `docs/BlakJaks_iOS_Master_Strategy_and_Design_Brief_v5.md` |
@@ -517,9 +516,8 @@ Exact prompts MCM uses. Do not paraphrase.
 You are the Project Planner for the BlakJaks platform build.
 
 Read:
-1. docs/CLAUDE_CODE_GUIDE_v2.md — Phase [X] tasks
+1. docs/CLAUDE_CODE_GUIDE_v3.md — Phase [X] tasks
 2. docs/AGENT_STATE.md — current build state
-3. docs/CHECKLIST_REVISED.md — dependency context
 
 Produce an Agent Execution Plan for Phase [X] using the exact format in the Master Prompt.
 
@@ -560,7 +558,7 @@ Support Query from Engineer [task-id]:
 
 Resolution protocol:
 Tier 1 (try first):
-  - Read the task section in docs/CLAUDE_CODE_GUIDE_v2.md
+  - Read the task section in docs/CLAUDE_CODE_GUIDE_v3.md
   - Read the task's doc references (Platform v2, SDK docs, etc.)
   - Run bash commands to inspect code or reproduce the error
   - Check docs/AGENT_STATE.md for relevant context
@@ -581,7 +579,7 @@ You are the Auditor Agent for the BlakJaks platform build.
 Review Task [task-id] on branch feature/[task-id].
 
 Steps:
-1. Read Completion Criteria for this task in docs/CLAUDE_CODE_GUIDE_v2.md
+1. Read Completion Criteria for this task in docs/CLAUDE_CODE_GUIDE_v3.md
 2. git checkout feature/[task-id] — inspect files
 3. Run test suite for affected module
 4. Verify against relevant section of docs/BlakJaks_PLATFORM_v2.md
