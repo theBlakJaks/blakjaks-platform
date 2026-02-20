@@ -11,18 +11,20 @@ struct BlakJaksApp: App {
     }
 }
 
-// MARK: - Root ContentView (age gate + auth gate)
+// MARK: - Root ContentView
 
 struct ContentView: View {
     @AppStorage("age_verified") private var ageVerified = false
-    @State private var isAuthenticated = false
+    @AppStorage("is_authenticated") private var isAuthenticated = false
 
     var body: some View {
         Group {
             if !ageVerified {
                 AgeGateView(isVerified: $ageVerified)
             } else if !isAuthenticated {
-                WelcomeView(isAuthenticated: $isAuthenticated)
+                NavigationStack {
+                    WelcomeView(isAuthenticated: $isAuthenticated)
+                }
             } else {
                 MainTabView()
             }
@@ -30,48 +32,111 @@ struct ContentView: View {
     }
 }
 
-// MARK: - Main Tab View
+// MARK: - Main Tab View with Center Bubble
 
 struct MainTabView: View {
-    @State private var selectedTab = 2  // Default to center Scan & Wallet tab
+    @State private var selectedTab = 2  // Default: center Scan & Wallet tab
 
     var body: some View {
-        TabView(selection: $selectedTab) {
-            InsightsMenuView()
-                .tabItem {
-                    Label("Insights", systemImage: "chart.bar.fill")
-                }
-                .tag(0)
+        ZStack(alignment: .bottom) {
+            TabView(selection: $selectedTab) {
+                InsightsMenuView()
+                    .tag(0)
 
-            ShopView()
-                .tabItem {
-                    Label("Shop", systemImage: "bag.fill")
-                }
-                .tag(1)
+                ShopView()
+                    .tag(1)
 
-            ScanWalletView()
-                .tabItem {
-                    Label("Scan & Wallet", systemImage: "suit.spade.fill")
-                }
-                .tag(2)
+                ScanWalletView()
+                    .tag(2)
 
-            SocialHubView()
-                .tabItem {
-                    Label("Social", systemImage: "bubble.left.and.bubble.right.fill")
-                }
-                .tag(3)
+                SocialHubView()
+                    .tag(3)
 
-            ProfileView()
-                .tabItem {
-                    Label("Profile", systemImage: "person.fill")
-                }
-                .tag(4)
+                ProfileView()
+                    .tag(4)
+            }
+
+            CustomTabBar(selectedTab: $selectedTab)
         }
-        .accentColor(Color("BrandGold"))
+        .ignoresSafeArea(edges: .bottom)
     }
 }
 
-// MARK: - Age Gate View (stub — implemented in I3)
+// MARK: - Custom Tab Bar with Center Bubble
+
+struct CustomTabBar: View {
+    @Binding var selectedTab: Int
+
+    private let tabs: [(icon: String, label: String)] = [
+        ("chart.bar.fill", "Insights"),
+        ("bag.fill", "Shop"),
+        ("suit.spade.fill", ""),     // Center bubble — no label
+        ("bubble.left.and.bubble.right.fill", "Social"),
+        ("person.fill", "Profile")
+    ]
+
+    var body: some View {
+        ZStack(alignment: .bottom) {
+            // Tab bar background
+            HStack(spacing: 0) {
+                ForEach(0..<tabs.count, id: \.self) { index in
+                    if index == 2 {
+                        // Center: transparent spacer behind the bubble
+                        Spacer()
+                            .frame(maxWidth: .infinity)
+                    } else {
+                        tabButton(index: index)
+                    }
+                }
+            }
+            .frame(height: 60)
+            .background(Color.backgroundSecondary.ignoresSafeArea(edges: .bottom))
+            .overlay(
+                Divider().frame(height: 0.5).foregroundColor(Color.gray.opacity(0.3)),
+                alignment: .top
+            )
+
+            // Center bubble — ♠ spade, extends above tab bar
+            Button {
+                selectedTab = 2
+            } label: {
+                ZStack {
+                    Circle()
+                        .fill(selectedTab == 2 ? Color.gold : Color.backgroundTertiary)
+                        .frame(width: Layout.tabBarCenterBubbleSize, height: Layout.tabBarCenterBubbleSize)
+                        .shadow(color: Color.black.opacity(0.3), radius: 8, y: 4)
+
+                    Image(systemName: "suit.spade.fill")
+                        .font(.system(size: 26, weight: .semibold))
+                        .foregroundColor(selectedTab == 2 ? .black : .secondary)
+                }
+            }
+            .offset(y: -(Layout.tabBarCenterBubbleSize / 2 - 10))
+        }
+    }
+
+    @ViewBuilder
+    private func tabButton(index: Int) -> some View {
+        let tab = tabs[index]
+        Button {
+            selectedTab = index
+        } label: {
+            VStack(spacing: 4) {
+                Image(systemName: tab.icon)
+                    .font(.system(size: 22))
+                    .foregroundColor(selectedTab == index ? .gold : .secondary)
+                if !tab.label.isEmpty {
+                    Text(tab.label)
+                        .font(.caption2)
+                        .foregroundColor(selectedTab == index ? .gold : .secondary)
+                }
+            }
+            .frame(maxWidth: .infinity)
+        }
+    }
+}
+
+// MARK: - Age Gate
 
 struct AgeGateView: View {
     @Binding var isVerified: Bool
@@ -79,36 +144,64 @@ struct AgeGateView: View {
     var body: some View {
         ZStack {
             Color.black.ignoresSafeArea()
-            VStack(spacing: 32) {
+
+            VStack(spacing: Spacing.xl) {
+                // Logo
                 Text("BlakJaks")
-                    .font(.largeTitle.bold())
-                    .foregroundColor(Color("BrandGold"))
+                    .font(.brandLargeTitle)
+                    .foregroundColor(.gold)
+
+                Text("Premium Nicotine Products")
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+
+                Spacer().frame(height: Spacing.xl)
+
+                // FDA Warning Banner — shown on splash per 21 CFR § 1143.3
+                NicotineWarningBanner()
+
+                Spacer().frame(height: Spacing.xl)
 
                 Text("Are you 21 or older?")
-                    .font(.title2)
+                    .font(.title2.weight(.semibold))
                     .foregroundColor(.white)
 
-                HStack(spacing: 24) {
-                    Button("Yes, I am 21+") {
-                        isVerified = true
-                    }
-                    .padding()
-                    .background(Color("BrandGold"))
-                    .foregroundColor(.black)
-                    .cornerRadius(12)
-
-                    Button("No") {
+                HStack(spacing: Spacing.md) {
+                    Button {
                         if let url = URL(string: "https://www.google.com") {
                             UIApplication.shared.open(url)
                         }
+                    } label: {
+                        Text("No")
+                            .font(.headline)
+                            .foregroundColor(.white)
+                            .frame(maxWidth: .infinity)
+                            .frame(height: Layout.buttonHeight)
+                            .background(Color.backgroundTertiary)
+                            .cornerRadius(Layout.buttonCornerRadius)
                     }
-                    .padding()
-                    .background(Color.gray.opacity(0.3))
-                    .foregroundColor(.white)
-                    .cornerRadius(12)
+
+                    Button {
+                        isVerified = true
+                    } label: {
+                        Text("Yes, I am 21+")
+                            .font(.headline)
+                            .foregroundColor(.black)
+                            .frame(maxWidth: .infinity)
+                            .frame(height: Layout.buttonHeight)
+                            .background(Color.gold)
+                            .cornerRadius(Layout.buttonCornerRadius)
+                    }
                 }
+                .padding(.horizontal, Layout.screenMargin)
+
+                Text("By entering, you confirm you are 21 or older and agree to our Terms of Service.")
+                    .font(.caption)
+                    .foregroundColor(Color(.tertiaryLabel))
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, Layout.screenMargin * 2)
             }
-            .padding()
+            .padding(.vertical, Spacing.xxl)
         }
     }
 }
