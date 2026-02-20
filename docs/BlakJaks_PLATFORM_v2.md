@@ -1,7 +1,7 @@
 # **BlakJaks Platform — Comprehensive Execution Plan**
 
-**Version:** 2.0
-**Date:** February 19, 2026
+**Version:** 2.1
+**Date:** February 20, 2026
 **Owner:** Joshua Dunn
 **Purpose:** Complete technical specification for Claude Code AI agents to build the BlakJaks loyalty rewards platform. Updated to align with the iOS Master Strategy & Design Brief v5 and incorporate all resolved feature decisions.
 
@@ -18,6 +18,19 @@
 - Updated shipping to $2.99 flat rate, free over $50+
 - Formalized reconciliation, payout pipeline, and scan velocity APIs
 - Removed Hype Train references (confirmed: no gamification during live events)
+
+**Changelog (v2.0 → v2.1):**
+- Replaced Oobit Plug & Pay SDK with Dwolla ACH payout service (payout-only)
+- Removed Stargate Finance / DEX bridge (Polygon-only architecture, no cross-chain)
+- Confirmed payment processor: Authorize.net with Accept.js (not TBD)
+- Replaced TimescaleDB with PostgreSQL native RANGE partitioning throughout
+- Updated 7TV to client-side only (no backend proxy, no API key, no Redis caching)
+- Updated blockchain RPC to Infura (self-hosted Geth node is a future upgrade)
+- Removed leaderboard feature (cut from scope)
+- Added Dwolla compliance note (nicotine/tobacco merchant approval required before production)
+- Added nicotine warning banner page-level specification
+- Wallet redesigned: single USD balance, "Withdraw to Bank" (Dwolla ACH) + "Withdraw as Crypto" (USDC to Polygon address)
+- Transparency dashboard treasury now includes Dwolla platform balance alongside Teller and on-chain
 
 ---
 
@@ -79,7 +92,7 @@ BlakJaks is a premium nicotine pouch brand with an integrated loyalty rewards pl
 * Authentication & user management
 * QR code generation & scanning
 * Tier tracking & comp distribution
-* Crypto wallet integration (MetaMask Embedded Wallets SDK + Oobit)
+* Crypto wallet integration (MetaMask Embedded Wallets SDK) + ACH payout service (Dwolla)
 * E-commerce & order fulfillment
 * Real-time social platform (with translation, Giphy, 7TV animated emotes)
 * Affiliate tracking & payouts
@@ -138,10 +151,11 @@ BlakJaks is a premium nicotine pouch brand with an integrated loyalty rewards pl
 
 **Blockchain Infrastructure**
 
-* **Node:** Self-hosted Polygon full node (Geth)
+* **Network:** Polygon PoS only
+* **RPC Provider:** Infura (Polygon network); self-hosted Geth node is a planned future upgrade
 * **Web3 Library:** web3.py
 * **Key Management:** Google Cloud KMS
-* **RPC:** Custom Polygon node endpoint (no third-party)
+* **Stablecoin:** USDC/USDT on Polygon
 
 ### **Frontend Web**
 
@@ -229,18 +243,19 @@ BlakJaks is a premium nicotine pouch brand with an integrated loyalty rewards pl
 **Payments & Verification**
 
 * **Age Verification:** AgeChecker.net API
-* **Payment Processing:** TBD (pluggable architecture)
+* **Payment Processing:** Authorize.net (confirmed — standard processors such as Stripe and Square do not permit nicotine product sales); Accept.js for client-side card tokenization
+* **ACH Payouts:** Dwolla (payout-only; Plaid via Dwolla-managed integration for instant bank verification — no separate Plaid account required)
 * **Tax Calculation:** Kintsugi API (AI-powered sales tax automation)
 
 **Crypto & Wallets**
 
 * **Wallet SDK:** MetaMask Embedded Wallets SDK (formerly Web3Auth — auto-creates wallets)
-* **Spend Card:** Oobit Plug & Pay SDK
-* **DEX Bridge:** Stargate Finance (for cross-chain USDT swaps)
+* **Blockchain:** Polygon PoS only (no cross-chain bridging)
 
 **Banking & Transparency**
 
 * **Bank Balances:** Teller.io API (read-only balance access for transparency dashboard)
+* **ACH Payouts:** Dwolla (platform balance + member payout processing)
 
 **Translation**
 
@@ -297,16 +312,16 @@ BlakJaks is a premium nicotine pouch brand with an integrated loyalty rewards pl
 ┌─────────────────────────────────────────────────────────────────┐
 │                      DATA LAYER                                  │
 ├───────────────┬──────────────┬──────────────┬──────────────────┤
-│  PostgreSQL   │  TimescaleDB │    Redis     │   GCS (Files)    │
-│  (Primary DB) │  (Analytics) │   (Cache)    │   (Documents)    │
+│  PostgreSQL   │  PostgreSQL  │    Redis     │   GCS (Files)    │
+│  (Primary DB) │  Partitioned │   (Cache)    │   (Documents)    │
 └───────────────┴──────────────┴──────────────┴──────────────────┘
                             │
         ┌───────────────────┼───────────────────┐
         ▼                   ▼                   ▼
 ┌──────────────┐  ┌──────────────────┐  ┌──────────────┐
 │  Polygon     │  │  External APIs   │  │  Monitoring  │
-│  Full Node   │  │  (Brevo, Oobit,  │  │  & Logging   │
-│  (Self-host) │  │  Teller, Intercom)│  │  (Sentry)    │
+│  (via Infura)│  │  (Brevo, Dwolla, │  │  & Logging   │
+│              │  │  Teller, Intercom)│  │  (Sentry)    │
 └──────────────┘  └──────────────────┘  └──────────────┘
 ```
 
@@ -532,11 +547,16 @@ Insights API serves aggregated data on demand
 | GET | `/affiliate/chips` | Gold chip balance, vault status, expiring soon | Yes |
 | GET | `/affiliate/payouts` | Payout history | Yes |
 
-### **Oobit**
+### **Dwolla (ACH Payouts)**
 
 | Method | Endpoint | Description | Auth |
 |--------|----------|-------------|------|
-| POST | `/oobit/create-token` | Generate Oobit widget access token | Yes |
+| POST | `/users/me/dwolla/customer` | Create Dwolla Receive-Only Customer for user (idempotent) | Yes |
+| POST | `/users/me/dwolla/plaid-link-token` | Get Plaid Link token for bank account linking | Yes |
+| POST | `/users/me/dwolla/link-bank` | Exchange Plaid public token → create verified bank funding source | Yes |
+| GET | `/users/me/dwolla/funding-sources` | List user's linked bank accounts | Yes |
+| POST | `/users/me/dwolla/withdraw` | Initiate ACH payout to linked bank (1–2 business days) | Yes |
+| POST | `/dwolla/webhook` | Receive Dwolla webhook events (HMAC-SHA256 verified) | None |
 
 ### **Admin Endpoints (Admin Portal Only)**
 
@@ -600,7 +620,9 @@ country             VARCHAR(2) DEFAULT 'US'
 tier                ENUM('standard', 'vip', 'high_roller', 'whale')
 tier_status         ENUM('active', 'locked') DEFAULT 'active'
 wallet_address      VARCHAR(42) -- Polygon address
-oobit_card_id       VARCHAR(100)
+dwolla_customer_id  VARCHAR(255)
+dwolla_customer_url VARCHAR(500)
+dwolla_status       VARCHAR(50) DEFAULT 'none' -- none|created|verified|suspended
 avatar_url          VARCHAR(500) -- GCS URL for profile picture
 totp_secret         VARCHAR(32) -- Optional 2FA
 totp_enabled        BOOLEAN DEFAULT FALSE
@@ -701,7 +723,7 @@ notes               TEXT
 ```sql
 id                  UUID PRIMARY KEY
 user_id             UUID REFERENCES users(id)
-type                ENUM('comp_deposit', 'withdrawal', 'oobit_spend', 'external_deposit')
+type                ENUM('comp_deposit', 'withdrawal', 'external_deposit')
 amount              DECIMAL(18, 6) -- USDT supports 6 decimals
 transaction_hash    VARCHAR(66)
 from_address        VARCHAR(42)
@@ -956,7 +978,7 @@ created_by_admin    UUID REFERENCES users(id)
 created_at          TIMESTAMP DEFAULT NOW()
 ```
 
-**transparency_metrics** (TimescaleDB)
+**transparency_metrics** *(PostgreSQL RANGE partitioned by timestamp, monthly partitions)*
 
 ```sql
 timestamp           TIMESTAMPTZ NOT NULL
@@ -966,15 +988,47 @@ metadata            JSONB
 PRIMARY KEY (timestamp, metric_type)
 ```
 
-**treasury_snapshots** *(NEW — TimescaleDB hypertable)*
+Retention: Celery monthly job drops partitions older than 2 years. Query pattern: `date_trunc() + GROUP BY`.
+
+**treasury_snapshots** *(PostgreSQL RANGE partitioned by timestamp, monthly partitions)*
 
 ```sql
 timestamp           TIMESTAMPTZ NOT NULL
 pool_type           ENUM('member', 'affiliate', 'wholesale') NOT NULL
 onchain_balance     DECIMAL(18, 6) -- Blockchain balance
 bank_balance        DECIMAL(18, 6) -- Teller.io-synced bank balance (nullable)
+dwolla_balance      DECIMAL(18, 6) -- Dwolla platform balance (nullable)
 metadata            JSONB
 PRIMARY KEY (timestamp, pool_type)
+```
+
+Retention: Celery monthly job drops partitions older than 90 days (daily rollup rows kept 2 years).
+
+**dwolla_funding_sources** *(NEW)*
+
+```sql
+id                          UUID PRIMARY KEY
+user_id                     UUID REFERENCES users(id)
+dwolla_funding_source_id    VARCHAR(255)
+dwolla_funding_source_url   VARCHAR(500)
+name                        VARCHAR(255)
+status                      VARCHAR(50) -- unverified|verified|removed
+is_default                  BOOLEAN DEFAULT FALSE
+created_at                  TIMESTAMP DEFAULT NOW()
+removed_at                  TIMESTAMP
+```
+
+**dwolla_transfers** *(NEW)*
+
+```sql
+id                  UUID PRIMARY KEY
+user_id             UUID REFERENCES users(id)
+dwolla_transfer_id  VARCHAR(255)
+amount_usd          NUMERIC(12, 2)
+status              VARCHAR(50) -- pending|processed|failed|cancelled|creation_failed
+ach_return_code     VARCHAR(10) -- ACH return code if failed (e.g. R01, R03)
+created_at          TIMESTAMP DEFAULT NOW()
+completed_at        TIMESTAMP
 ```
 
 **teller_connections** *(NEW)*
@@ -1302,11 +1356,13 @@ async def process_scan(user_id, code):
 
 **Wallet Display**
 
-* Show USDT balance (Polygon network)
-* Show transaction history
-* Show pending comps
-* Send/Receive buttons
-* Link to Oobit Plug & Pay card
+* Single USD balance (available vs pending)
+* Transaction history with status filters
+* Two withdrawal actions:
+  * **"Withdraw to Bank"** — ACH payout via Dwolla to linked bank account (1–2 business days standard ACH); Plaid Link for instant bank account verification (Dwolla-managed, no separate Plaid account needed)
+  * **"Withdraw as Crypto"** — Send USDC/USDT to a user-provided Polygon wallet address (on-chain transfer via `blockchain.py`)
+* Linked bank account display (name + last-4 digits from Dwolla funding sources)
+* No crypto spend card or debit card functionality
 
 **Comp Deposits**
 
@@ -1322,23 +1378,21 @@ async def process_scan(user_id, code):
 
 **Withdrawals**
 
-* User can withdraw to external wallet
-* No minimum/maximum limits from BlakJaks
-* Standard Polygon gas fees apply
-* Confirmation modal before withdrawal
-* Email notification on completion
+Two withdrawal paths:
 
-**Oobit Integration**
+1. **Withdraw to Bank (ACH via Dwolla)**
+   * User links bank account once via Plaid Link (Dwolla-managed; no separate Plaid account required)
+   * User selects amount and confirms
+   * Backend calls `POST /users/me/dwolla/withdraw` → `dwolla_service.initiate_ach_payout()`
+   * Standard ACH credit: 1–2 business days
+   * Same-Day ACH available (requires Dwolla account-level approval; max $1M/transfer)
+   * Confirmation modal before withdrawal; email notification on completion
 
-* No native Swift or Kotlin SDK exists — Oobit provides a React Native SDK only
-* Integration pattern for native apps (iOS/Android):
-  1. Backend generates a short-lived access token: `POST /v1/widget/auth/create-token`
-  2. Token returned to native app
-  3. iOS loads Oobit widget URL in a `WKWebView` (Android: `WebView`), passing the token
-  4. Widget handles card activation, KYC, and Apple/Google Pay setup internally
-  5. App receives activation result via `WKScriptMessageHandler` (iOS) / `JavascriptInterface` (Android)
-* BlakJaks tracks: Oobit card ID, activation status
-* Spending functionality fully handled by Oobit
+2. **Withdraw as Crypto (On-chain USDC/USDT)**
+   * User provides destination Polygon wallet address
+   * Backend signs and broadcasts transfer from member wallet via `blockchain.py` + KMS
+   * Standard Polygon gas fees apply
+   * Confirmation modal before transfer; email notification on completion
 
 **Treasury Management**
 
@@ -1353,18 +1407,14 @@ async def process_scan(user_id, code):
 * Daily transaction limits: Flag >$50K for manual review
 * Velocity monitoring: Alert if >$500K/hour outflows
 * Backup reserves: Kept on exchanges (Coinbase, Gemini, Kraken, Binance)
-* Transfer to hot wallet via Stargate Finance cross-chain swap
-* Admin can send USDT from any pool to external address (requires 2FA)
+* Admin can send USDC/USDT from any pool to external Polygon address (requires 2FA)
 
 **Blockchain Node**
 
-* Self-hosted Polygon full node (Geth client)
-* Dedicated GKE pod with persistent storage
-* Isolated network (only accessible by backend API)
-* RPC endpoint: Internal only (not public)
-* Sync mode: Full node
-* Regular backups of node data
-* Monitoring: Block height, peer count, sync status
+* RPC provider: Infura (Polygon network) — current implementation
+* Self-hosted Polygon full node (Geth) is a planned future infrastructure upgrade
+* RPC endpoint: Internal only (backend API only)
+* Monitoring: Block height, peer count, sync status via `get_node_health()`
 
 **Security**
 
@@ -1496,11 +1546,13 @@ async def process_scan(user_id, code):
 
 **Payment Processing**
 
-* Pluggable architecture (provider TBD)
-* Support: Credit card, USDT (crypto payments)
+* **Provider: Authorize.net** (confirmed — standard processors such as Stripe and Square do not permit nicotine product sales)
+* **Client-side tokenization: Accept.js** (Authorize.net hosted form; public client key loaded from GCP Secret Manager)
+* Support: Credit card
 * 3DS verification for fraud prevention
-* Tokenization: Never store card numbers
+* Tokenization: Never store card numbers (Accept.js tokenizes on client before reaching BlakJaks servers)
 * Payment status tracking: pending → authorized → captured
+* Credentials stored in GCP Secret Manager (`blakjaks-production`): `payment-authorize-api-login-id`, `payment-authorize-transaction-key`, `payment-authorize-public-client-key`, `payment-authorize-signature-key`, `payment-authorize-env`
 
 **Tax Calculation**
 
@@ -1673,6 +1725,40 @@ async def process_scan(user_id, code):
 * User preferences: Toggle per notification type in settings
 * Silent at night: Respect device Do Not Disturb settings
 
+### **11. Nicotine Warning Banner (FDA Compliance)**
+
+**Regulatory Basis:** 21 CFR § 1143.3(b)(2) — FDA-mandated warning for nicotine products
+
+**Required Pages (exact list — do not add to other pages):**
+
+| Platform | Pages |
+|---|---|
+| Web | Home page, wholesale portal, affiliate portal |
+| iOS | Initial loading/splash screen (pre-login), shop page, cart, checkout |
+| Android | Same pages as iOS |
+
+**NOT shown on:** Social, insights, wallet, scanner, profile, admin portal, affiliate portal app
+
+**Visual Specification (FDA-mandated):**
+
+* Background: Black (#000000)
+* Text: White (#FFFFFF)
+* Font: Helvetica Bold (or Arial Bold) — FDA-specified per 21 CFR § 1143.3
+* Height: Exactly 20% of the advertisement area / viewport height
+* Position: Fixed to top of viewport (web); top of screen (mobile)
+* Text must auto-size to occupy the greatest possible proportion of the banner area without overflow
+* Pages with banner must offset content by 20% to prevent overlap
+* **Never dismissible — no close button**
+
+**Exact required text (do not alter):**
+> WARNING: This product contains nicotine. Nicotine is an addictive chemical.
+
+**Implementation:**
+
+* Web: Reusable `<NicotineWarningBanner />` component imported individually on each required page — NOT in root layout
+* iOS: `NicotineWarningBanner.swift` SwiftUI view added to SplashView, ShopView, CartView, CheckoutView
+* Component is uppercase, white-on-black, fills banner area with no close/dismiss capability
+
 ### **12. Insights (Transparency Dashboard)**
 
 **Access**
@@ -1706,11 +1792,15 @@ async def process_scan(user_id, code):
   * Progress bar (% of pool utilized)
   * Polygon wallet address
   * Copy button + "Verify on blockchain" link
-* **Bank account balances (via Teller.io):** *(NEW)*
+* **Bank account balances (via Teller.io):**
   * Operating account balance
   * Reserve account balance
   * Comp Pool account balance
   * Last Teller sync timestamp
+* **Dwolla platform balance:**
+  * Available USD balance and total USD balance in Dwolla master account
+  * Polled every 60 seconds in admin; updated hourly via Celery treasury snapshot job
+  * Displayed alongside Teller and on-chain balances in Treasury tab
 * Sparkline charts: Treasury balance over last 90 days *(UPDATED from 30)*
 * **Payout ledger:** *(NEW)*
   * Aggregated stats by comp type (counts, totals, percentages)
@@ -1968,7 +2058,7 @@ async def process_scan(user_id, code):
 
 * System settings: Comp unlock thresholds, tier requirements
 * Payment settings: Processor config, tax settings
-* Integration settings: API keys (Brevo, Oobit, AgeChecker, Teller.io, etc.)
+* Integration settings: API keys (Brevo, Authorize.net, AgeChecker, Teller.io, Dwolla, etc.)
 * Security: IP whitelist for admin access, 2FA enforcement
 * Notifications: Email/SMS alerts for critical events
 
@@ -2088,11 +2178,14 @@ async def process_scan(user_id, code):
 * Add user avatars to CDN caching (Cache-Control: 1 day, stale-while-revalidate)
 * HLS stream segments served via CDN
 
-### **TimescaleDB Additions**
+### **PostgreSQL Partitioned Table Additions**
 
-* New hypertable: `treasury_snapshots` (hourly balance snapshots)
-  * Retention: 90 days for sparkline display
-  * Aggregation: Daily rollups kept for 2 years
+* `treasury_snapshots` — RANGE partitioned by timestamp (monthly partitions); hourly balance snapshots from Celery job
+  * Retention: 90-day rolling window; Celery monthly partition drop job
+  * Aggregation: Daily rollup rows kept for 2 years
+  * Includes: `onchain_balance`, `bank_balance` (Teller), `dwolla_balance` per pool_type
+* `transparency_metrics` — RANGE partitioned by timestamp (monthly partitions); general analytics metrics
+  * Retention: 2-year rolling window; Celery monthly partition drop job
 
 ---
 
@@ -2100,9 +2193,18 @@ async def process_scan(user_id, code):
 
 *All integrations from v1.0 remain. Only additions/changes noted below.*
 
-### **1-9. Brevo, MetaMask, Oobit, Stargate, AgeChecker, Kintsugi, Intercom, Translation, Selery**
+### **1-7. Brevo, MetaMask, AgeChecker, Kintsugi, Intercom, Translation, Selery**
 
 *(Unchanged from v1.0)*
+
+### **8. Authorize.net (Payment Processing)** *(CONFIRMED)*
+
+* **Purpose:** Credit card processing for product purchases
+* **Why Authorize.net:** Standard processors (Stripe, Square) do not permit nicotine product sales
+* **Client-side:** Accept.js for card tokenization — public client key loaded from GCP Secret Manager
+* **Server-side:** Python SDK or direct REST API calls using API Login ID + Transaction Key
+* **Environment:** `sandbox` until go-live (flip `payment-authorize-env` secret to `production`)
+* All 5 credentials stored in GCP Secret Manager (`blakjaks-production`)
 
 ### **10. StreamYard (Live Streaming)**
 
@@ -2125,12 +2227,12 @@ async def process_scan(user_id, code):
 
 1. Client fetches the global emote set directly: `GET https://7tv.io/v3/emote-sets/global`
 2. Client searches the full 7TV database (1.5M+ emotes) via GraphQL: `POST https://7tv.io/v3/gql`
-3. No backend proxy required. No API key required. No emote set ID required.
+3. No backend proxy required. No API key required. No emote set ID required. No backend Redis caching.
 4. Images served directly from 7TV CDN: `cdn.7tv.app/emote/{id}/{size}.webp`
-3. Cache emote set locally (Redis, refresh every hour)
-4. Client displays emote picker (grid of animated emotes)
-5. User selects emote → Message sent with emote code (e.g., `:KEKW:`)
-6. Client renders animated emote inline in chat message
+5. Client caches emote set in memory/local storage (refresh on app launch)
+6. Client displays emote picker (grid of animated emotes)
+7. User selects emote → Message sent with emote code (e.g., `:KEKW:`)
+8. Client renders animated emote inline in chat message
 
 **Emote Display**
 
@@ -2140,7 +2242,57 @@ async def process_scan(user_id, code):
 
 **Cost**: Free (7TV is community-driven, open API)
 
-### **13. Teller.io (Bank Balance Transparency)** *(NEW)*
+### **13. Dwolla (ACH Payout Service)** *(NEW)*
+
+**Purpose:** ACH payout processing for member withdrawals (USD to bank account). Payout-only — BlakJaks sends money out; members do not fund through Dwolla.
+
+> ⚠️ **COMPLIANCE GATE:** Before deploying Dwolla to production, confirm that Dwolla permits nicotine/tobacco merchants by requesting their **restricted activities guidance document** during sales onboarding. Tobacco/nicotine is not explicitly listed in Dwolla's public Terms of Service, but a separate private document governs restricted industries. Sandbox development can proceed without this confirmation.
+
+**Integration**
+
+* API: Dwolla REST API
+* Auth: OAuth 2.0 Client Credentials (2-legged, server-to-server); token cached in Redis, auto-refreshed
+* Sandbox base URL: `https://api-sandbox.dwolla.com`
+* Production base URL: `https://api.dwolla.com`
+* Credentials stored in GCP Secret Manager: `dwolla-key`, `dwolla-secret`, `dwolla-env`, `dwolla-webhook-secret`, `dwolla-master-funding-source-id`
+
+**Customer Type: Receive-Only**
+
+* Members are onboarded as Dwolla **Receive-Only Customers** — no KYC/identity verification required
+* They can only receive ACH credits (payouts); they cannot initiate transfers
+* Required fields: first name, last name, email
+
+**Bank Account Verification: Plaid (Dwolla-managed)**
+
+* Dwolla manages the Plaid integration — **no separate Plaid account or contract needed**
+* BlakJaks calls Dwolla's Exchange Sessions API to get a Plaid Link Token
+* Member authenticates with their bank via the Plaid Link widget (embedded in app)
+* Result is an instantly verified bank funding source — no micro-deposits needed
+
+**Payout Flow**
+
+1. Member requests withdrawal (amount in USD)
+2. Backend calls `dwolla_service.initiate_ach_payout()` → `POST /transfers`
+3. Source: BlakJaks master Dwolla Balance (pre-funded)
+4. Destination: Member's verified bank funding source
+5. Standard ACH credit: 1–2 business days
+6. Webhook events update transfer status in `dwolla_transfers` table
+
+**Webhook Security**
+
+* Dwolla signs every webhook with HMAC-SHA256 using the `dwolla-webhook-secret`
+* Signature in `X-Request-Signature-SHA-256` header
+* Backend verifies signature before processing any event (reject with 401 on failure)
+
+**Key Webhook Events Handled**
+
+* `customer_bank_transfer_created/completed/failed/cancelled` — transfer lifecycle
+* `customer_created/verified/suspended` — customer status changes
+* `customer_funding_source_added/verified/removed` — bank account lifecycle
+
+**Cost:** Per-transfer pricing — see Dwolla services agreement
+
+### **14. Teller.io (Bank Balance Transparency)** *(NEW)*
 
 **Purpose**: Read-only access to BlakJaks bank account balances for the Insights transparency dashboard
 
@@ -2221,10 +2373,21 @@ async def process_scan(user_id, code):
 
 **7TV Emote Testing**
 
-1. Fetch emote set → Verify cached in Redis
-2. Send message with emote code → Verify rendered
-3. Test emote picker loads correctly
-4. Verify animated emotes display in chat
+1. Fetch global emote set client-side → Verify emote picker populates
+2. Send message with emote code → Verify rendered inline
+3. Test emote picker loads correctly (no backend calls required)
+4. Verify animated emotes display in chat from 7TV CDN
+
+**Dwolla ACH Payout Testing**
+
+1. Create Receive-Only Customer → Verify `dwolla_customer_id` stored on user record
+2. Fetch Plaid Link token → Verify Plaid Link widget launches
+3. Link bank account → Verify funding source created as `verified` (instant via Plaid)
+4. Initiate payout → Verify `dwolla_transfers` record created with status `pending`
+5. Run sandbox simulation (`POST /sandbox-simulations`) → Verify status updates to `processed`
+6. Simulate ACH failure: Set funding source name to `R01` → Run simulation → Verify status `failed`, ACH return code stored
+7. Test webhook signature verification: Valid signature accepted, tampered body rejected
+8. Verify `dwolla-master-funding-source-id` balance query returns USD amounts
 
 **Insights API Testing**
 
@@ -2248,12 +2411,12 @@ async def process_scan(user_id, code):
 
 **Additional agent responsibilities for v2.0 features:**
 
-* **Backend Agent**: Build Insights API (6 endpoints + WebSocket), Notification system, Teller.io integration, 7TV integration
-* **iOS Agent**: Integrate Socket.io-client-swift (instead of Starscream), avatar upload, notification center, translation UI, Giphy/7TV pickers
+* **Backend Agent**: Build Insights API (6 endpoints + WebSocket), Notification system, Teller.io integration, 7TV integration, Dwolla payout service
+* **iOS Agent**: Integrate Socket.io-client-swift (instead of Starscream), avatar upload, notification center, translation UI, Giphy/7TV pickers, Plaid Link + Dwolla withdraw flow
 * **Android Agent**: Same additions as iOS (using platform equivalents)
-* **Web Frontend Agent**: Insights dashboard updates (bank balances, scan velocity, payout pipeline), avatar support in chat
-* **Integration Agent**: Teller.io setup, 7TV API integration
-* **Database Agent**: New tables (notifications, live_streams, treasury_snapshots, teller_connections, social_message_reactions), new indexes, Redis sorted sets for scan velocity
+* **Web Frontend Agent**: Insights dashboard updates (bank balances including Dwolla, scan velocity, payout pipeline), avatar support in chat, wallet page with dual withdrawal options
+* **Integration Agent**: Teller.io setup, Dwolla sandbox setup, Authorize.net sandbox setup
+* **Database Agent**: New tables (notifications, live_streams, treasury_snapshots, teller_connections, dwolla_funding_sources, dwolla_transfers, social_message_reactions), new indexes, Redis sorted sets for scan velocity
 
 ---
 
@@ -2284,8 +2447,10 @@ async def process_scan(user_id, code):
 **Integrated into Phase 6 (Integrations):**
 
 * Teller Connect setup + balance fetching
-* 7TV API integration
-* Treasury snapshot Celery jobs (Teller.io balance sync)
+* 7TV emote integration (client-side only — no backend changes required)
+* Treasury snapshot Celery jobs (Teller.io balance sync + Dwolla balance poll)
+* Dwolla payout service + Plaid bank linking
+* Authorize.net payment processing + Accept.js
 
 ---
 
@@ -2303,9 +2468,17 @@ TELLER_PRIVATE_KEY_PATH=/secrets/teller_private_key.pem
 TELLER_ENV=production  # sandbox | production
 TELLER_WEBHOOK_SECRET=<teller_webhook_secret>
 
-# 7TV Emotes
-SEVENTV_EMOTE_SET_ID=<emote_set_id>
-SEVENTV_API_BASE_URL=https://7tv.io/v3
+# Dwolla ACH Payouts (stored in GCP Secret Manager)
+DWOLLA_KEY=<dwolla_client_id>
+DWOLLA_SECRET=<dwolla_client_secret>
+DWOLLA_ENV=sandbox  # sandbox | production
+DWOLLA_WEBHOOK_SECRET=<hmac_secret_for_webhook_verification>
+DWOLLA_MASTER_FUNDING_SOURCE_ID=<uuid_of_platform_balance_funding_source>
+
+# 7TV Emotes (client-side only — no backend env vars required)
+# Fetched directly by clients from https://7tv.io/v3/emote-sets/global
+# GraphQL search at https://7tv.io/v3/gql
+# No API key, no emote set ID, no backend proxy needed
 
 # Avatar Storage
 STORAGE_GCS_USER_AVATARS_BUCKET=blakjaks-user-avatars
@@ -2333,7 +2506,8 @@ INSIGHTS_RECONCILIATION_TOLERANCE=10.00  # USD tolerance
 **Where to get:**
 
 * Teller.io: https://app.teller.io (generate certificate + private key in dashboard)
-* 7TV: https://7tv.io (create emote set in dashboard)
+* Dwolla sandbox: https://accounts-sandbox.dwolla.com/sign-up → credentials at https://dashboard-sandbox.dwolla.com/applications-legacy
+* Dwolla master funding source ID: `GET https://api-sandbox.dwolla.com/accounts/{id}/funding-sources` — use the `balance` type source
 * APNs: Apple Developer Portal → Keys
 * FCM: Google Cloud Console → Firebase project
 
@@ -2371,7 +2545,7 @@ INSIGHTS_RECONCILIATION_TOLERANCE=10.00  # USD tolerance
 
 ## **Conclusion**
 
-This execution plan (v2.0) provides a comprehensive, aligned blueprint for Claude Code and its AI agents to build the entire BlakJaks platform. All contradictions between the original platform spec and iOS design brief have been resolved, and new features (notifications, Teller.io, 7TV emotes, avatars) have been integrated.
+This execution plan (v2.1) provides a comprehensive, aligned blueprint for Claude Code and its AI agents to build the entire BlakJaks platform. All contradictions between the original platform spec, iOS design brief, and current build decisions have been resolved.
 
 **Key Changes in v2.0:**
 
@@ -2379,13 +2553,26 @@ This execution plan (v2.0) provides a comprehensive, aligned blueprint for Claud
 2. **Rich scan response** — Backend returns full tier progress + comp details on every scan
 3. **Insights API** — 6 REST endpoints + WebSocket for real-time transparency dashboard
 4. **Teller.io integration** — Bank account balances for transparency
-5. **7TV emotes** — Animated emotes in chat alongside Giphy GIFs
+5. **7TV emotes** — Animated emotes in chat alongside Giphy GIFs (client-side only)
 6. **User avatars** — Profile pictures in profile and chat
 7. **Notifications** — In-app + push notification system
 8. **12mg strength** — Fourth product strength added
 9. **$2.99 flat shipping** — Free over $50+
 
+**Key Changes in v2.1:**
+
+1. **Dwolla replaces Oobit** — ACH payout service for member bank withdrawals; Plaid bank linking via Dwolla (no separate Plaid account); no crypto spend card
+2. **Authorize.net confirmed** — Payment processor for product purchases; Accept.js for card tokenization; chosen because Stripe/Square prohibit nicotine sales
+3. **Stargate Finance removed** — Polygon-only blockchain architecture; no cross-chain bridging
+4. **PostgreSQL RANGE partitioning** — Replaces TimescaleDB throughout; monthly partitions managed by Celery drop jobs
+5. **7TV client-side only** — No backend proxy, no API key, no Redis caching; clients fetch directly from 7tv.io
+6. **Infura for RPC** — Polygon RPC via Infura (self-hosted Geth is future upgrade)
+7. **Leaderboard removed** — Feature cut from scope
+8. **Dwolla compliance note** — Nicotine/tobacco merchant approval must be confirmed with Dwolla before production payout launch
+9. **Nicotine warning banner spec** — FDA 21 CFR § 1143.3 compliant; page-level specification added
+10. **Transparency dashboard** — Now shows three balance sources: on-chain (Polygon), Teller (business bank), Dwolla (platform payout balance)
+
 *This document serves as the single source of truth for the BlakJaks platform development. All agents should refer to this plan for requirements, architecture decisions, and implementation details.*
 
-**End of Execution Plan v2.0**
+**End of Execution Plan v2.1**
 
