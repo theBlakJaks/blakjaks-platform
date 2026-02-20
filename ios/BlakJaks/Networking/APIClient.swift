@@ -254,8 +254,10 @@ final class APIClient: APIClientProtocol {
 
     // MARK: - Shop
 
-    func getProducts() async throws -> [Product] {
-        try await request(APIEndpoints.products)
+    func getProducts(category: String?, limit: Int, offset: Int) async throws -> [Product] {
+        var params: Parameters = ["limit": limit, "offset": offset]
+        if let category { params["category"] = category }
+        return try await request(APIEndpoints.products, parameters: params, encoding: URLEncoding.default)
     }
 
     func getProduct(id: Int) async throws -> Product {
@@ -266,44 +268,30 @@ final class APIClient: APIClientProtocol {
         try await request(APIEndpoints.cart)
     }
 
-    func addToCart(productId: Int, quantity: Int, strength: String, flavor: String) async throws -> Cart {
-        let params: Parameters = ["product_id": productId, "quantity": quantity, "strength": strength, "flavor": flavor]
+    func addToCart(productId: Int, quantity: Int) async throws -> Cart {
+        let params: Parameters = ["product_id": productId, "quantity": quantity]
         return try await request(APIEndpoints.cartItems, method: .post, parameters: params)
     }
 
-    func updateCartItem(itemId: Int, quantity: Int) async throws -> Cart {
+    func updateCartItem(productId: Int, quantity: Int) async throws -> Cart {
         let params: Parameters = ["quantity": quantity]
-        return try await request(APIEndpoints.cartItem(itemId), method: .patch, parameters: params)
+        return try await request(APIEndpoints.cartItem(productId), method: .patch, parameters: params)
     }
 
-    func removeCartItem(itemId: Int) async throws -> Cart {
-        try await request(APIEndpoints.cartItem(itemId), method: .delete)
+    func removeFromCart(productId: Int) async throws -> Cart {
+        try await request(APIEndpoints.cartItem(productId), method: .delete)
     }
 
-    func clearCart() async throws {
-        try await requestVoid(APIEndpoints.cart, method: .delete)
+    func estimateTax(shippingAddress: ShippingAddress) async throws -> TaxEstimate {
+        try await requestEncodable(APIEndpoints.taxEstimate, body: shippingAddress)
     }
 
-    func checkout(shippingAddress: ShippingAddress, paymentMethodNonce: String?) async throws -> Order {
-        var params: Parameters = [
-            "shipping_address": [
-                "street1": shippingAddress.street1,
-                "street2": shippingAddress.street2 as Any,
-                "city": shippingAddress.city,
-                "state": shippingAddress.state,
-                "zip": shippingAddress.zip
-            ]
-        ]
-        if let nonce = paymentMethodNonce { params["payment_nonce"] = nonce }
-        return try await request(APIEndpoints.checkout, method: .post, parameters: params)
-    }
-
-    func getOrders() async throws -> [Order] {
-        try await request(APIEndpoints.orders)
-    }
-
-    func getOrder(id: Int) async throws -> Order {
-        try await request(APIEndpoints.order(id))
+    func createOrder(shippingAddress: ShippingAddress, paymentToken: String) async throws -> Order {
+        struct CreateOrderBody: Encodable {
+            let shippingAddress: ShippingAddress
+            let paymentToken: String
+        }
+        return try await requestEncodable(APIEndpoints.checkout, body: CreateOrderBody(shippingAddress: shippingAddress, paymentToken: paymentToken))
     }
 
     // MARK: - Notifications

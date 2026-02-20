@@ -48,6 +48,7 @@ enum APIEndpoints {
     static let cart              = "/shop/cart"
     static let cartItems         = "/shop/cart/items"
     static func cartItem(_ id: Int) -> String { "/shop/cart/items/\(id)" }
+    static let taxEstimate       = "/shop/tax-estimate"
     static let orders            = "/shop/orders"
     static func order(_ id: Int) -> String { "/shop/orders/\(id)" }
     static let checkout          = "/shop/checkout"
