@@ -125,7 +125,7 @@ blakjaks-platform/
 
 ---
 
-### Task A1 — Security Corrections `[PENDING]`
+### Task A1 — Security Corrections `[COMPLETE]`
 
 **Objective:** Replace bcrypt with Argon2id for password hashing, and fix JWT token expiry values to match spec. Both are spec violations that must be corrected before any other auth work.
 
@@ -142,7 +142,7 @@ blakjaks-platform/
 
 ---
 
-### Task A2 — Environment Configuration `[PENDING]`
+### Task A2 — Environment Configuration `[COMPLETE]`
 
 **Objective:** `config.py` covers ~30% of the variables defined in Env Vars Ref. Add all missing variables grouped by service so downstream services can be configured without code changes.
 
@@ -177,7 +177,7 @@ blakjaks-platform/
 
 ---
 
-### Task A3 — CI/CD Corrections `[PENDING]`
+### Task A3 — CI/CD Corrections `[COMPLETE]`
 
 **Objective:** CI currently builds and deploys without running tests. A broken backend ships silently. Add pytest to the pipeline and a PR test gate.
 
@@ -199,7 +199,7 @@ blakjaks-platform/
 
 ---
 
-### Task B1 — Restore Multiplier Columns `[PENDING]`
+### Task B1 — Restore Multiplier Columns `[COMPLETE]`
 
 **Dependency check:** Verify `backend/migrations/versions/002_*.py` contains the `ALTER TABLE` that removed `multiplier` from `tiers` and `tier_multiplier` from `scans`. If migration 002 does NOT contain this removal, flag it and stop.
 
@@ -220,7 +220,7 @@ blakjaks-platform/
 
 ---
 
-### Task B2 — New Table Migrations `[PENDING]`
+### Task B2 — New Table Migrations `[COMPLETE]`
 
 **Dependency check:** Task B1 must be complete.
 
@@ -262,9 +262,10 @@ Register all new models in `backend/app/models/__init__.py`.
 
 ---
 
-### Task B3 — Redis Key Schema `[PENDING]`
+### Task B3 — Redis Key Schema `[BLOCKED]`
 
-**Dependency check:** Task C1 must be complete (Redis running). If C1 is not done, output Dependency Briefing: "Redis is not provisioned. Without a running Redis instance, the key definitions cannot be validated. Resolution: Prompt Phase C first, then return to B3."
+**Dependency check:** Redis is already provisioned (Cloud Memorystore at 10.96.113.3:6379).
+Task C1 must create redis_client.py before this task can define key patterns against it.
 
 **Objective:** Define all Redis key patterns in a single constants file. No service should ever hardcode a Redis key string.
 
@@ -286,6 +287,22 @@ Register all new models in `backend/app/models/__init__.py`.
 
 # PHASE C — INFRASTRUCTURE
 *⚡ Requires: Task A2 complete*
+
+> **Infrastructure Audit Note — Read before starting any Phase C task:**
+> The following GCP infrastructure already exists and must NOT be reprovisioned:
+> - **GKE Cluster:** `blakjaks-primary` (Autopilot, us-central1) — RUNNING
+> - **PostgreSQL:** `blakjaks-db` (PostgreSQL 18.2, Cloud SQL) — IP: 10.96.112.3 (private)
+> - **Redis:** `blakjaks-redis` (Redis 7.2, Cloud Memorystore) — IP: 10.96.113.3:6379
+> - **Namespaces:** default, development, staging, production — all exist
+> - **All GCS buckets** — fully provisioned including blakjaks-user-avatars and blakjaks-backups
+> - **All Secret Manager secrets** — fully populated including treasury wallet addresses
+>
+> **C1 agents:** Do not provision Redis. Create docker-compose.yml with local Redis for
+> local dev only. Create redis_client.py pointing at `settings.REDIS_URL`
+> (which maps to the Memorystore instance in GKE environments).
+>
+> **C2 agents:** Infura credentials are in Secret Manager as `infura-api-key`.
+> No node provisioning required.
 
 ---
 
