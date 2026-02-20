@@ -1,16 +1,25 @@
+import logging
 import re
 import uuid
 from datetime import datetime, timedelta, timezone
+from decimal import Decimal
 
 from fastapi import HTTPException, status
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.models.product import Product
 from app.models.qr_code import QRCode
 from app.models.scan import Scan
 from app.models.user import User
+from app.models.wallet import Wallet
 from app.services.tier import get_all_tiers, get_quarterly_scan_count, get_user_tier_info
+
+logger = logging.getLogger(__name__)
+
+# Base USDT earn rate per scan (before tier multiplier)
+BASE_RATE = Decimal("0.01")
 
 QR_PATTERN = re.compile(r"^BLAKJAKS-([A-Za-z0-9_]+)-([A-Za-z0-9]+)$")
 RATE_LIMIT_WINDOW = timedelta(minutes=1)
@@ -45,7 +54,7 @@ async def check_rate_limit(db: AsyncSession, user_id: uuid.UUID) -> None:
 
 
 async def submit_scan(db: AsyncSession, user: User, raw_qr: str) -> dict:
-    """Validate QR, record scan, return result dict."""
+    """Validate QR, record scan, return rich result dict."""
     product_code, unique_id = parse_qr_code(raw_qr)
 
     # Rate limit
@@ -74,8 +83,26 @@ async def submit_scan(db: AsyncSession, user: User, raw_qr: str) -> dict:
         if product:
             product_name = product.name
 
+    # Load user with tier (for multiplier)
+    user_result = await db.execute(
+        select(User).options(selectinload(User.tier)).where(User.id == user.id)
+    )
+    user_with_tier = user_result.scalar_one_or_none() or user
+    tier = getattr(user_with_tier, "tier", None)
+    tier_multiplier = Decimal(str(tier.multiplier)) if tier and tier.multiplier else Decimal("1.0")
+    tier_name = tier.name if tier else "Standard"
+
+    # Calculate earnings
+    usdt_earned = BASE_RATE * tier_multiplier
+
     # Record the scan
-    scan = Scan(user_id=user.id, qr_code_id=qr.id, usdt_earned=0, streak_day=0)
+    scan = Scan(
+        user_id=user.id,
+        qr_code_id=qr.id,
+        usdt_earned=usdt_earned,
+        tier_multiplier=tier_multiplier,
+        streak_day=0,
+    )
     db.add(scan)
 
     # Mark QR as used
@@ -83,17 +110,79 @@ async def submit_scan(db: AsyncSession, user: User, raw_qr: str) -> dict:
     qr.scanned_by = user.id
     qr.scanned_at = datetime.now(timezone.utc)
 
+    # Credit wallet
+    wallet_result = await db.execute(
+        select(Wallet).where(Wallet.user_id == user.id)
+    )
+    wallet = wallet_result.scalar_one_or_none()
+    wallet_balance = Decimal("0")
+    if wallet:
+        wallet.balance_available += usdt_earned
+        wallet_balance = wallet.balance_available
+
     await db.commit()
 
-    # Get updated tier info
+    # Get updated tier info (post-scan quarterly count)
     tier_info = await get_user_tier_info(db, user.id)
+    quarterly_scans = tier_info.get("quarterly_scans", 0)
+
+    # Determine quarter label
+    now = datetime.now(timezone.utc)
+    quarter = f"Q{(now.month - 1) // 3 + 1} {now.year}"
+
+    # Check comp milestone (fire-and-forget — never break scan on comp failure)
+    comp_earned = None
+    milestone_hit = False
+    try:
+        from app.services.comp_engine import award_crypto_comp, check_crypto_comp_milestone
+        milestone = await check_crypto_comp_milestone(db, user.id)
+        if milestone:
+            milestone_hit = True
+            txn = await award_crypto_comp(db, user.id, milestone["amount"])
+            from app.services.comp_engine import _get_total_comps_received
+            lifetime_comps = float(await _get_total_comps_received(db, user.id))
+            # Refresh wallet balance after comp
+            wresult = await db.execute(select(Wallet).where(Wallet.user_id == user.id))
+            w = wresult.scalar_one_or_none()
+            wallet_balance = w.balance_available if w else wallet_balance
+            comp_earned = {
+                "amount": float(milestone["amount"]),
+                "type": "crypto_comp",
+                "lifetime_comps": lifetime_comps,
+                "wallet_balance": float(wallet_balance),
+            }
+    except Exception as exc:
+        logger.warning("Comp milestone check failed for user %s: %s", user.id, exc)
+
+    # Increment Redis counters (global counter + velocity; leaderboard removed from scope)
+    global_scan_count = 0
+    try:
+        from app.services.redis_service import (
+            get_global_scan_count,
+            increment_global_scan_counter,
+            track_scan_velocity,
+        )
+        await increment_global_scan_counter()
+        await track_scan_velocity()
+        global_scan_count = await get_global_scan_count()
+    except Exception as exc:
+        logger.warning("Redis scan counter update failed: %s", exc)
 
     return {
         "success": True,
         "product_name": product_name,
-        "chip_earned": True,
-        "quarterly_scan_count": tier_info["quarterly_scans"],
-        "tier_name": tier_info.get("tier_name"),
+        "usdt_earned": float(usdt_earned),
+        "tier_multiplier": float(tier_multiplier),
+        "tier_progress": {
+            "quarter": quarter,
+            "current_count": quarterly_scans,
+            "next_tier": tier_info.get("next_tier"),
+            "scans_required": tier_info.get("scans_to_next_tier"),
+        },
+        "comp_earned": comp_earned,
+        "milestone_hit": milestone_hit,
+        "wallet_balance": float(wallet_balance),
+        "global_scan_count": global_scan_count,
     }
 
 

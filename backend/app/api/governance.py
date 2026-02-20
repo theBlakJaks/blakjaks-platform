@@ -65,6 +65,24 @@ async def cast_vote(
 ):
     result = await cast_ballot(db, vote_id, user.id, body.option_id)
     if isinstance(result, str):
+        if "already voted" in result.lower():
+            raise HTTPException(status.HTTP_409_CONFLICT, result)
+        raise HTTPException(status.HTTP_403_FORBIDDEN, result)
+    return {"message": "Vote cast successfully", "option_id": result.option_id}
+
+
+@router.post("/votes/{vote_id}/ballot", status_code=status.HTTP_201_CREATED)
+async def cast_ballot_endpoint(
+    vote_id: uuid.UUID,
+    body: BallotCast,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Cast a ballot on a vote (alias for /cast)."""
+    result = await cast_ballot(db, vote_id, user.id, body.option_id)
+    if isinstance(result, str):
+        if "already voted" in result.lower():
+            raise HTTPException(status.HTTP_409_CONFLICT, result)
         raise HTTPException(status.HTTP_403_FORBIDDEN, result)
     return {"message": "Vote cast successfully", "option_id": result.option_id}
 

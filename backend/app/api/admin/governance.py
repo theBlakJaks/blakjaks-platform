@@ -12,6 +12,7 @@ from app.models.vote import Vote
 from app.services.governance_service import (
     close_vote,
     create_vote,
+    get_all_votes,
     get_proposals,
     get_vote_detail,
     review_proposal,
@@ -38,6 +39,21 @@ async def admin_create_vote(
     )
     detail = await get_vote_detail(db, vote.id, admin.id)
     return detail
+
+
+@router.get("/votes", response_model=list[VoteOut])
+async def admin_list_votes(
+    admin: User = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    """Return all votes (all statuses) for admin review."""
+    votes = await get_all_votes(db)
+    results = []
+    for vote in votes:
+        detail = await get_vote_detail(db, vote.id, admin.id)
+        if detail:
+            results.append(detail)
+    return results
 
 
 @router.put("/votes/{vote_id}/close")

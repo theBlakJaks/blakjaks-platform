@@ -260,6 +260,14 @@ async def close_vote(db: AsyncSession, vote_id: uuid.UUID, admin_user_id: uuid.U
     return False
 
 
+async def get_all_votes(db: AsyncSession) -> list[Vote]:
+    """Admin: return all votes regardless of status, newest first."""
+    result = await db.execute(
+        select(Vote).order_by(Vote.created_at.desc())
+    )
+    return list(result.scalars().all())
+
+
 async def auto_close_expired_votes(db: AsyncSession) -> int:
     """Batch job: close votes past their end_date."""
     now = datetime.now(timezone.utc)

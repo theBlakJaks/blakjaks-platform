@@ -17,14 +17,17 @@ from app.api.schemas.social import (
 )
 from app.models.user import User
 from app.services.chat_service import (
-    add_reaction,
     delete_message,
     get_channel_messages,
     get_channels,
     get_pinned_messages,
-    remove_reaction,
     report_message,
     send_message,
+)
+from app.services.reaction_service import (
+    add_reaction as svc_add_reaction,
+    get_reactions as svc_get_reactions,
+    remove_reaction as svc_remove_reaction,
 )
 from app.services.translation_service import detect_language, translate_message
 
@@ -97,10 +100,11 @@ async def create_reaction(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    result = await add_reaction(db, message_id, user.id, body.emoji)
-    if isinstance(result, str):
-        raise HTTPException(status.HTTP_409_CONFLICT, result)
-    return {"message": "Reaction added", "id": str(result.id)}
+    # svc_add_reaction raises HTTPException 409 on duplicate; propagates naturally
+    result = await svc_add_reaction(db, message_id, user.id, body.emoji)
+    # TODO: emit Socket.IO "reaction_added" event to channel subscribers when
+    # a socket namespace is wired into the REST layer.
+    return result
 
 
 @router.delete("/messages/{message_id}/reactions/{emoji}")
@@ -110,10 +114,28 @@ async def destroy_reaction(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    removed = await remove_reaction(db, message_id, user.id, emoji)
+    removed = await svc_remove_reaction(db, message_id, user.id, emoji)
     if not removed:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Reaction not found")
+    # TODO: emit Socket.IO "reaction_removed" event to channel subscribers when
+    # a socket namespace is wired into the REST layer.
     return {"message": "Reaction removed"}
+
+
+@router.get("/messages/{message_id}/reactions")
+async def list_reactions(
+    message_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+):
+    """Public endpoint — returns grouped reaction counts.
+
+    Note: reacted_by_me will always be False because this endpoint does not
+    require authentication.  Authenticated clients that need the reacted_by_me
+    flag should use the authenticated variant or inspect the user's own
+    reactions client-side.
+    """
+    reactions = await svc_get_reactions(db, message_id, requesting_user_id=None)
+    return reactions
 
 
 @router.post("/messages/{message_id}/report", status_code=status.HTTP_201_CREATED)

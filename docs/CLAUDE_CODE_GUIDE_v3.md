@@ -760,7 +760,7 @@ Register `notifications` router in `main.py`. Notification creation must also ca
 
 ---
 
-### Task E1 — Scan Submit Enrichment `[PENDING]`
+### Task E1 — Scan Submit Enrichment `[COMPLETE]`
 
 **Dependency check:**
 - Task B1 complete (`multiplier` restored to `tiers`, `tier_multiplier` on `scans`)
@@ -769,7 +769,7 @@ Register `notifications` router in `main.py`. Notification creation must also ca
 **Objective:** The scan endpoint validates and marks QR codes but `usdt_earned` is always 0, the response is minimal, Redis is not incremented, and comp milestone checks don't run at scan time. Fix all four.
 
 **Files to modify:**
-- `backend/app/routers/qr_code.py` (or wherever `POST /scans/submit` lives) — add earn calculation (`base_rate × tier.multiplier`), store `tier_multiplier` on scan record, run comp milestone check post-scan, increment Redis (global counter, leaderboard, velocity), return full rich response
+- `backend/app/routers/qr_code.py` (or wherever `POST /scans/submit` lives) — add earn calculation (`base_rate × tier.multiplier`), store `tier_multiplier` on scan record, run comp milestone check post-scan, increment Redis (global counter, velocity), return full rich response
 
 **Rich response shape** (create `ScanResponse` Pydantic model):
 - `success`, `product_name`, `usdt_earned`, `tier_multiplier`
@@ -784,7 +784,7 @@ Register `notifications` router in `main.py`. Notification creation must also ca
 
 ---
 
-### Task E2 — Insights API `[PENDING]`
+### Task E2 — Insights API `[COMPLETE]`
 
 **Dependency check:**
 - Task D1 complete (Redis — scan velocity, global counter)
@@ -818,26 +818,13 @@ Register `notifications` router in `main.py`. Notification creation must also ca
 
 ---
 
-### Task E3 — Leaderboard Endpoints `[PENDING]`
+### Task E3 — Leaderboard Endpoints `[REMOVED]`
 
-**Dependency check:** Task D1 (Redis), Task E1 (scan submit now increments leaderboard).
-
-**Objective:** Expose Redis leaderboard data via REST endpoints, enriched with user metadata from PostgreSQL.
-
-**Files to modify/create:**
-- Appropriate router — add `GET /leaderboard/monthly`, `GET /leaderboard/all-time`, `GET /leaderboard/me`; each calls `redis_service.get_leaderboard()` then loads username/avatar_url/tier for each user_id from PostgreSQL
-
-**Files to modify:**
-- `backend/app/tasks/treasury.py` — wire `reconcile_leaderboard` stub to real job: compare Redis sorted set scores to PostgreSQL scan counts and correct drift
-
-**Doc references:**
-- Platform v2 § "Leaderboards" — monthly reset rules, all-time accumulation, neighbor rank display (5 above/below for `/leaderboard/me`)
-
-**Tests:** Monthly endpoint returns max 100 entries, sorted descending. `/leaderboard/me` returns correct rank and 5-above/5-below neighbors.
+**Decision:** Leaderboard feature removed from scope. The Redis infrastructure (keys, service functions) remains in place for potential future use, but no REST endpoints or reconciliation job will be built. The `reconcile_leaderboard` Celery task remains a stub. Remove leaderboard references from all future phase tasks and the web app pages.
 
 ---
 
-### Task E4 — Governance Voting API `[PENDING]`
+### Task E4 — Governance Voting API `[COMPLETE]`
 
 **Dependency check:** Task B2 complete (`governance_votes` and `governance_ballots` tables exist).
 
@@ -859,7 +846,7 @@ Register `governance` router in `main.py`.
 
 ---
 
-### Task E5 — Social Message Reactions API `[PENDING]`
+### Task E5 — Social Message Reactions API `[COMPLETE]`
 
 **Dependency check:** Task B2 complete (`social_message_reactions` table exists).
 
@@ -949,7 +936,6 @@ Build all other pages (shop, cart, wallet, scans, leaderboard, notifications) wh
 - `web-app/src/app/checkout/page.tsx` — multi-step: shipping address → AgeChecker.net popup → payment method → review + Kintsugi tax; calls `POST /tax/estimate`, `POST /orders/create`
 - `web-app/src/app/wallet/page.tsx` — USDT balance, pending vs available, wallet address with copy, transaction history with filters, withdrawal flow; calls `GET /users/me/wallet`, `GET /wallet/transactions`, `POST /wallet/withdraw`
 - `web-app/src/app/scans/page.tsx` — scan history list; calls `GET /scans/history`
-- `web-app/src/app/leaderboard/page.tsx` — monthly/all-time tabs, top 100 list, user's own rank highlighted; calls `GET /leaderboard/monthly`, `GET /leaderboard/all-time`, `GET /leaderboard/me`
 - `web-app/src/app/notifications/page.tsx` — full notification list, type filters, mark-all-read; calls `GET /notifications`, `POST /notifications/read-all`
 
 Every page must have loading state, empty state, and error state.
@@ -1226,7 +1212,7 @@ Full security audit, load testing, staging QA, app store assets, and production 
 
 | Service | Called By | Purpose |
 |---|---|---|
-| `redis_service.py` | Scan endpoint, Leaderboard endpoints, Insights API | Counters, leaderboards, velocity, notification counts, emote cache |
+| `redis_service.py` | Scan endpoint, Insights API | Counters, velocity, notification counts, emote/GIF cache |
 | `teller_service.py` | Celery beat (6h), Admin, Insights treasury | Bank balance sync |
 | `timescale_service.py` | Celery beat (hourly), Insights treasury | Treasury sparkline data |
 | `emote_service.py` | `GET /emotes` | 7TV emote set, Redis-cached |

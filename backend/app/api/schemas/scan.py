@@ -8,12 +8,30 @@ class ScanSubmit(BaseModel):
     qr_code: str = Field(min_length=1, max_length=500)
 
 
+class TierProgress(BaseModel):
+    quarter: str
+    current_count: int
+    next_tier: str | None
+    scans_required: int | None
+
+
+class CompEarned(BaseModel):
+    amount: float
+    type: str
+    lifetime_comps: float
+    wallet_balance: float
+
+
 class ScanResponse(BaseModel):
     success: bool
     product_name: str
-    chip_earned: bool
-    quarterly_scan_count: int
-    tier_name: str | None
+    usdt_earned: float
+    tier_multiplier: float
+    tier_progress: TierProgress
+    comp_earned: CompEarned | None
+    milestone_hit: bool
+    wallet_balance: float
+    global_scan_count: int
 
 
 class ScanHistoryItem(BaseModel):
