@@ -1204,7 +1204,7 @@ Do NOT add Web3Auth, Socket.IO, SDWebImageSwiftUI, or APNs entitlements yet — 
 
 ---
 
-### Tasks I4–I7 `[PENDING]`
+### Tasks I4–I7 `[I4-COMPLETE, I5-I7-PENDING]`
 
 Tasks I4 (Insights Dashboard + QR Scanner), I5 (Scan & Wallet center tab), I6 (Shop + Checkout), and I7 (Social Hub + Profile + Push Notifications + Polish Pass) will be fully detailed when Joshua prompts Phase I beyond Task I3. Each follows the same MockAPIClient-first → real API wiring pattern established in I3.
 
