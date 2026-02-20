@@ -885,9 +885,10 @@ Register `governance` router in `main.py`.
 - Implemented as a reusable component imported individually into those three pages only — NOT in the root layout
 - Height: exactly 20vh (20% of the viewport height) — no more, no less
 - Background: black (#000000)
-- Text: white, Helvetica Bold (font-family: Helvetica, Arial, sans-serif; font-weight: bold)
+- Text color: white (#FFFFFF)
+- Font: Helvetica Bold (font-family: Helvetica, Arial, sans-serif; font-weight: bold)
 - Text must be sized dynamically to fill as much of the banner as possible — use CSS clamp() or a JS text-fit solution to maximize font size within the banner bounds without overflow
-- Text content: "WARNING: This product contains nicotine. Nicotine is an addictive chemical."
+- Text content (exact, do not alter): "WARNING: This product contains nicotine. Nicotine is an addictive chemical."
 - Fixed to the top of the viewport (position: fixed, top: 0, z-index: 9999) when present
 - Pages that include the banner must offset their content by 20vh (padding-top: 20vh on the page wrapper)
 
