@@ -1047,7 +1047,7 @@ Data from: `GET /insights/systems`, `GET /insights/treasury`, `GET /insights/com
 
 ---
 
-### Task H1 — Affiliate Portal API Wiring `[PENDING]`
+### Task H1 — Affiliate Portal API Wiring `[COMPLETE]`
 
 **Dependency check:** Task A1 (auth), affiliate backend endpoints returning real data.
 
@@ -1062,7 +1062,7 @@ Data from: `GET /insights/systems`, `GET /insights/treasury`, `GET /insights/com
 
 ---
 
-### Task H2 — Wholesale Portal API Wiring `[PENDING]`
+### Task H2 — Wholesale Portal API Wiring `[COMPLETE]`
 
 **Dependency check:** Task D7 (wholesale backend must exist first — no routes to wire to without it).
 

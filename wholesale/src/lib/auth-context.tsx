@@ -22,12 +22,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [partner, setPartner] = useState<WholesalePartner | null>(null)
   const [loading, setLoading] = useState(true)
 
+  // On mount: if a stored access token exists, restore the session by fetching
+  // the wholesale account profile from GET /api/wholesale/account.
   useEffect(() => {
     const token = localStorage.getItem('ws_token')
     if (token) {
       getProfile()
         .then(setPartner)
         .catch(() => {
+          // Token is invalid or expired and refresh failed — clear storage.
           localStorage.removeItem('ws_token')
           localStorage.removeItem('ws_refresh')
         })
@@ -37,14 +40,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
+  /**
+   * Log in with email and password.
+   *
+   * The backend returns { user, tokens: { access_token, refresh_token } }.
+   * We store access_token as ws_token and refresh_token as ws_refresh.
+   * The user object from the login response is used to seed the session;
+   * we then fetch the wholesale account profile to populate partner state.
+   */
   const login = async (email: string, password: string) => {
-    const tokens = await apiLogin(email, password)
-    localStorage.setItem('ws_token', tokens.access_token)
-    localStorage.setItem('ws_refresh', tokens.refresh_token)
+    const result = await apiLogin(email, password)
+    localStorage.setItem('ws_token', result.access_token)
+    localStorage.setItem('ws_refresh', result.refresh_token)
+    // Fetch the wholesale account profile now that we have a valid token.
     const profile = await getProfile()
     setPartner(profile)
   }
 
+  /**
+   * Log out: clear tokens from localStorage and reset partner state.
+   * apiLogout() removes ws_token and ws_refresh from localStorage.
+   */
   const logout = async () => {
     await apiLogout()
     setPartner(null)
