@@ -1,8 +1,17 @@
 # BlakJaks Task Log
-Last updated: 2026-02-19 by Orchestrator
+Last updated: 2026-02-19 by Eng-1
 
 ## Active Task Checkpoints
-<!-- No active tasks — Phase A complete -->
+
+### Task B1 — Restore Multiplier Columns
+Engineer: Eng-1 | Branch: feature/B1 | Started: 2026-02-19 UTC
+
+CHECKPOINT 1 [IN PROGRESS]: Create migration 012_restore_multipliers.py — re-add multiplier to tiers, tier_multiplier to scans, seed correct values
+CHECKPOINT 2 [PENDING]: Add multiplier field to tier.py ORM model
+CHECKPOINT 3 [PENDING]: Add tier_multiplier field to scan.py ORM model
+CHECKPOINT 4 [PENDING]: Write tests
+
+LAST KNOWN STATE: Starting implementation on feature/B1
 
 ## Completed Tasks
 
@@ -24,7 +33,7 @@ CHECKPOINT 3 [DONE]: Created docs/github-secrets.md — full secrets reference
 ### Task A2 — Environment Configuration
 Engineer: Eng-1 | Branch: feature/A2 | Merged: 2026-02-19 UTC | Auditor: PASS
 
-CHECKPOINT 1 [DONE]: Added all missing variable groups to config.py (Redis, Celery, GCS, KMS, Blockchain, Teller, OpenAI, 7TV/Giphy, APNs, FCM, Sentry, Intercom, Translation, GA4, Kintsugi, Payment, StreamYard/Selery)
+CHECKPOINT 1 [DONE]: Added all missing variable groups to config.py (16 service groups, 40+ fields)
 CHECKPOINT 2 [DONE]: Updated backend/.env.example — all vars with placeholder values and "Where to get:" comments
 CHECKPOINT 3 [DONE]: Added redis>=5.0.0, celery>=5.3.0 to pyproject.toml
 CHECKPOINT 4 [DONE]: Tests written in backend/tests/test_config.py (17 tests)
