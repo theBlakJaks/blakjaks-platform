@@ -303,30 +303,31 @@ Register all new models in `backend/app/models/__init__.py`.
 
 ---
 
-### Task C2 — Polygon Full Node `[PENDING]`
+### Task C2 — Polygon RPC Configuration (Infura) `[PENDING]`
 
-**Dependency check:**
-- Task A2 complete (blockchain env vars in config)
-- GKE cluster with `polygon-node` node pool must be provisioned
+**Dependency check:** Task A2 complete (blockchain env vars in config).
 
-> If polygon-node pool is not provisioned: "This requires GCP Console or gcloud CLI access to add a node pool to the existing GKE cluster. Claude Code cannot provision GCP infrastructure. Resolution: Manually add a node pool named `polygon-node` in GCP Console → Kubernetes Engine → your cluster → Add Node Pool. Recommended: n2-standard-8, SSD PD 2TB+. Once provisioned, Claude Code can deploy the Geth pod."
+**Objective:** Configure the backend to use Infura as the Polygon RPC provider. The repo currently has blockchain.py with hardcoded or placeholder RPC values. Update to use `settings.BLOCKCHAIN_POLYGON_NODE_URL` (pointed at Infura) and load treasury addresses from config. A self-hosted Geth node is a future infrastructure upgrade — Infura is the provider for now.
 
-**Objective:** Replace Infura RPC with self-hosted Geth on GKE. The repo currently hardcodes Infura — a spec violation. Internal-only RPC, no third-party dependency.
-
-**Files to create:**
-- `infrastructure/polygon-node/Dockerfile` — Geth (go-ethereum:stable), exposes 8545 (HTTP), 8546 (WS), 30303 (P2P)
-- `infrastructure/polygon-node/deployment.yaml` — GKE deployment on polygon-node pool; ClusterIP service (internal only, named `polygon-node`); 2TB SSD PVC; liveness probe on port 8545
+**No GKE provisioning required. No Dockerfile required.**
 
 **Files to modify:**
-- `backend/app/services/blockchain.py` — replace Infura URL with `settings.BLOCKCHAIN_POLYGON_NODE_URL`; replace KMS-derived treasury addresses with `settings.BLOCKCHAIN_MEMBER/AFFILIATE/WHOLESALE_TREASURY_ADDRESS`; add `get_node_health()` function returning connected status, block number, peer count, syncing state
+- `backend/app/core/config.py` — confirm `BLOCKCHAIN_POLYGON_NODE_URL` and `BLOCKCHAIN_POLYGON_NODE_WS_URL` accept Infura endpoint format (`https://polygon-mumbai.infura.io/v3/{key}`)
+- `backend/app/services/blockchain.py` — set Web3 HTTP provider from `settings.BLOCKCHAIN_POLYGON_NODE_URL`; set WebSocket provider from `settings.BLOCKCHAIN_POLYGON_NODE_WS_URL`; load all 3 treasury addresses from config (not hardcoded); add `get_node_health()` returning connected status, block number, syncing state (works identically whether provider is Infura or self-hosted)
+- `backend/.env.example` — update `BLOCKCHAIN_POLYGON_NODE_URL` comment to show Infura URL format with "Where to get: infura.io → Create Project → Polygon endpoint"
 
-**Important:** Deploy Mumbai testnet first (`--polygon.testnet` flag). Do not switch to mainnet until QA is complete.
+**Infura setup required before this runs:**
+- Create a free Infura account at infura.io
+- Create a project, enable Polygon network
+- Copy the HTTPS and WebSocket endpoints into `BLOCKCHAIN_POLYGON_NODE_URL` and `BLOCKCHAIN_POLYGON_NODE_WS_URL`
+
+> If Infura credentials not set: "BLOCKCHAIN_POLYGON_NODE_URL is blank. Create an Infura project at infura.io and set the Polygon Mumbai (testnet) endpoint. Claude Code can update blockchain.py now, but connection will fail at runtime without credentials."
 
 **Doc references:**
-- Web3py Docs — provider initialization, connection configuration
-- Platform v2 § "Blockchain Node" and § "Treasury Management"
+- Web3py Docs — HTTP and WebSocket provider initialization
+- Platform v2 § "Treasury Management" — treasury address configuration
 
-**Tests:** `get_node_health()` returns correct dict shape (mock the web3 connection). Treasury addresses load from config, not hardcoded.
+**Tests:** `get_node_health()` returns correct dict shape (mock the Web3 connection). Treasury addresses load from config. Provider initializes without error when URL is set.
 
 ---
 
@@ -1216,7 +1217,7 @@ Full security audit, load testing, staging QA, app store assets, and production 
 | `stargate_service.py` | `POST /admin/treasury/bridge` | ETH → Polygon USDT bridge (admin only) |
 | `livestream_service.py` | Stream endpoints, RTMP webhook | Stream lifecycle management |
 | `wholesale_service.py` | Wholesale + admin endpoints | Account management, orders, chips |
-| `blockchain.py` | Wallet endpoints, Insights, Celery snapshot | USDT transfers, pool balances, node health |
+| `blockchain.py` | Wallet endpoints, Insights, Celery snapshot | USDT transfers, pool balances, node health (via Infura) |
 | `kms_service.py` | `blockchain.py`, `stargate_service.py` | GCP KMS signing for treasury transactions |
 | `celery_app.py` | Beat scheduler (autonomous) | Schedules 5 recurring background jobs |
 | `push_service.py` | `notification_service.py` | APNs (iOS) + FCM (Android) delivery |
