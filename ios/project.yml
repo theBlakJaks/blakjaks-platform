@@ -14,6 +14,9 @@ packages:
   KeychainAccess:
     url: https://github.com/kishikawakatsuki/KeychainAccess.git
     from: 4.2.2
+  SocketIO:
+    url: https://github.com/socketio/socket.io-client-swift.git
+    from: 16.1.0
 
 targets:
   BlakJaks:
@@ -27,6 +30,7 @@ targets:
     dependencies:
       - package: Alamofire
       - package: KeychainAccess
+      - package: SocketIO
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.blakjaks.app
