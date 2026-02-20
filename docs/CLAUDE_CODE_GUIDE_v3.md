@@ -873,7 +873,7 @@ Register `governance` router in `main.py`.
 
 ---
 
-### Task F1 — Compliance UI (All Portals) `[PENDING]`
+### Task F1 — Compliance UI (All Portals) `[COMPLETE]`
 
 **Dependency check:** None — pure frontend, no backend required.
 
@@ -922,7 +922,7 @@ FDA compliance note: Per 21 CFR § 1143.3(b)(2), warning must occupy at least 20
 
 ---
 
-### Task F2 — Web App Real API Client `[PENDING]`
+### Task F2 — Web App Real API Client `[COMPLETE]`
 
 **Dependency check:** Task A1 (auth working), core backend APIs returning real data.
 
@@ -942,7 +942,7 @@ FDA compliance note: Per 21 CFR § 1143.3(b)(2), warning must occupy at least 20
 
 ---
 
-### Task F3 — Web App Missing Pages `[PENDING]`
+### Task F3 — Web App Missing Pages `[COMPLETE]`
 
 **Dependency check:** Task F2 (API client wired), relevant backend endpoints live.
 

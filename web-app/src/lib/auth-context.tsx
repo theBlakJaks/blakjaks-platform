@@ -3,7 +3,8 @@
 import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import type { User } from './types'
-import { currentUser } from './mock-data'
+
+const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000'
 
 interface AuthContextType {
   user: User | null
@@ -23,13 +24,39 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [isLoading, setIsLoading] = useState(true)
 
-  // Hydrate user from localStorage after mount (avoids SSR/client mismatch).
+  // On mount: if an access token exists in localStorage, restore the session
+  // by fetching GET /api/users/me. If the request fails the token is stale
+  // and we clear storage so the user is redirected to login.
   /* eslint-disable react-hooks/set-state-in-effect -- reading browser API on mount is the standard SSR-safe pattern */
   useEffect(() => {
-    if (localStorage.getItem('bj_token')) setUser(currentUser)
-    setIsLoading(false)
+    const token = localStorage.getItem('blakjaks_token')
+    if (!token) {
+      setIsLoading(false)
+      return
+    }
+
+    fetch(`${BASE_URL}/api/users/me`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then(async (res) => {
+        if (!res.ok) {
+          localStorage.removeItem('blakjaks_token')
+          localStorage.removeItem('blakjaks_refresh_token')
+          return
+        }
+        const data = await res.json()
+        setUser(data as User)
+      })
+      .catch(() => {
+        // Network error — don't clear the token; let the user stay logged in
+        // on next successful request.
+      })
+      .finally(() => {
+        setIsLoading(false)
+      })
   }, [])
   /* eslint-enable react-hooks/set-state-in-effect */
+
   const router = useRouter()
   const pathname = usePathname()
 
@@ -46,23 +73,56 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [user, isLoading, pathname, router])
 
-  const login = useCallback(async (email: string, _password: string) => {
-    await new Promise((r) => setTimeout(r, 400))
-    if (!email) throw new Error('Email is required')
-    localStorage.setItem('bj_token', 'mock_jwt_token')
-    setUser(currentUser)
+  const login = useCallback(async (email: string, password: string) => {
+    const res = await fetch(`${BASE_URL}/api/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password }),
+    })
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}))
+      throw new Error(err?.detail ?? 'Invalid email or password')
+    }
+
+    const data = await res.json()
+    // Backend returns: { user: {...}, tokens: { access_token, refresh_token } }
+    localStorage.setItem('blakjaks_token', data.tokens.access_token)
+    localStorage.setItem('blakjaks_refresh_token', data.tokens.refresh_token)
+    setUser(data.user as User)
     router.replace('/dashboard')
   }, [router])
 
-  const register = useCallback(async (_data: { email: string; password: string; username: string; firstName: string; lastName: string }) => {
-    await new Promise((r) => setTimeout(r, 500))
-    localStorage.setItem('bj_token', 'mock_jwt_token')
-    setUser(currentUser)
+  const register = useCallback(async (formData: { email: string; password: string; username: string; firstName: string; lastName: string }) => {
+    const res = await fetch(`${BASE_URL}/api/auth/signup`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email: formData.email,
+        password: formData.password,
+        username: formData.username,
+        first_name: formData.firstName,
+        last_name: formData.lastName,
+      }),
+    })
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}))
+      throw new Error(err?.detail ?? 'Registration failed')
+    }
+
+    const data = await res.json()
+    // Backend returns: { user: {...}, tokens: { access_token, refresh_token } }
+    localStorage.setItem('blakjaks_token', data.tokens.access_token)
+    localStorage.setItem('blakjaks_refresh_token', data.tokens.refresh_token)
+    setUser(data.user as User)
     router.replace('/dashboard')
   }, [router])
 
   const logout = useCallback(() => {
-    localStorage.removeItem('bj_token')
+    // Fire-and-forget — there is no /api/auth/logout endpoint on the backend
+    localStorage.removeItem('blakjaks_token')
+    localStorage.removeItem('blakjaks_refresh_token')
     setUser(null)
     router.replace('/login')
   }, [router])

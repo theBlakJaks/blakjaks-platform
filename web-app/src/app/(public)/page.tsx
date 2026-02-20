@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { Scan, Coins, TrendingUp, Shield, Users, ChevronDown, Star, Award, Gem, Crown, CheckCircle2, ExternalLink } from 'lucide-react'
 import GoldButton from '@/components/ui/GoldButton'
 import Card from '@/components/ui/Card'
+import NicotineWarningBanner from '@/components/NicotineWarningBanner'
 
 /* ──────────────────────────── Animated Counter Hook ──────────────────────────── */
 function useCountUp(target: number, duration = 2000, start = false) {
@@ -107,7 +108,8 @@ export default function LandingPage() {
   const liveScanCount = useCountUp(847523, 3000, transparencyInView)
 
   return (
-    <div className="overflow-hidden">
+    <div style={{ paddingTop: '20vh' }} className="overflow-hidden">
+      <NicotineWarningBanner />
       {/* ── Keyframe styles ── */}
       <style jsx>{`
         @keyframes float {
