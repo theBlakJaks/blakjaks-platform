@@ -262,10 +262,10 @@ Register all new models in `backend/app/models/__init__.py`.
 
 ---
 
-### Task B3 — Redis Key Schema `[BLOCKED]`
+### Task B3 — Redis Key Schema `[PENDING]`
 
-**Dependency check:** Redis is already provisioned (Cloud Memorystore at 10.96.113.3:6379).
-Task C1 must create redis_client.py before this task can define key patterns against it.
+**Dependency check:** None — this is a constants-only file.
+No live Redis connection required.
 
 **Objective:** Define all Redis key patterns in a single constants file. No service should ever hardcode a Redis key string.
 
