@@ -3,7 +3,17 @@ Last updated: 2026-02-19 by Eng-1
 
 ## Active Task Checkpoints
 
-### Task B1 — Restore Multiplier Columns
+### Task B2 — New Table Migrations
+Engineer: Eng-1 | Branch: feature/B2 | Started: 2026-02-19 UTC
+
+CHECKPOINT 1 [DONE]: Created migrations 013–023 — transparency_metrics, treasury_snapshots (TimescaleDB hypertables with graceful skip), teller_accounts (seeded 3 rows), live_streams, tier_history, audit_logs, wholesale_accounts+orders (with exists check), governance_votes+ballots, social_message_reactions, social_message_translations
+CHECKPOINT 2 [DONE]: Created 12 ORM model files for all new tables
+CHECKPOINT 3 [DONE]: Registered all 12 new models in models/__init__.py
+CHECKPOINT 4 [DONE]: Tests written in backend/tests/test_b2_migrations.py (26 tests)
+
+LAST KNOWN STATE: COMPLETE — all files committed on feature/B2
+
+### Task B1 — Restore Multiplier Columns [archived]
 Engineer: Eng-1 | Branch: feature/B1 | Started: 2026-02-19 UTC
 
 CHECKPOINT 1 [DONE]: Created 012_restore_multipliers.py — re-adds multiplier to tiers, tier_multiplier to scans, seeds Standard=1.0x VIP=1.5x HR=2.0x Whale=3.0x
