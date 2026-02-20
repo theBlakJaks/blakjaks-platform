@@ -1107,7 +1107,7 @@ Data from: `GET /insights/systems`, `GET /insights/treasury`, `GET /insights/com
 
 ---
 
-### Task I1 — iOS Project Setup `[PENDING]`
+### Task I1 — iOS Project Setup `[COMPLETE]`
 
 **Dependency check:** Apple Developer Program membership required for APNs + TestFlight.
 

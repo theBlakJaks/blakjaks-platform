@@ -1,0 +1,73 @@
+name: BlakJaks
+options:
+  bundleIdPrefix: com.blakjaks
+  deploymentTarget:
+    iOS: "16.0"
+  xcodeVersion: "15"
+  groupSortPosition: top
+  generateEmptyDirectories: true
+
+packages:
+  Alamofire:
+    url: https://github.com/Alamofire/Alamofire.git
+    from: 5.8.0
+  KeychainAccess:
+    url: https://github.com/kishikawakatsuki/KeychainAccess.git
+    from: 4.2.2
+
+targets:
+  BlakJaks:
+    type: application
+    platform: iOS
+    deploymentTarget: "16.0"
+    sources:
+      - path: BlakJaks
+        excludes:
+          - "**/*.md"
+    dependencies:
+      - package: Alamofire
+      - package: KeychainAccess
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.blakjaks.app
+        MARKETING_VERSION: "1.0.0"
+        CURRENT_PROJECT_VERSION: "1"
+        SWIFT_VERSION: "5.9"
+        INFOPLIST_FILE: BlakJaks/Resources/Info.plist
+        CODE_SIGN_STYLE: Automatic
+        DEVELOPMENT_TEAM: ""
+      configs:
+        Debug:
+          XCCONFIG_FILE_PATH: BlakJaks/Config/Development.xcconfig
+        Release:
+          XCCONFIG_FILE_PATH: BlakJaks/Config/Production.xcconfig
+    scheme:
+      testTargets:
+        - BlakJaksTests
+      gatherCoverageData: true
+
+  BlakJaksTests:
+    type: bundle.unit-test
+    platform: iOS
+    deploymentTarget: "16.0"
+    sources:
+      - path: BlakJaksTests
+    dependencies:
+      - target: BlakJaks
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.blakjaks.tests
+        SWIFT_VERSION: "5.9"
+
+  BlakJaksUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    deploymentTarget: "16.0"
+    sources:
+      - path: BlakJaksUITests
+    dependencies:
+      - target: BlakJaks
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.blakjaks.uitests
+        SWIFT_VERSION: "5.9"

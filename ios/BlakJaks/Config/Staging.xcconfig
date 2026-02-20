@@ -1,0 +1,7 @@
+// Staging Configuration
+API_BASE_URL = https:/$()/staging-api.blakjaks.com
+ENVIRONMENT = Staging
+APP_DISPLAY_NAME = BlakJaks Staging
+PRODUCT_BUNDLE_IDENTIFIER = com.blakjaks.app.staging
+METAMASK_CLIENT_ID = 
+#include "Secrets.xcconfig"

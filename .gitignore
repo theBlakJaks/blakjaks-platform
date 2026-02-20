@@ -28,3 +28,12 @@ local.properties
 .idea/
 .vscode/
 *.swp
+
+# iOS
+ios/BlakJaks/Config/Secrets.xcconfig
+ios/*.xcworkspace/
+ios/DerivedData/
+ios/Pods/
+ios/.build/
+ios/BlakJaks.xcodeproj/project.xcworkspace/xcuserdata/
+ios/BlakJaks.xcodeproj/xcuserdata/

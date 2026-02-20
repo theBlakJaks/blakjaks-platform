@@ -1,0 +1,7 @@
+// Production Configuration
+API_BASE_URL = https:/$()/api.blakjaks.com
+ENVIRONMENT = Production
+APP_DISPLAY_NAME = BlakJaks
+PRODUCT_BUNDLE_IDENTIFIER = com.blakjaks.app
+METAMASK_CLIENT_ID = 
+#include "Secrets.xcconfig"
