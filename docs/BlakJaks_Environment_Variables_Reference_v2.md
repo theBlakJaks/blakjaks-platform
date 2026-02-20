@@ -1,8 +1,17 @@
 # BlakJaks Platform — Environment Variables Reference
 
-**Version:** 2.0
-**Date:** February 19, 2026
+**Version:** 2.1
+**Date:** February 20, 2026
 **Purpose:** Complete reference for all environment variables required across all BlakJaks platform services
+
+**Changelog (v2.0 → v2.1):**
+- Removed Oobit integration (replaced by Dwolla ACH payout service)
+- Added Dwolla payout service variables (ACH withdrawals, Plaid bank linking)
+- Confirmed Authorize.net as payment processor (replaced TBD placeholders)
+- Removed Stargate/bridge variables (cross-chain bridging removed from scope)
+- Cleaned up 7TV section (client-side only — no backend config required)
+- Updated Secret Manager and launch checklist entries
+- Added Dwolla compliance gate to launch checklist
 
 **Changelog (v1.0 → v2.0):**
 - Added Teller.io integration variables
@@ -26,7 +35,7 @@
 8. [Application Configuration](#application-configuration)
 9. [Monitoring & Logging](#monitoring--logging)
 10. [Environment-Specific Variables](#environment-specific-variables)
-11. [Payment Processing (TBD)](#payment-processing-tbd)
+11. [Payment Processing (Authorize.net)](#payment-processing-authorizenet)
 12. [Kubernetes Secrets (Production)](#kubernetes-secrets-production)
 13. [Environment Variables Checklist](#environment-variables-checklist)
 14. [Security Reminders](#security-reminders)
@@ -302,25 +311,38 @@ METAMASK_RPC_URL=https://api.web3auth.io/infura-service/v1/0x89/<metamask_client
 
 ---
 
-### Oobit Integration
+### Dwolla (ACH Payout Service) [NEW v2.1]
 
 ```shell
-# Oobit API
-OOBIT_API_KEY=<oobit_api_key>
-OOBIT_API_SECRET=<oobit_api_secret>
-OOBIT_API_URL=https://v2.prod-api-oobit.com
+# Dwolla API Credentials (sourced from Google Secret Manager)
+DWOLLA_KEY=<dwolla_client_id>
+DWOLLA_SECRET=<dwolla_client_secret>
+DWOLLA_ENV=sandbox  # sandbox | production
 
-# Oobit Widget Configuration
-OOBIT_WIDGET_AUTH_ENDPOINT=/v1/widget/auth/create-token
-OOBIT_TOKEN_EXPIRY_MINUTES=60
+# Webhook Verification (HMAC-SHA256)
+DWOLLA_WEBHOOK_SECRET=<hmac_sha256_secret>
+
+# Pre-created master funding source (BlakJaks Dwolla Balance)
+# Auto-retrieved at startup: GET /accounts/{id}/funding-sources → type=balance
+DWOLLA_MASTER_FUNDING_SOURCE_ID=<funding_source_id>
 ```
 
 **Where to get:**
 
-* Oobit dashboard (apply for API access)
-* API documentation: https://docs.oobit.com
+* Sandbox Dashboard: https://dashboard-sandbox.dwolla.com → Applications (Legacy)
+* Production Dashboard: https://dashboard.dwolla.com → Applications (Legacy)
+* All 5 values stored in Google Secret Manager (project: blakjaks-production)
+* Sandbox master funding source ID: `96c683f1-df29-4efa-8742-d00535ddc61f` (auto-retrieved via Dwolla API)
 
-**Required for:** Backend API, Mobile Apps
+**Endpoints:**
+
+* Sandbox API: `https://api-sandbox.dwolla.com`
+* Production API: `https://api.dwolla.com`
+* Simulate ACH processing: `POST /sandbox-simulations` (sandbox only)
+
+**Compliance Note:** Before setting `DWOLLA_ENV=production`, confirm Dwolla permits nicotine/tobacco merchants by requesting their restricted activities guidance document during Dwolla sales onboarding.
+
+**Required for:** Backend API (`dwolla_service.py`), Celery Workers (treasury snapshot)
 
 ---
 
@@ -768,17 +790,18 @@ GIPHY_LIMIT=25
 ```shell
 # 7TV — No backend config required.
 # Client fetches global emote set and searches full 7TV library directly.
-# No API key, no emote set ID, no backend proxy.
-SEVENTV_CDN_BASE_URL=https://cdn.7tv.app  # For reference only
+# No API key, no emote set ID, no backend proxy, no Redis caching.
+SEVENTV_CDN_BASE_URL=https://cdn.7tv.app  # For reference only (client-side)
 ```
 
-**Where to get:**
+**How it works:**
 
-* 7TV: https://7tv.io — create account and emote set in dashboard
-* Emote set ID from 7TV dashboard after creating/selecting a set
-* API docs: https://7tv.io/docs
+* Global emote set: `GET https://7tv.io/v3/emote-sets/global` (client-side, no auth)
+* Emote search: `POST https://7tv.io/v3/gql` (GraphQL, client-side, no auth)
+* Images served from `https://cdn.7tv.app`
+* No backend proxy, no API key, no emote set ID needed
 
-**Required for:** Backend API (emote set cache), Mobile Apps, Web Frontend (Social Hub)
+**Required for:** Mobile Apps, Web Frontend (Social Hub) — client-side only
 
 ---
 
@@ -945,11 +968,12 @@ SECRETS_MANAGER_PROJECT_ID=blakjaks-production
 
 # Secrets to Store:
 # - Database passwords
-# - API keys (Brevo, Kintsugi, AgeChecker, Teller.io, Oobit, Giphy, 7TV)
+# - API keys (Brevo, Kintsugi, AgeChecker, Teller.io, Dwolla, Authorize.net, Giphy)
 # - JWT keys
 # - Encryption keys
 # - KMS keys
 # - Teller.io access tokens
+# - Dwolla credentials (DWOLLA_KEY, DWOLLA_SECRET, DWOLLA_WEBHOOK_SECRET, DWOLLA_MASTER_FUNDING_SOURCE_ID)
 ```
 
 **Where to get:**
@@ -1336,30 +1360,32 @@ TELLER_ENV=production
 
 ---
 
-## Payment Processing (TBD)
+## Payment Processing (Authorize.net)
 
 ```shell
-# Payment Processor Variables
-# NOTE: Specific variables depend on chosen processor
-# Examples below for common processors:
+# Authorize.net API Credentials (sourced from Google Secret Manager)
+PAYMENT_AUTHORIZE_API_LOGIN_ID=<authorize_api_login_id>
+PAYMENT_AUTHORIZE_TRANSACTION_KEY=<authorize_transaction_key>
+PAYMENT_AUTHORIZE_CLIENT_KEY=<authorize_client_key>      # Used by Accept.js (client-side tokenization)
+PAYMENT_AUTHORIZE_SIGNATURE_KEY=<authorize_signature_key>  # For webhook signature verification
 
-# Stripe (Example)
-PAYMENT_STRIPE_SECRET_KEY=sk_live_...
-PAYMENT_STRIPE_PUBLISHABLE_KEY=pk_live_...
-PAYMENT_STRIPE_WEBHOOK_SECRET=whsec_...
-
-# Square (Example)
-PAYMENT_SQUARE_ACCESS_TOKEN=...
-PAYMENT_SQUARE_LOCATION_ID=...
-
-# Authorize.net (Example)
-PAYMENT_AUTHORIZE_API_LOGIN_ID=...
-PAYMENT_AUTHORIZE_TRANSACTION_KEY=...
+PAYMENT_AUTHORIZE_ENV=sandbox  # sandbox | production
 ```
 
-**Where to get:** TBD based on payment processor selection
+**Where to get:**
 
-**Required for:** Backend API, Checkout Flow
+* Sandbox: https://sandbox.authorize.net → Account → Settings → API Credentials & Keys
+* Production: https://account.authorize.net → Account → Settings → API Credentials & Keys
+* Client Key (Accept.js): Account → Settings → Manage Public Client Key
+* Signature Key: Account → Settings → API Credentials & Keys → New Signature Key
+
+**Why Authorize.net (not Stripe/Square):**
+
+* Stripe and Square prohibit nicotine and tobacco products in their Terms of Service
+* Authorize.net supports high-risk merchants including nicotine/tobacco products
+* Accept.js handles client-side card tokenization — card data never touches BlakJaks servers (PCI compliance)
+
+**Required for:** Backend API (`payment_service.py`), Checkout Flow
 
 ---
 
@@ -1426,13 +1452,14 @@ spec:
 * [ ] Sentry DSN
 * [ ] Teller.io credentials (application ID, cert, private key) [NEW v2]
 * [ ] Insights configuration [NEW v2]
+* [ ] Dwolla credentials (DWOLLA_KEY, DWOLLA_SECRET, DWOLLA_ENV, DWOLLA_WEBHOOK_SECRET, DWOLLA_MASTER_FUNDING_SOURCE_ID) [NEW v2.1]
+* [ ] Authorize.net credentials (API Login ID, Transaction Key, Client Key, Signature Key) [NEW v2.1]
 
 **Mobile Apps:**
 
 * [ ] API base URL
 * [ ] WebSocket URL
 * [ ] MetaMask Embedded Wallets SDK configuration
-* [ ] Oobit configuration
 * [ ] APNs credentials (iOS)
 * [ ] FCM credentials (Android)
 * [ ] Intercom app ID
@@ -1454,6 +1481,7 @@ spec:
 * [ ] Google Cloud Storage buckets (including avatars bucket) [UPDATED v2]
 * [ ] Prometheus/Grafana credentials
   (TimescaleDB not required — Cloud SQL uses native PostgreSQL partitioning)
+* [ ] Confirm Dwolla nicotine/tobacco merchant approval before flipping `DWOLLA_ENV` to production [NEW v2.1]
 
 ---
 
