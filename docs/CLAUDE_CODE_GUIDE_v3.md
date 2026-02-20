@@ -578,88 +578,41 @@ Register `wholesale` router in `main.py`.
 
 ---
 
-### Task D9 — Dwolla Payout Service `[PENDING]`
+### Task D9 — Dwolla ACH Payout Service `[COMPLETE]`
 
 > ⚠️ **COMPLIANCE GATE — Read before deploying to production:**
 > Before deploying to production, confirm Dwolla permits nicotine/tobacco merchants by requesting their restricted activities guidance document during sales onboarding. Sandbox development can proceed without this confirmation.
 
-**Dependency check:**
-- Task A2 complete (Dwolla env vars configured)
-- Dwolla sandbox account created at `https://accounts-sandbox.dwolla.com/sign-up`
-- `DWOLLA_KEY`, `DWOLLA_SECRET`, `DWOLLA_WEBHOOK_SECRET`, and `DWOLLA_MASTER_FUNDING_SOURCE_ID` set in env
+**Dependency check:** Task A2 (`DWOLLA_KEY`, `DWOLLA_SECRET`, `DWOLLA_ENV`, `DWOLLA_MASTER_FUNDING_SOURCE` configured).
 
-> If Dwolla credentials not obtained: "Dwolla sandbox credentials are required. Sign up at https://accounts-sandbox.dwolla.com/sign-up, verify your email, then retrieve client_id and client_secret from https://dashboard-sandbox.dwolla.com/applications-legacy. Claude Code can build the service now, but API calls will fail at runtime without credentials."
+**Architecture:** Payout-only ACH. BlakJaks holds USD in a Dwolla master funding source and pushes to user bank accounts. Plaid processor tokens link user banks. No card/crypto widget.
 
-**Objective:** Build Dwolla as the ACH payout layer for member withdrawals. Members withdraw their USD earnings to their linked bank account. Plaid (Dwolla-managed — no separate Plaid account or contract needed) handles instant bank account verification. Dwolla processes the ACH credit.
+**Flow:**
+1. Frontend calls `POST /api/dwolla/customer` — creates Dwolla receive-only customer (idempotent).
+2. Frontend opens Plaid Link → exchanges public token for processor token → calls `POST /api/dwolla/funding-source`.
+3. User requests withdrawal → `POST /api/dwolla/withdraw` — initiates ACH transfer from master funding source.
+4. Poll `GET /api/dwolla/status/{transfer_id}` until `processed` or `failed`.
 
-**Files to create:**
+**Files created/modified:**
+- `backend/app/services/dwolla_service.py` — OAuth2 token caching, `create_customer`, `create_funding_source` (Plaid), `initiate_transfer`, `get_transfer_status`, `get_platform_balance`
+- `backend/app/api/dwolla.py` — router prefix `/dwolla`; endpoints: `POST /customer`, `POST /funding-source`, `POST /withdraw`, `GET /status/{transfer_id}`
+- `backend/alembic/versions/022_dwolla.py` — `dwolla_customers` table (user_id FK, dwolla_customer_url, dwolla_funding_source_url)
+- `backend/app/tasks/treasury.py` — hourly snapshot now includes Dwolla platform balance
+- `web-app/src/app/(app)/wallet/page.tsx` — USD balance + "Withdraw to Bank" (ACH) + "Withdraw as Crypto" (USDC on-chain)
+- `admin/src/pages/Insights.tsx` — Dwolla Platform Balance panel (Panel 5)
 
-- `backend/app/services/dwolla_service.py` — core Dwolla service:
-  - `get_access_token()` — OAuth 2.0 Client Credentials grant (`POST /token`); cache in Redis with TTL; auto-refresh on expiry
-  - `create_receive_only_customer(db, user_id, first_name, last_name, email)` — creates a Receive-Only Customer via `POST /customers`; stores `dwolla_customer_id` + `dwolla_customer_url` on user record; idempotent — returns existing if already created
-  - `create_plaid_exchange_session(customer_url)` — creates Exchange Session specifying Plaid as partner; returns `plaid_link_token` for frontend Plaid Link widget
-  - `create_exchange_from_plaid_token(customer_url, public_token)` — exchanges Plaid public token for a Dwolla Exchange resource; returns `exchange_url`
-  - `create_funding_source_from_exchange(customer_url, exchange_url, name)` — creates a verified bank funding source from the Exchange; returns `funding_source_url`; account is instantly verified — no micro-deposits needed
-  - `get_funding_sources(customer_url)` — lists all active (non-removed) funding sources for a customer
-  - `get_platform_balance()` — fetches balance of platform master Dwolla Balance via `GET /funding-sources/{DWOLLA_MASTER_FUNDING_SOURCE_ID}/balance`; returns `{available_usd, total_usd}`
-  - `initiate_ach_payout(db, user_id, amount_usd, funding_source_url)` — validates user has a verified funding source; validates platform balance sufficient; initiates `POST /transfers` from master balance to member's bank; stores record in `dwolla_transfers`; returns `transfer_id`
-  - `get_transfer_status(transfer_id)` — `GET /transfers/{id}`; returns `{status, created, amount}`
-  - `verify_webhook_signature(raw_body: bytes, signature_header: str) -> bool` — HMAC-SHA256 of raw body using `DWOLLA_WEBHOOK_SECRET`; constant-time comparison via `hmac.compare_digest`; returns False on any mismatch
-  - `handle_webhook_event(db, event_topic, resource_id, links)` — routes to correct handler by topic (see webhook handlers below)
+**Settings required:**
+- `DWOLLA_KEY` — Dwolla application client ID
+- `DWOLLA_SECRET` — Dwolla application client secret
+- `DWOLLA_ENV` — `"sandbox"` or `"production"`
+- `DWOLLA_MASTER_FUNDING_SOURCE` — full URL of BlakJaks platform funding source in Dwolla
 
-- `backend/app/routers/dwolla.py` — endpoints:
-  - `POST /dwolla/webhook` — **no auth**; call `verify_webhook_signature()` first — return 401 on failure; extract topic + resourceId from body; call `handle_webhook_event()`; return 200 immediately regardless of internal processing
-  - `POST /users/me/dwolla/customer` — authenticated; creates Receive-Only Customer for calling user; idempotent
-  - `POST /users/me/dwolla/plaid-link-token` — authenticated; requires customer to exist; returns `{plaid_link_token}` for Plaid Link widget
-  - `POST /users/me/dwolla/link-bank` — authenticated; body: `{public_token, account_name}`; calls `create_exchange_from_plaid_token()` then `create_funding_source_from_exchange()`; returns `{funding_source_id, status: "verified"}`
-  - `GET /users/me/dwolla/funding-sources` — authenticated; returns list of linked bank accounts with status
-  - `POST /users/me/dwolla/withdraw` — authenticated; body: `{amount_usd, funding_source_id}`; calls `initiate_ach_payout()`; returns `{transfer_id, status: "pending", estimated_arrival}`
-
-**Webhook event handlers** (implement inside `handle_webhook_event()`):
-
-Transfer lifecycle — update `dwolla_transfers.status` accordingly:
-- `customer_bank_transfer_created` → set status `pending`
-- `customer_bank_transfer_completed` → set status `processed`; send `notification_service` success notification to member
-- `customer_bank_transfer_failed` → set status `failed`; fetch ACH return code via `GET /transfers/{id}/failure`; store return code; send failure notification to member with human-readable reason
-- `customer_bank_transfer_cancelled` → set status `cancelled`; notify member
-- `customer_bank_transfer_creation_failed` → set status `creation_failed`; notify member
-
-Customer lifecycle:
-- `customer_created` → set `dwolla_status: "created"` on user record
-- `customer_verified` → set `dwolla_status: "verified"`
-- `customer_suspended` → set `dwolla_status: "suspended"`; block further payouts; notify admin via `notification_service`
-
-Funding source lifecycle:
-- `customer_funding_source_added` → log
-- `customer_funding_source_verified` → update funding source record to `verified`
-- `customer_funding_source_removed` → mark `removed_at`; if it was the default payout source, clear the default flag
-
-**Migration:** `backend/migrations/versions/025_dwolla.py`
-- Add to `users` table: `dwolla_customer_id VARCHAR(255)`, `dwolla_customer_url VARCHAR(500)`, `dwolla_status VARCHAR(50) DEFAULT 'none'`
-- Create `dwolla_funding_sources`: `id (PK)`, `user_id (FK)`, `dwolla_funding_source_id VARCHAR(255)`, `dwolla_funding_source_url VARCHAR(500)`, `name VARCHAR(255)`, `status VARCHAR(50)`, `is_default BOOLEAN DEFAULT false`, `created_at`, `removed_at (nullable)`
-- Create `dwolla_transfers`: `id (PK)`, `user_id (FK)`, `dwolla_transfer_id VARCHAR(255)`, `amount_usd NUMERIC(12,2)`, `status VARCHAR(50)`, `ach_return_code VARCHAR(10) (nullable)`, `created_at`, `completed_at (nullable)`
-
-**Files to modify:**
-- `backend/app/main.py` — register `dwolla` router; remove Oobit router if present
-- `backend/app/services/wallet_service.py` — remove Oobit token stub; add `get_payout_history(db, user_id)` returning `dwolla_transfers` records for the user
-- `backend/pyproject.toml` — confirm `httpx>=0.26.0` present (added in A2)
-
-**Doc references:**
-- Dwolla Docs — all sections; Dwolla MCP available for live documentation queries
-
-**Sandbox testing procedure:**
+**Sandbox setup:**
+- Sign up at `https://accounts-sandbox.dwolla.com/sign-up`
+- Retrieve credentials from `https://dashboard-sandbox.dwolla.com/applications-legacy`
 - Pending transfers do not auto-process — trigger via `POST https://api-sandbox.dwolla.com/sandbox-simulations`
-- Simulate ACH failure: set funding source `name` to `R01` (insufficient funds) or `R03` (invalid account), then run simulation
-- Sandbox pre-loaded with $5,000 balance and "Superhero Savings Bank" test funding source
-- Webhook delivery: use ngrok or similar to expose local endpoint; register via `POST /webhook-subscriptions`
 
-**Tests:**
-- `verify_webhook_signature()` returns True for valid signature, False for tampered body, False for wrong secret
-- `initiate_ach_payout()` raises if user has no verified funding source
-- `create_receive_only_customer()` is idempotent — second call returns existing customer URL without creating a duplicate
-- Webhook handler correctly routes each topic to the right handler (mock all Dwolla API responses)
-- `POST /dwolla/webhook` returns 401 for invalid signature without processing the event
-- Migration: all 3 schema changes apply cleanly on a fresh database
+**Tests:** `backend/tests/test_dwolla_service.py` — token caching, create_customer 201/303, initiate_transfer, get_transfer_status, get_platform_balance.
 
 ---
 

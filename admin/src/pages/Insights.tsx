@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useState } from 'react'
 import {
-  Activity, Database, Cpu, Zap, DollarSign, Gift, Users, RefreshCw, AlertTriangle,
+  Activity, Database, Cpu, Zap, DollarSign, Gift, Users, RefreshCw, AlertTriangle, Building2,
 } from 'lucide-react'
 import LoadingSpinner from '../components/LoadingSpinner'
 import StatsCard from '../components/StatsCard'
 import {
-  getSystemsHealth, getTreasuryInsights, getCompStats,
+  getSystemsHealth, getTreasuryInsights, getCompStats, getDwollaBalance,
   type SystemsHealth, type TreasuryInsights, type CompStats,
 } from '../api/insights'
 
@@ -153,6 +153,7 @@ export default function Insights() {
   const [systemsData, setSystemsData] = useState<SystemsHealth | null>(null)
   const [treasuryData, setTreasuryData] = useState<TreasuryInsights | null>(null)
   const [compData, setCompData] = useState<CompStats | null>(null)
+  const [dwollaBalance, setDwollaBalance] = useState<number | null>(null)
 
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -161,14 +162,16 @@ export default function Insights() {
   const fetchAll = useCallback(async () => {
     setError(null)
     try {
-      const [systems, treasury, comps] = await Promise.all([
+      const [systems, treasury, comps, dwolla] = await Promise.all([
         getSystemsHealth(),
         getTreasuryInsights(),
         getCompStats(),
+        getDwollaBalance().catch(() => ({ balance_usd: 0 })),
       ])
       setSystemsData(systems)
       setTreasuryData(treasury)
       setCompData(comps)
+      setDwollaBalance(dwolla.balance_usd)
       setLastRefreshed(new Date())
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Failed to load insights data'
@@ -484,7 +487,51 @@ export default function Insights() {
         </div>
       </section>
 
-      {/* ── Panel 5: Payout Pipeline ──────────────────────────────────────── */}
+      {/* ── Panel 5: Dwolla Platform Balance ─────────────────────────────── */}
+      <section className="space-y-4">
+        <SectionHeading>Dwolla Platform Balance</SectionHeading>
+
+        <div className="rounded-xl border border-slate-100 bg-white p-6 shadow-sm">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <div className="rounded-xl bg-emerald-50 p-3">
+                <Building2 size={24} className="text-emerald-600" />
+              </div>
+              <div>
+                <p className="text-sm text-slate-500">ACH Payout Reserve</p>
+                <p className="mt-0.5 text-3xl font-bold text-emerald-700">
+                  {dwollaBalance !== null
+                    ? `$${dwollaBalance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                    : '—'}
+                </p>
+                <p className="mt-0.5 text-xs text-slate-400">USD · Dwolla master funding source</p>
+              </div>
+            </div>
+            <div className="text-right">
+              <span className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium ${
+                dwollaBalance !== null && dwollaBalance > 0
+                  ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                  : 'border-slate-200 bg-slate-50 text-slate-500'
+              }`}>
+                <span className={`h-1.5 w-1.5 rounded-full ${
+                  dwollaBalance !== null && dwollaBalance > 0 ? 'bg-emerald-500' : 'bg-slate-400'
+                }`} />
+                {dwollaBalance !== null && dwollaBalance > 0 ? 'Funded' : 'Unfunded'}
+              </span>
+            </div>
+          </div>
+          {dwollaBalance !== null && dwollaBalance < 1000 && (
+            <div className="mt-4 flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3">
+              <AlertTriangle size={16} className="shrink-0 text-amber-500" />
+              <p className="text-sm text-amber-700">
+                Low ACH reserve — top up the Dwolla master funding source before scheduling payouts.
+              </p>
+            </div>
+          )}
+        </div>
+      </section>
+
+      {/* ── Panel 6: Payout Pipeline ──────────────────────────────────────── */}
       <section className="space-y-4">
         <SectionHeading>Payout Pipeline</SectionHeading>
 

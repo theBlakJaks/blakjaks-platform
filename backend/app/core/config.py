@@ -166,11 +166,12 @@ class Settings(BaseSettings):
     PAYMENT_WEBHOOK_SECRET: str = ""
 
     # -------------------------------------------------------------------------
-    # Oobit (crypto payment widget)
+    # Dwolla (ACH payout)
     # -------------------------------------------------------------------------
-    OOBIT_API_KEY: str = ""
-    OOBIT_SECRET_KEY: str = ""
-    OOBIT_WIDGET_URL: str = "https://widget.oobit.com"
+    DWOLLA_KEY: str = ""
+    DWOLLA_SECRET: str = ""
+    DWOLLA_ENV: str = "sandbox"  # "sandbox" | "production"
+    DWOLLA_MASTER_FUNDING_SOURCE: str = ""  # BlakJaks platform Dwolla funding source URL
 
     # -------------------------------------------------------------------------
     # Third-party integrations

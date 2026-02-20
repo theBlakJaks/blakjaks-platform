@@ -45,11 +45,3 @@ class WithdrawRequest(BaseModel):
     )
 
 
-class OobitActivateRequest(BaseModel):
-    """Placeholder for Oobit card activation."""
-    card_last_four: str = Field(min_length=4, max_length=4, pattern=r"^\d{4}$")
-
-
-class OobitActivateResponse(BaseModel):
-    status: str
-    message: str

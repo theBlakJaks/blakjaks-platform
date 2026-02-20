@@ -221,6 +221,53 @@ export const api = {
   },
 
   // -------------------------------------------------------------------------
+  // dwolla (ACH payout)
+  // -------------------------------------------------------------------------
+  dwolla: {
+    /**
+     * POST /api/dwolla/customer — create or retrieve Dwolla receive-only customer.
+     */
+    async createCustomer() {
+      return fetchAPI<{ customer_url: string }>('/dwolla/customer', { method: 'POST' })
+    },
+
+    /**
+     * POST /api/dwolla/funding-source — link bank via Plaid processor token.
+     */
+    async linkBank(plaid_processor_token: string, account_name = 'Bank Account') {
+      return fetchAPI<{ funding_source_url: string }>(
+        '/dwolla/funding-source',
+        {
+          method: 'POST',
+          body: JSON.stringify({ plaid_processor_token, account_name }),
+        },
+      )
+    },
+
+    /**
+     * POST /api/dwolla/withdraw — initiate ACH payout from platform to user's bank.
+     */
+    async withdraw(amount: number, funding_source_url?: string) {
+      return fetchAPI<{ transfer_url: string; status: string }>(
+        '/dwolla/withdraw',
+        {
+          method: 'POST',
+          body: JSON.stringify({ amount, ...(funding_source_url ? { funding_source_url } : {}) }),
+        },
+      )
+    },
+
+    /**
+     * GET /api/dwolla/status/{transferId} — poll ACH transfer status.
+     */
+    async getStatus(transferId: string) {
+      return fetchAPI<{ id: string; status: string; amount: { currency: string; value: string }; created: string }>(
+        `/dwolla/status/${transferId}`,
+      )
+    },
+  },
+
+  // -------------------------------------------------------------------------
   // social
   // -------------------------------------------------------------------------
   social: {

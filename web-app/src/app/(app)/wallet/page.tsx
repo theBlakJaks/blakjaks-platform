@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
-import { Copy, Check, ArrowDownCircle, RefreshCw, Wallet } from 'lucide-react'
+import { Copy, Check, ArrowDownCircle, RefreshCw, Wallet, Building2, Coins } from 'lucide-react'
 import Card from '@/components/ui/Card'
 import Spinner from '@/components/ui/Spinner'
 import EmptyState from '@/components/ui/EmptyState'
@@ -65,6 +65,266 @@ function TableSkeleton() {
   )
 }
 
+// ── Bank Withdrawal Modal (Plaid → Dwolla ACH) ────────────────────────────────
+
+type BankWithdrawStep = 'link' | 'amount' | 'success'
+
+interface BankWithdrawModalProps {
+  open: boolean
+  balance: number
+  onClose: () => void
+  onSuccess: () => void
+}
+
+function BankWithdrawModal({ open, balance, onClose, onSuccess }: BankWithdrawModalProps) {
+  const [step, setStep] = useState<BankWithdrawStep>('link')
+  const [plaidToken, setPlaidToken] = useState('')
+  const [accountName, setAccountName] = useState('My Bank Account')
+  const [amount, setAmount] = useState('')
+  const [linking, setLinking] = useState(false)
+  const [withdrawing, setWithdrawing] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [transferUrl, setTransferUrl] = useState<string | null>(null)
+
+  function handleClose() {
+    setStep('link')
+    setPlaidToken('')
+    setAccountName('My Bank Account')
+    setAmount('')
+    setLinking(false)
+    setWithdrawing(false)
+    setError(null)
+    setTransferUrl(null)
+    onClose()
+  }
+
+  async function handleLinkBank() {
+    if (!plaidToken.trim()) {
+      setError('Plaid processor token is required')
+      return
+    }
+    setLinking(true)
+    setError(null)
+    try {
+      // Ensure Dwolla customer exists
+      await api.dwolla.createCustomer()
+      // Link bank via Plaid processor token
+      await api.dwolla.linkBank(plaidToken.trim(), accountName.trim() || 'Bank Account')
+      setStep('amount')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to link bank account')
+    } finally {
+      setLinking(false)
+    }
+  }
+
+  async function handleWithdraw() {
+    const amt = parseFloat(amount)
+    if (!amt || amt <= 0) {
+      setError('Enter a valid amount')
+      return
+    }
+    if (amt > balance) {
+      setError('Amount exceeds available balance')
+      return
+    }
+    setWithdrawing(true)
+    setError(null)
+    try {
+      const result = await api.dwolla.withdraw(amt)
+      setTransferUrl(result.transfer_url)
+      setStep('success')
+      onSuccess()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'ACH transfer failed')
+    } finally {
+      setWithdrawing(false)
+    }
+  }
+
+  return (
+    <Modal open={open} onClose={handleClose} title="Withdraw to Bank (ACH)">
+      {step === 'link' && (
+        <div className="space-y-4">
+          <p className="text-sm text-[var(--color-text-muted)]">
+            Link your bank account via Plaid to receive ACH payouts. In the BlakJaks app, Plaid Link
+            opens automatically. Paste the processor token below.
+          </p>
+          <Input
+            label="Plaid Processor Token"
+            placeholder="processor-sandbox-..."
+            value={plaidToken}
+            onChange={(e) => setPlaidToken(e.target.value)}
+          />
+          <Input
+            label="Account Label (optional)"
+            placeholder="My Checking Account"
+            value={accountName}
+            onChange={(e) => setAccountName(e.target.value)}
+          />
+          {error && <p className="text-sm text-[var(--color-danger)]">{error}</p>}
+          <div className="flex gap-3 pt-2">
+            <GoldButton variant="ghost" fullWidth onClick={handleClose}>
+              Cancel
+            </GoldButton>
+            <GoldButton fullWidth loading={linking} onClick={handleLinkBank}>
+              <Building2 size={16} /> Link Bank
+            </GoldButton>
+          </div>
+        </div>
+      )}
+
+      {step === 'amount' && (
+        <div className="space-y-4">
+          <p className="text-sm text-[var(--color-text-muted)]">
+            Bank linked. Enter the amount to transfer via ACH (1–3 business days).
+          </p>
+          <p className="text-sm text-[var(--color-text-muted)]">
+            Available:{' '}
+            <span className="font-bold text-[var(--color-gold)]">{formatCurrency(balance)}</span>
+          </p>
+          <Input
+            label="Amount (USD)"
+            type="number"
+            min="1"
+            step="0.01"
+            placeholder="0.00"
+            value={amount}
+            onChange={(e) => setAmount(e.target.value)}
+          />
+          {error && <p className="text-sm text-[var(--color-danger)]">{error}</p>}
+          <div className="flex gap-3 pt-2">
+            <GoldButton variant="ghost" fullWidth onClick={handleClose}>
+              Cancel
+            </GoldButton>
+            <GoldButton fullWidth loading={withdrawing} onClick={handleWithdraw}>
+              Send via ACH
+            </GoldButton>
+          </div>
+        </div>
+      )}
+
+      {step === 'success' && (
+        <div className="space-y-4 text-center">
+          <Check size={40} className="mx-auto text-green-500" />
+          <p className="font-semibold text-white">ACH Transfer Initiated</p>
+          <p className="text-sm text-[var(--color-text-dim)]">
+            Your ACH transfer has been submitted. Funds arrive in 1–3 business days.
+          </p>
+          {transferUrl && (
+            <p className="break-all text-xs text-[var(--color-text-dim)]">
+              Transfer: {transferUrl.split('/').pop()}
+            </p>
+          )}
+          <GoldButton onClick={handleClose} fullWidth>
+            Done
+          </GoldButton>
+        </div>
+      )}
+    </Modal>
+  )
+}
+
+// ── Crypto Withdrawal Modal (USDC on-chain) ───────────────────────────────────
+
+interface CryptoWithdrawModalProps {
+  open: boolean
+  balance: number
+  onClose: () => void
+  onSuccess: () => void
+}
+
+function CryptoWithdrawModal({ open, balance, onClose, onSuccess }: CryptoWithdrawModalProps) {
+  const { user } = useAuth()
+  const [amount, setAmount] = useState('')
+  const [address, setAddress] = useState('')
+  const [withdrawing, setWithdrawing] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [success, setSuccess] = useState(false)
+
+  function handleClose() {
+    setAmount('')
+    setAddress('')
+    setWithdrawing(false)
+    setError(null)
+    setSuccess(false)
+    onClose()
+  }
+
+  async function handleWithdraw() {
+    const amt = parseFloat(amount)
+    if (!amt || amt <= 0) {
+      setError('Enter a valid amount')
+      return
+    }
+    if (amt > balance) {
+      setError('Amount exceeds available balance')
+      return
+    }
+    setWithdrawing(true)
+    setError(null)
+    try {
+      await api.wallet.withdraw(amt, address || undefined)
+      setSuccess(true)
+      onSuccess()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Withdrawal failed')
+    } finally {
+      setWithdrawing(false)
+    }
+  }
+
+  return (
+    <Modal open={open} onClose={handleClose} title="Withdraw as Crypto (USDC)">
+      {success ? (
+        <div className="space-y-4 text-center">
+          <Check size={40} className="mx-auto text-green-500" />
+          <p className="font-semibold text-white">Withdrawal Submitted</p>
+          <p className="text-sm text-[var(--color-text-dim)]">
+            Your on-chain withdrawal is being processed (typically within 24 hours).
+          </p>
+          <GoldButton onClick={handleClose} fullWidth>
+            Done
+          </GoldButton>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          <p className="text-sm text-[var(--color-text-muted)]">
+            Available:{' '}
+            <span className="font-bold text-[var(--color-gold)]">{formatCurrency(balance)}</span>
+          </p>
+          <Input
+            label="Amount (USD)"
+            type="number"
+            min="1"
+            step="0.01"
+            placeholder="0.00"
+            value={amount}
+            onChange={(e) => setAmount(e.target.value)}
+          />
+          <Input
+            label="Polygon Wallet Address (optional — uses your wallet address)"
+            placeholder="0x..."
+            value={address}
+            onChange={(e) => setAddress(e.target.value)}
+          />
+          {error && <p className="text-sm text-[var(--color-danger)]">{error}</p>}
+          <div className="flex gap-3 pt-2">
+            <GoldButton variant="ghost" fullWidth onClick={handleClose}>
+              Cancel
+            </GoldButton>
+            <GoldButton fullWidth loading={withdrawing} onClick={handleWithdraw}>
+              <Coins size={16} /> Confirm Withdrawal
+            </GoldButton>
+          </div>
+        </div>
+      )}
+    </Modal>
+  )
+}
+
+// ── Page ─────────────────────────────────────────────────────────────────────
+
 export default function WalletPage() {
   const { user } = useAuth()
   const [balance, setBalance] = useState<WalletBalance | null>(null)
@@ -78,13 +338,8 @@ export default function WalletPage() {
   const [activeTab, setActiveTab] = useState('all')
   const [copied, setCopied] = useState(false)
 
-  // Withdrawal modal
-  const [withdrawOpen, setWithdrawOpen] = useState(false)
-  const [withdrawAmount, setWithdrawAmount] = useState('')
-  const [withdrawAddress, setWithdrawAddress] = useState('')
-  const [withdrawing, setWithdrawing] = useState(false)
-  const [withdrawError, setWithdrawError] = useState<string | null>(null)
-  const [withdrawSuccess, setWithdrawSuccess] = useState(false)
+  const [bankWithdrawOpen, setBankWithdrawOpen] = useState(false)
+  const [cryptoWithdrawOpen, setCryptoWithdrawOpen] = useState(false)
 
   const loadBalance = useCallback(async () => {
     setBalanceLoading(true)
@@ -131,36 +386,9 @@ export default function WalletPage() {
     })
   }
 
-  async function handleWithdraw() {
-    const amount = parseFloat(withdrawAmount)
-    if (!amount || amount <= 0) {
-      setWithdrawError('Enter a valid amount')
-      return
-    }
-    if (balance && amount > balance.balance) {
-      setWithdrawError('Amount exceeds available balance')
-      return
-    }
-    setWithdrawing(true)
-    setWithdrawError(null)
-    try {
-      await api.wallet.withdraw(amount, withdrawAddress || undefined)
-      setWithdrawSuccess(true)
-      loadBalance()
-      loadTransactions()
-    } catch (err) {
-      setWithdrawError(err instanceof Error ? err.message : 'Withdrawal failed')
-    } finally {
-      setWithdrawing(false)
-    }
-  }
-
-  function handleWithdrawClose() {
-    setWithdrawOpen(false)
-    setWithdrawAmount('')
-    setWithdrawAddress('')
-    setWithdrawError(null)
-    setWithdrawSuccess(false)
+  function handleWithdrawSuccess() {
+    loadBalance()
+    loadTransactions()
   }
 
   const tableColumns = [
@@ -206,13 +434,15 @@ export default function WalletPage() {
     },
   ]
 
+  const hasBalance = balance && balance.balance > 0
+
   return (
     <div className="space-y-6">
       {/* Header */}
       <div>
         <h1 className="text-2xl font-bold text-white">Wallet</h1>
         <p className="mt-1 text-sm text-[var(--color-text-dim)]">
-          Manage your USDT balance and transaction history
+          Manage your USD balance and transaction history
         </p>
       </div>
 
@@ -235,7 +465,7 @@ export default function WalletPage() {
               </p>
               <p className="text-5xl font-bold text-[var(--color-gold)]">
                 {formatCurrency(balance.balance)}
-                <span className="ml-2 text-lg text-[var(--color-text-muted)]">USDT</span>
+                <span className="ml-2 text-lg text-[var(--color-text-muted)]">USD</span>
               </p>
               <div className="flex gap-6 text-sm text-[var(--color-text-muted)]">
                 <div>
@@ -248,13 +478,23 @@ export default function WalletPage() {
                 </div>
               </div>
             </div>
-            <GoldButton
-              onClick={() => setWithdrawOpen(true)}
-              size="lg"
-              disabled={!balance.balance || balance.balance <= 0}
-            >
-              <ArrowDownCircle size={18} /> Withdraw
-            </GoldButton>
+            <div className="flex flex-col gap-3 sm:items-end">
+              <GoldButton
+                onClick={() => setBankWithdrawOpen(true)}
+                size="lg"
+                disabled={!hasBalance}
+              >
+                <Building2 size={18} /> Withdraw to Bank
+              </GoldButton>
+              <GoldButton
+                onClick={() => setCryptoWithdrawOpen(true)}
+                size="lg"
+                variant="secondary"
+                disabled={!hasBalance}
+              >
+                <Coins size={18} /> Withdraw as Crypto
+              </GoldButton>
+            </div>
           </div>
         </Card>
       ) : null}
@@ -265,7 +505,7 @@ export default function WalletPage() {
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <p className="text-xs font-medium uppercase tracking-wider text-[var(--color-text-dim)]">
-                Your USDT Wallet Address (TRC-20)
+                Your Polygon Wallet Address
               </p>
               <p className="mt-1 font-mono text-sm text-[var(--color-text)]">{user.walletAddress}</p>
             </div>
@@ -316,7 +556,7 @@ export default function WalletPage() {
         ) : transactions.length === 0 ? (
           <EmptyState
             icon={Wallet}
-            message="No transactions yet. Earn USDT by scanning BlakJaks QR codes!"
+            message="No transactions yet. Earn USD by scanning BlakJaks QR codes!"
           />
         ) : (
           <Table
@@ -327,55 +567,19 @@ export default function WalletPage() {
         )}
       </Card>
 
-      {/* Withdrawal Modal */}
-      <Modal open={withdrawOpen} onClose={handleWithdrawClose} title="Withdraw USDT">
-        {withdrawSuccess ? (
-          <div className="space-y-4 text-center">
-            <Check size={40} className="mx-auto text-green-500" />
-            <p className="font-semibold text-white">Withdrawal Submitted</p>
-            <p className="text-sm text-[var(--color-text-dim)]">
-              Your withdrawal request has been submitted and will be processed within 24 hours.
-            </p>
-            <GoldButton onClick={handleWithdrawClose} fullWidth>
-              Done
-            </GoldButton>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            <div>
-              <p className="text-sm text-[var(--color-text-muted)]">
-                Available: <span className="font-bold text-[var(--color-gold)]">{formatCurrency(balance?.balance ?? 0)} USDT</span>
-              </p>
-            </div>
-            <Input
-              label="Amount (USDT)"
-              type="number"
-              min="1"
-              step="0.01"
-              placeholder="0.00"
-              value={withdrawAmount}
-              onChange={(e) => setWithdrawAmount(e.target.value)}
-            />
-            <Input
-              label="Withdrawal Address (optional — uses your wallet address)"
-              placeholder="TRC-20 USDT address"
-              value={withdrawAddress}
-              onChange={(e) => setWithdrawAddress(e.target.value)}
-            />
-            {withdrawError && (
-              <p className="text-sm text-[var(--color-danger)]">{withdrawError}</p>
-            )}
-            <div className="flex gap-3 pt-2">
-              <GoldButton variant="ghost" fullWidth onClick={handleWithdrawClose}>
-                Cancel
-              </GoldButton>
-              <GoldButton fullWidth loading={withdrawing} onClick={handleWithdraw}>
-                Confirm Withdrawal
-              </GoldButton>
-            </div>
-          </div>
-        )}
-      </Modal>
+      {/* Modals */}
+      <BankWithdrawModal
+        open={bankWithdrawOpen}
+        balance={balance?.balance ?? 0}
+        onClose={() => setBankWithdrawOpen(false)}
+        onSuccess={handleWithdrawSuccess}
+      />
+      <CryptoWithdrawModal
+        open={cryptoWithdrawOpen}
+        balance={balance?.balance ?? 0}
+        onClose={() => setCryptoWithdrawOpen(false)}
+        onSuccess={handleWithdrawSuccess}
+      />
     </div>
   )
 }

@@ -51,6 +51,14 @@ async def insights_partners(db: AsyncSession = Depends(get_db)) -> dict:
     return await get_partner_stats(db)
 
 
+@router.get("/dwolla-balance")
+async def insights_dwolla_balance() -> dict:
+    """Dwolla platform ACH reserve balance (admin-facing)."""
+    from app.services.dwolla_service import get_platform_balance
+    balance = get_platform_balance()
+    return {"balance_usd": float(balance)}
+
+
 @router.get("/feed")
 async def insights_feed(
     hours: int = Query(default=24, ge=1, le=720, description="Hours of history to include"),

@@ -46,8 +46,17 @@ def take_treasury_snapshot(self) -> dict:
                 logger.info("Snapshot written: pool=%s onchain=%s", pool_type, onchain)
         return results
 
+    # Dwolla platform balance (non-blocking)
+    dwolla_balance = Decimal("0")
+    try:
+        from app.services.dwolla_service import get_platform_balance
+        dwolla_balance = get_platform_balance()
+    except Exception as exc:
+        logger.warning("Could not fetch Dwolla platform balance: %s", exc)
+
     try:
         results = asyncio.get_event_loop().run_until_complete(_run())
+        results["dwolla_platform"] = str(dwolla_balance)
         return {"status": "ok", "snapshots": results}
     except Exception as exc:
         logger.error("[treasury] take_treasury_snapshot failed: %s", exc)

@@ -1,12 +1,10 @@
-"""Wallet endpoints — balance, transactions, withdrawal, Oobit card."""
+"""Wallet endpoints — balance, transactions, withdrawal."""
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user, get_db
 from app.api.schemas.wallet import (
-    OobitActivateRequest,
-    OobitActivateResponse,
     TransactionListResponse,
     TransactionResponse,
     WalletResponse,
@@ -61,17 +59,3 @@ async def withdraw(
     return TransactionResponse.model_validate(txn)
 
 
-@router.post("/oobit/activate", response_model=OobitActivateResponse)
-async def oobit_activate(
-    body: OobitActivateRequest,
-    user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
-):
-    """Placeholder for Oobit card activation.
-
-    Real integration comes in a future task. For now, returns a success stub.
-    """
-    return OobitActivateResponse(
-        status="pending",
-        message=f"Card ending in {body.card_last_four} activation queued. Oobit integration coming soon.",
-    )

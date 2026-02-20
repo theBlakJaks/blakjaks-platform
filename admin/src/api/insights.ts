@@ -95,3 +95,8 @@ export async function getCompStats(): Promise<CompStats> {
   const res = await client.get<CompStats>('/insights/comps')
   return res.data
 }
+
+export async function getDwollaBalance(): Promise<{ balance_usd: number }> {
+  const res = await client.get<{ balance_usd: number }>('/insights/dwolla-balance')
+  return res.data
+}

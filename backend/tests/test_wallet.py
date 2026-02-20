@@ -186,13 +186,6 @@ async def test_withdraw_endpoint_validation(client: AsyncClient, auth_headers):
     assert "Minimum withdrawal" in resp.json()["detail"]
 
 
-async def test_oobit_activate_endpoint(client: AsyncClient, auth_headers):
-    resp = await client.post(
-        "/api/wallet/oobit/activate",
-        json={"card_last_four": "1234"},
-        headers=auth_headers,
-    )
-    assert resp.status_code == 200
-    data = resp.json()
-    assert data["status"] == "pending"
-    assert "1234" in data["message"]
+async def test_dwolla_customer_endpoint_unauthenticated(client: AsyncClient):
+    resp = await client.post("/api/dwolla/customer")
+    assert resp.status_code == 401
