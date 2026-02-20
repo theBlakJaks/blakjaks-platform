@@ -1,6 +1,6 @@
 # BlakJaks Platform — Claude Code Orchestration Guide
 
-**Version:** 3.0 | **Date:** February 19, 2026 | **Owner:** Joshua Dunn
+**Version:** 3.1 | **Date:** February 20, 2026 | **Owner:** Joshua Dunn
 **Status:** Active Build Guide | CONFIDENTIAL — BlakJaks LLC
 
 ---
@@ -82,7 +82,7 @@ All documents are in Claude Code's project knowledge. Use exact section headers 
 | **AVFoundation Docs** | `AVFoundation_Documentation.md` |
 | **AVPlayer Docs** | `AVPlayer_Documentation.md` |
 | **AgeChecker Docs** | `Agechecker_Documentation.md` |
-| **Oobit Docs** | `Oobit_Documentation.md` |
+| **Dwolla Docs** | `Dwolla_Documentation.md` |
 | **SevenTV Docs** | `SevenTV_Documentation.md` |
 | **OpenAI Moderation Docs** | `openAI_Moderation_Documentation.md` |
 | **Alembic Docs** | `Alembic_Documentation.md` |
@@ -168,6 +168,7 @@ blakjaks-platform/
 - Google Analytics: `GA4_MEASUREMENT_ID`
 - Google Cloud KMS: `GCP_KMS_KEY_RING`, `GCP_KMS_KEY_NAME`, `GCP_KMS_LOCATION`, `GCP_PROJECT_ID`
 - Kintsugi (tax): `KINTSUGI_API_KEY`, `KINTSUGI_API_URL`
+- Dwolla (ACH payouts): `DWOLLA_KEY`, `DWOLLA_SECRET`, `DWOLLA_ENV` (sandbox|production), `DWOLLA_WEBHOOK_SECRET`, `DWOLLA_MASTER_FUNDING_SOURCE_ID`
 - Payment processor (**Authorize.net — confirmed**): all 5 credentials stored in GCP Secret Manager (`blakjaks-production`):
   - `payment-authorize-api-login-id` — API Login ID
   - `payment-authorize-transaction-key` — Transaction Key
@@ -468,7 +469,7 @@ All functions use `redis_keys.py` constants — zero hardcoded key strings.
 - `backend/app/services/timescale_service.py` — `write_treasury_snapshot(db, pool_type, onchain_balance, bank_balance)`, `get_treasury_sparkline(db, pool_type, days)`, `write_transparency_metric(db, metric_key, value)`, `get_metric_history(db, metric_key, hours)`
 
 **Files to modify:**
-- `backend/app/tasks/treasury.py` — wire `take_treasury_snapshot` stub to call `write_treasury_snapshot()` for all 3 pool types using on-chain balances from `blockchain.py`
+- `backend/app/tasks/treasury.py` — wire `take_treasury_snapshot` stub to call `write_treasury_snapshot()` for all 3 pool types using on-chain balances from `blockchain.py`; also call `dwolla_service.get_platform_balance()` and write result as `transparency_metric` with key `dwolla_platform_balance` so the Insights treasury endpoint can broadcast it alongside Teller bank balances and on-chain treasury balances
 
 **Doc references:**
 - Platform v2 § "TimescaleDB" — hypertable write patterns, time_bucket() for sparklines
@@ -577,24 +578,88 @@ Register `wholesale` router in `main.py`.
 
 ---
 
-### Task D9 — Oobit Widget Token Generation `[COMPLETE]`
+### Task D9 — Dwolla Payout Service `[PENDING]`
 
-**Dependency check:** Task A2 (Oobit API key configured), Oobit credentials obtained.
+> ⚠️ **COMPLIANCE GATE — Read before deploying to production:**
+> Before deploying to production, confirm Dwolla permits nicotine/tobacco merchants by requesting their restricted activities guidance document during sales onboarding. Sandbox development can proceed without this confirmation.
 
-> If Oobit credentials not obtained: "Oobit API credentials are required to generate widget auth tokens. Obtain from Oobit dashboard. Without them, the token endpoint will fail at runtime."
+**Dependency check:**
+- Task A2 complete (Dwolla env vars configured)
+- Dwolla sandbox account created at `https://accounts-sandbox.dwolla.com/sign-up`
+- `DWOLLA_KEY`, `DWOLLA_SECRET`, `DWOLLA_WEBHOOK_SECRET`, and `DWOLLA_MASTER_FUNDING_SOURCE_ID` set in env
 
-**Objective:** `wallet_service.py` Oobit activation returns a stub/mock. Replace with a real Oobit API call that generates a short-lived widget auth token. Mobile app loads this token into a WKWebView (iOS) / WebView (Android) to show the Oobit card UI.
+> If Dwolla credentials not obtained: "Dwolla sandbox credentials are required. Sign up at https://accounts-sandbox.dwolla.com/sign-up, verify your email, then retrieve client_id and client_secret from https://dashboard-sandbox.dwolla.com/applications-legacy. Claude Code can build the service now, but API calls will fail at runtime without credentials."
+
+**Objective:** Build Dwolla as the ACH payout layer for member withdrawals. Members withdraw their USD earnings to their linked bank account. Plaid (Dwolla-managed — no separate Plaid account or contract needed) handles instant bank account verification. Dwolla processes the ACH credit.
+
+**Files to create:**
+
+- `backend/app/services/dwolla_service.py` — core Dwolla service:
+  - `get_access_token()` — OAuth 2.0 Client Credentials grant (`POST /token`); cache in Redis with TTL; auto-refresh on expiry
+  - `create_receive_only_customer(db, user_id, first_name, last_name, email)` — creates a Receive-Only Customer via `POST /customers`; stores `dwolla_customer_id` + `dwolla_customer_url` on user record; idempotent — returns existing if already created
+  - `create_plaid_exchange_session(customer_url)` — creates Exchange Session specifying Plaid as partner; returns `plaid_link_token` for frontend Plaid Link widget
+  - `create_exchange_from_plaid_token(customer_url, public_token)` — exchanges Plaid public token for a Dwolla Exchange resource; returns `exchange_url`
+  - `create_funding_source_from_exchange(customer_url, exchange_url, name)` — creates a verified bank funding source from the Exchange; returns `funding_source_url`; account is instantly verified — no micro-deposits needed
+  - `get_funding_sources(customer_url)` — lists all active (non-removed) funding sources for a customer
+  - `get_platform_balance()` — fetches balance of platform master Dwolla Balance via `GET /funding-sources/{DWOLLA_MASTER_FUNDING_SOURCE_ID}/balance`; returns `{available_usd, total_usd}`
+  - `initiate_ach_payout(db, user_id, amount_usd, funding_source_url)` — validates user has a verified funding source; validates platform balance sufficient; initiates `POST /transfers` from master balance to member's bank; stores record in `dwolla_transfers`; returns `transfer_id`
+  - `get_transfer_status(transfer_id)` — `GET /transfers/{id}`; returns `{status, created, amount}`
+  - `verify_webhook_signature(raw_body: bytes, signature_header: str) -> bool` — HMAC-SHA256 of raw body using `DWOLLA_WEBHOOK_SECRET`; constant-time comparison via `hmac.compare_digest`; returns False on any mismatch
+  - `handle_webhook_event(db, event_topic, resource_id, links)` — routes to correct handler by topic (see webhook handlers below)
+
+- `backend/app/routers/dwolla.py` — endpoints:
+  - `POST /dwolla/webhook` — **no auth**; call `verify_webhook_signature()` first — return 401 on failure; extract topic + resourceId from body; call `handle_webhook_event()`; return 200 immediately regardless of internal processing
+  - `POST /users/me/dwolla/customer` — authenticated; creates Receive-Only Customer for calling user; idempotent
+  - `POST /users/me/dwolla/plaid-link-token` — authenticated; requires customer to exist; returns `{plaid_link_token}` for Plaid Link widget
+  - `POST /users/me/dwolla/link-bank` — authenticated; body: `{public_token, account_name}`; calls `create_exchange_from_plaid_token()` then `create_funding_source_from_exchange()`; returns `{funding_source_id, status: "verified"}`
+  - `GET /users/me/dwolla/funding-sources` — authenticated; returns list of linked bank accounts with status
+  - `POST /users/me/dwolla/withdraw` — authenticated; body: `{amount_usd, funding_source_id}`; calls `initiate_ach_payout()`; returns `{transfer_id, status: "pending", estimated_arrival}`
+
+**Webhook event handlers** (implement inside `handle_webhook_event()`):
+
+Transfer lifecycle — update `dwolla_transfers.status` accordingly:
+- `customer_bank_transfer_created` → set status `pending`
+- `customer_bank_transfer_completed` → set status `processed`; send `notification_service` success notification to member
+- `customer_bank_transfer_failed` → set status `failed`; fetch ACH return code via `GET /transfers/{id}/failure`; store return code; send failure notification to member with human-readable reason
+- `customer_bank_transfer_cancelled` → set status `cancelled`; notify member
+- `customer_bank_transfer_creation_failed` → set status `creation_failed`; notify member
+
+Customer lifecycle:
+- `customer_created` → set `dwolla_status: "created"` on user record
+- `customer_verified` → set `dwolla_status: "verified"`
+- `customer_suspended` → set `dwolla_status: "suspended"`; block further payouts; notify admin via `notification_service`
+
+Funding source lifecycle:
+- `customer_funding_source_added` → log
+- `customer_funding_source_verified` → update funding source record to `verified`
+- `customer_funding_source_removed` → mark `removed_at`; if it was the default payout source, clear the default flag
+
+**Migration:** `backend/migrations/versions/025_dwolla.py`
+- Add to `users` table: `dwolla_customer_id VARCHAR(255)`, `dwolla_customer_url VARCHAR(500)`, `dwolla_status VARCHAR(50) DEFAULT 'none'`
+- Create `dwolla_funding_sources`: `id (PK)`, `user_id (FK)`, `dwolla_funding_source_id VARCHAR(255)`, `dwolla_funding_source_url VARCHAR(500)`, `name VARCHAR(255)`, `status VARCHAR(50)`, `is_default BOOLEAN DEFAULT false`, `created_at`, `removed_at (nullable)`
+- Create `dwolla_transfers`: `id (PK)`, `user_id (FK)`, `dwolla_transfer_id VARCHAR(255)`, `amount_usd NUMERIC(12,2)`, `status VARCHAR(50)`, `ach_return_code VARCHAR(10) (nullable)`, `created_at`, `completed_at (nullable)`
 
 **Files to modify:**
-- `backend/app/services/wallet_service.py` — replace mock with real `POST /v1/widget/auth/create-token` call to Oobit API; return `{token, widget_url, expires_in}`
-
-**Files to modify:**
-- Appropriate router — add `POST /oobit/token` endpoint (authenticated user only)
+- `backend/app/main.py` — register `dwolla` router; remove Oobit router if present
+- `backend/app/services/wallet_service.py` — remove Oobit token stub; add `get_payout_history(db, user_id)` returning `dwolla_transfers` records for the user
+- `backend/pyproject.toml` — confirm `httpx>=0.26.0` present (added in A2)
 
 **Doc references:**
-- Oobit Docs — widget auth token creation flow, WKWebView integration pattern
+- Dwolla Docs — all sections; Dwolla MCP available for live documentation queries
 
-**Tests:** Mock Oobit API response. Token endpoint requires auth.
+**Sandbox testing procedure:**
+- Pending transfers do not auto-process — trigger via `POST https://api-sandbox.dwolla.com/sandbox-simulations`
+- Simulate ACH failure: set funding source `name` to `R01` (insufficient funds) or `R03` (invalid account), then run simulation
+- Sandbox pre-loaded with $5,000 balance and "Superhero Savings Bank" test funding source
+- Webhook delivery: use ngrok or similar to expose local endpoint; register via `POST /webhook-subscriptions`
+
+**Tests:**
+- `verify_webhook_signature()` returns True for valid signature, False for tampered body, False for wrong secret
+- `initiate_ach_payout()` raises if user has no verified funding source
+- `create_receive_only_customer()` is idempotent — second call returns existing customer URL without creating a duplicate
+- Webhook handler correctly routes each topic to the right handler (mock all Dwolla API responses)
+- `POST /dwolla/webhook` returns 401 for invalid signature without processing the event
+- Migration: all 3 schema changes apply cleanly on a fresh database
 
 ---
 
@@ -956,7 +1021,12 @@ Build all other pages (shop, cart, wallet, scans, notifications) while the check
 - `web-app/src/app/shop/page.tsx` — product grid, flavor filter bar, add to cart; calls `GET /shop/products`
 - `web-app/src/app/cart/page.tsx` — line items, quantity controls, proceed to checkout; calls `GET /cart`, `PUT /cart/update`, `DELETE /cart/remove`
 - `web-app/src/app/checkout/page.tsx` — multi-step: shipping address → AgeChecker.net popup → payment method → review + Kintsugi tax; calls `POST /tax/estimate`, `POST /orders/create`
-- `web-app/src/app/wallet/page.tsx` — USDT balance, pending vs available, wallet address with copy, transaction history with filters, withdrawal flow; calls `GET /users/me/wallet`, `GET /wallet/transactions`, `POST /wallet/withdraw`
+- `web-app/src/app/wallet/page.tsx` — single USD balance (available vs pending), transaction history with status filters, two withdrawal actions:
+  - **"Withdraw to Bank" button** → ACH payout flow: if no bank linked, launch Plaid Link widget (fetch `plaid_link_token` from `POST /users/me/dwolla/plaid-link-token`, pass to Plaid.js, exchange public token via `POST /users/me/dwolla/link-bank`); if bank already linked, show amount input + confirm → `POST /users/me/dwolla/withdraw`; show estimated arrival (1–2 business days standard ACH)
+  - **"Withdraw as Crypto" button** → USDC send flow: prompt user for destination wallet address (EVM), confirm amount → calls existing `POST /wallet/withdraw` (on-chain USDC transfer via `blockchain.py`)
+  - Bank account management section: shows linked bank name + last-4 from `GET /users/me/dwolla/funding-sources`; "Change Bank" re-launches Plaid Link
+  - Note: Plaid is Dwolla-managed — no separate Plaid account needed; integration is entirely through Dwolla Exchange Sessions API
+  - Calls: `GET /users/me/wallet`, `GET /wallet/transactions`, `POST /users/me/dwolla/plaid-link-token`, `POST /users/me/dwolla/link-bank`, `GET /users/me/dwolla/funding-sources`, `POST /users/me/dwolla/withdraw`, `POST /wallet/withdraw`
 - `web-app/src/app/scans/page.tsx` — scan history list; calls `GET /scans/history`
 - `web-app/src/app/notifications/page.tsx` — full notification list, type filters, mark-all-read; calls `GET /notifications`, `POST /notifications/read-all`
 
@@ -983,8 +1053,11 @@ Every page must have loading state, empty state, and error state.
 
 **Files to create:**
 - New Insights section in `admin/src/` — panels: System Health (API latency P95, DB connections, Redis memory, Polygon node status), Scan Velocity chart (scans/minute last 60min), Pool Balance sparklines (3 line charts), Comp Budget Health gauge, Payout Pipeline metrics
+- **Dwolla Platform Balance panel** — poll `dwolla_service.get_platform_balance()` (via `GET /insights/treasury`) every 60 seconds; display available USD balance and total USD balance; show alongside Teller bank account balances and on-chain treasury wallet balances in the Treasury section
 
 Data from: `GET /insights/systems`, `GET /insights/treasury`, `GET /insights/comps`
+
+**Note on treasury data sources in `GET /insights/treasury`:** Response must include three balance categories: (1) on-chain balances from `blockchain.py`, (2) Teller bank account balances from `teller_service.py`, (3) Dwolla platform balance from `dwolla_service.get_platform_balance()`. The Celery `take_treasury_snapshot` task (Task D3) writes all three to TimescaleDB for sparkline history.
 
 ---
 
@@ -1184,7 +1257,7 @@ Tasks I4 (Insights Dashboard + QR Scanner), I5 (Scan & Wallet center tab), I6 (S
 
 **Doc references for when these tasks are prompted:**
 - I4: iOS Strategy § "Phase 4: Insights" + § "Phase 3: Scanner", AVFoundation Docs, AVPlayer Docs
-- I5: iOS Strategy § "Phase 3: Scan & Wallet", MetaMask iOS Docs (Web3Auth v11.1.0), Oobit Docs
+- I5: iOS Strategy § "Phase 3: Scan & Wallet", MetaMask iOS Docs (Web3Auth v11.1.0), Dwolla Docs (Plaid bank linking + ACH withdraw flow)
 - I6: iOS Strategy § "Phase 5: Shop", SDWebImage Docs, AgeChecker Docs
 - I7: iOS Strategy § "Phase 7: Social Hub", Socket Docs (Socket.IO-Client-Swift), AVPlayer Docs (HLS streaming), SevenTV Docs
 
@@ -1254,6 +1327,7 @@ Full security audit, load testing, staging QA, app store assets, and production 
 | `governance_service.py` | Governance endpoints, admin governance endpoints | Vote creation, ballot casting, result tallying |
 | `reaction_service.py` | Social message reaction endpoints | Emoji reactions on chat messages |
 | `user_service.py` | User creation, tier changes | Member ID generation and tier suffix updates |
+| `dwolla_service.py` | Payout router, Celery treasury snapshot, Admin insights | ACH payout processing, Receive-Only customer creation, Plaid bank linking (Dwolla-managed), webhook handling, platform balance query |
 
 ---
 
