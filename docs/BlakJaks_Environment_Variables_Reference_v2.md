@@ -155,15 +155,13 @@ REDIS_CLUSTER_NODES=node1:6379,node2:6379,node3:6379
 
 ---
 
-### TimescaleDB Configuration
+### PostgreSQL Time Partitioning
 
 ```shell
-# TimescaleDB Extension (uses same PostgreSQL connection)
-TIMESCALE_ENABLED=true
-TIMESCALE_RETENTION_DAYS_FINANCIAL=2555  # 7 years
-TIMESCALE_RETENTION_DAYS_ANALYTICS=730   # 2 years
-TIMESCALE_RETENTION_DAYS_SOCIAL=90       # 90 days
-TIMESCALE_RETENTION_DAYS_TREASURY=90     # 90 days (sparkline data) [NEW v2]
+# PostgreSQL Time Partitioning (Cloud SQL native — TimescaleDB not supported)
+# Retention managed by Celery monthly partition drop job
+ANALYTICS_PARTITION_RETENTION_MONTHS=24    # 2 years for transparency_metrics
+TREASURY_SNAPSHOT_RETENTION_DAYS=90        # 90 days for treasury_snapshots
 ```
 
 **Where to get:** Configuration only (uses PostgreSQL connection)
@@ -768,13 +766,10 @@ GIPHY_LIMIT=25
 ### 7TV (Animated Emotes) [NEW v2]
 
 ```shell
-# 7TV API
-SEVENTV_EMOTE_SET_ID=<emote_set_id>
-SEVENTV_API_BASE_URL=https://7tv.io/v3
-
-# Caching
-SEVENTV_CACHE_TTL=3600  # 1 hour — refresh emote set from 7TV API
-SEVENTV_CDN_BASE_URL=https://cdn.7tv.app  # 7TV serves emote images from their CDN
+# 7TV — No backend config required.
+# Client fetches global emote set and searches full 7TV library directly.
+# No API key, no emote set ID, no backend proxy.
+SEVENTV_CDN_BASE_URL=https://cdn.7tv.app  # For reference only
 ```
 
 **Where to get:**
@@ -1430,7 +1425,6 @@ spec:
 * [ ] Google Cloud credentials
 * [ ] Sentry DSN
 * [ ] Teller.io credentials (application ID, cert, private key) [NEW v2]
-* [ ] 7TV emote set ID [NEW v2]
 * [ ] Insights configuration [NEW v2]
 
 **Mobile Apps:**
@@ -1459,6 +1453,7 @@ spec:
 * [ ] Memorystore Redis IP
 * [ ] Google Cloud Storage buckets (including avatars bucket) [UPDATED v2]
 * [ ] Prometheus/Grafana credentials
+  (TimescaleDB not required — Cloud SQL uses native PostgreSQL partitioning)
 
 ---
 

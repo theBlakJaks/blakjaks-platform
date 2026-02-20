@@ -174,15 +174,12 @@ BlakJaks is a premium nicotine pouch brand with an integrated loyalty rewards pl
 * **Extensions:** pgcrypto, uuid-ossp
 * **Connection Pooling:** PgBouncer
 
-**Time-Series Database**
+**Time-Series Data**
 
-* **System:** TimescaleDB (PostgreSQL extension)
-* **Purpose:** Analytics, metrics, scan history, treasury tracking, scan velocity
-* **Retention:**
-  * Financial data: 7 years
-  * Analytics data: 2 years
-  * Social messages: 90 days
-  * Treasury sparkline data: 90 days
+* **System:** PostgreSQL native RANGE partitioning (monthly partitions on timestamp column)
+* **Purpose:** Analytics, metrics, treasury snapshots, scan velocity
+* **Retention:** Managed by Celery monthly job that drops old partitions (90 days for treasury snapshots, 2 years for analytics metrics)
+* **Query pattern:** `date_trunc()` + `GROUP BY` for time-bucketed sparkline queries
 
 **Cache & Session Store**
 
@@ -2126,8 +2123,10 @@ async def process_scan(user_id, code):
 
 **Process**
 
-1. Admin configures BlakJaks emote set on 7TV (or uses global emotes)
-2. Backend fetches emote set: `GET https://7tv.io/v3/emote-sets/{set_id}`
+1. Client fetches the global emote set directly: `GET https://7tv.io/v3/emote-sets/global`
+2. Client searches the full 7TV database (1.5M+ emotes) via GraphQL: `POST https://7tv.io/v3/gql`
+3. No backend proxy required. No API key required. No emote set ID required.
+4. Images served directly from 7TV CDN: `cdn.7tv.app/emote/{id}/{size}.webp`
 3. Cache emote set locally (Redis, refresh every hour)
 4. Client displays emote picker (grid of animated emotes)
 5. User selects emote → Message sent with emote code (e.g., `:KEKW:`)
