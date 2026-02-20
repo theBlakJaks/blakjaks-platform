@@ -879,24 +879,37 @@ Register `governance` router in `main.py`.
 
 **Objective:** The always-visible nicotine warning banner and age gate are legally required and absent from all portals. Must be present before any portal goes live.
 
-**Nicotine Warning Banner — Exact Specifications:**
-- Appears ONLY on these three pages: shop/product page, cart page, checkout page
-- Does NOT appear on any other pages (home, wallet, scans, social, profile, admin, etc.)
-- Implemented as a reusable component imported individually into those three pages only — NOT in the root layout
-- Height: exactly 20vh (20% of the viewport height) — no more, no less
+**Nicotine Warning Banner — FDA Compliant Specification (21 CFR § 1143.3)**
+
+Required pages — exact and final list:
+- Web: Home page, wholesale portal, affiliate portal
+- iOS app: Initial loading/splash screen (pre-login, first screen before signup/login), shop page, cart page, checkout page
+
+NOT shown on:
+- Web: Social, insights, wallet, scanner, profile, admin, affiliate portal app
+- iOS app: Insights, social, wallet, scanner, profile, affiliate section
+
+Implementation:
+- Build as a reusable component: `<NicotineWarningBanner />` (web), `NicotineWarningBanner.swift` (iOS)
+- Import individually into each required page — NOT in root layout or app shell
+- Height: exactly 20vh on web / 20% of screen height on iOS — no more, no less
 - Background: black (#000000)
 - Text color: white (#FFFFFF)
-- Font: Helvetica Bold (font-family: Helvetica, Arial, sans-serif; font-weight: bold)
-- Text must be sized dynamically to fill as much of the banner as possible — use CSS clamp() or a JS text-fit solution to maximize font size within the banner bounds without overflow
-- Text content (exact, do not alter): "WARNING: This product contains nicotine. Nicotine is an addictive chemical."
-- Fixed to the top of the viewport (position: fixed, top: 0, z-index: 9999) when present
-- Pages that include the banner must offset their content by 20vh (padding-top: 20vh on the page wrapper)
+- Font: Helvetica Bold (font-family: Helvetica, Arial, sans-serif; font-weight: bold) — FDA-specified per 21 CFR § 1143.3
+- Text must be dynamically sized to occupy the greatest possible proportion of the banner area without overflow — use CSS clamp() on web, UIFont with auto-scaling on iOS
+- Exact required text (do not alter): "WARNING: This product contains nicotine. Nicotine is an addictive chemical."
+- Fixed to top of viewport on web (position: fixed, top: 0, z-index: 9999)
+- Pages that include the banner must offset their content by 20vh / 20% screen height so no content is hidden behind it
+- iOS splash screen: banner is visible on the initial loading screen before the user reaches login/signup
+
+FDA compliance note: Per 21 CFR § 1143.3(b)(2), warning must occupy at least 20% of the advertisement area, appear in the upper portion, in Helvetica Bold or Arial Bold, white on black or black on white. This spec satisfies all requirements.
 
 **Files to create/modify:**
-- `web-app/src/components/WarningBanner.tsx` — new component per exact specifications above; never dismissible, no close button
-- `web-app/src/app/shop/page.tsx` — import and render `<WarningBanner />` at top; add padding-top: 20vh to page wrapper
-- `web-app/src/app/cart/page.tsx` — import and render `<WarningBanner />` at top; add padding-top: 20vh to page wrapper
-- `web-app/src/app/checkout/page.tsx` — import and render `<WarningBanner />` at top; add padding-top: 20vh to page wrapper
+- `web-app/src/components/NicotineWarningBanner.tsx` — reusable component per FDA spec above; never dismissible, no close button
+- `web-app/src/app/page.tsx` (home) — import and render `<NicotineWarningBanner />` at top; add padding-top: 20vh to page wrapper
+- `wholesale/src/app/layout.tsx` or root wholesale page — import and render `<NicotineWarningBanner />`; add padding-top: 20vh
+- `affiliate/src/app/layout.tsx` or root affiliate page — import and render `<NicotineWarningBanner />`; add padding-top: 20vh
+- iOS: `NicotineWarningBanner.swift` — reusable SwiftUI view per FDA spec; added to SplashView, ShopView, CartView, CheckoutView
 - `web-app/src/components/AgeGate.tsx` — new component; full-screen overlay on first visit; localStorage flag `blakjaks_age_verified`; "Are you 21 or older?" with Yes (set flag, show site) / No (redirect to google.com) buttons
 - `web-app/src/app/layout.tsx` — wrap root content in `<AgeGate>`
 - `affiliate/src/app/layout.tsx` — add WarningBanner (no age gate — internal tool)
