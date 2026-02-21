@@ -136,7 +136,9 @@ def json_header(token: str = None) -> dict:
 def login(email: str, password: str) -> str | None:
     r, _ = req("POST", "/auth/login", json_body={"email": email, "password": password})
     if r.status_code == 200:
-        return r.json().get("access_token")
+        body = r.json()
+        # API returns tokens nested under "tokens" key
+        return body.get("tokens", {}).get("access_token") or body.get("access_token")
     return None
 
 
@@ -150,29 +152,36 @@ def run_flow_1_auth() -> str | None:
     refresh_token = None
 
     # 1.1 Signup
+    ts_str = str(ts)[-6:]  # short suffix for username uniqueness
     r, ms = req("POST", "/auth/signup", json_body={
-        "name": "Smoke Test User",
+        "first_name": "Smoke",
+        "last_name": "Test",
+        "username": f"smoketest{ts_str}",
         "email": fresh_email,
-        "password": "SmokeTest123!",
-        "date_of_birth": "1990-01-01",
+        "password": "SmokeTest123x",
+        "birthdate": "1990-01-01",
     })
     passed = step("1.1 POST /auth/signup — 201 + access_token", r.status_code in (200, 201), ms,
                   f"got {r.status_code}", r)
     if passed:
-        token = r.json().get("access_token")
+        body = r.json()
+        token = body.get("tokens", {}).get("access_token") or body.get("access_token")
 
     # 1.2 Login
-    r, ms = req("POST", "/auth/login", json_body={"email": fresh_email, "password": "SmokeTest123!"})
-    passed = step("1.2 POST /auth/login — 200 + tokens", r.status_code == 200 and bool(r.json().get("access_token")), ms,
+    r, ms = req("POST", "/auth/login", json_body={"email": fresh_email, "password": "SmokeTest123x"})
+    login_body = r.json() if r.status_code == 200 else {}
+    login_token = login_body.get("tokens", {}).get("access_token") or login_body.get("access_token")
+    passed = step("1.2 POST /auth/login — 200 + tokens", r.status_code == 200 and bool(login_token), ms,
                   f"got {r.status_code}", r)
     if passed:
-        token = r.json().get("access_token")
-        refresh_token = r.json().get("refresh_token")
+        token = login_token
+        refresh_token = login_body.get("tokens", {}).get("refresh_token") or login_body.get("refresh_token")
 
     # 1.3 Refresh
     if refresh_token:
         r, ms = req("POST", "/auth/refresh", json_body={"refresh_token": refresh_token})
-        new_token = r.json().get("access_token") if r.status_code == 200 else None
+        refresh_body = r.json() if r.status_code == 200 else {}
+        new_token = refresh_body.get("tokens", {}).get("access_token") or refresh_body.get("access_token")
         passed = step("1.3 POST /auth/refresh — 200 + new access_token",
                       r.status_code == 200 and bool(new_token), ms, f"got {r.status_code}", r)
         if passed and new_token:
