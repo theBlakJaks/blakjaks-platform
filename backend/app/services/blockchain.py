@@ -195,6 +195,8 @@ def get_treasury_address(key_name: str | None = None) -> str:
 
 def get_consumer_pool_address() -> str:
     """Return the consumer pool wallet address from config, falling back to KMS derivation."""
+    if _is_dev_signing_enabled() and settings.BLOCKCHAIN_DEV_TREASURY_ADDRESS:
+        return Web3.to_checksum_address(settings.BLOCKCHAIN_DEV_TREASURY_ADDRESS)
     if settings.BLOCKCHAIN_MEMBER_TREASURY_ADDRESS:
         return Web3.to_checksum_address(settings.BLOCKCHAIN_MEMBER_TREASURY_ADDRESS)
     return get_treasury_address(settings.KMS_CONSUMER_KEY)
@@ -202,6 +204,8 @@ def get_consumer_pool_address() -> str:
 
 def get_affiliate_pool_address() -> str:
     """Return the affiliate pool wallet address from config, falling back to KMS derivation."""
+    if _is_dev_signing_enabled() and settings.BLOCKCHAIN_DEV_TREASURY_ADDRESS:
+        return Web3.to_checksum_address(settings.BLOCKCHAIN_DEV_TREASURY_ADDRESS)
     if settings.BLOCKCHAIN_AFFILIATE_TREASURY_ADDRESS:
         return Web3.to_checksum_address(settings.BLOCKCHAIN_AFFILIATE_TREASURY_ADDRESS)
     return get_treasury_address(settings.KMS_AFFILIATE_KEY)
@@ -209,6 +213,8 @@ def get_affiliate_pool_address() -> str:
 
 def get_wholesale_pool_address() -> str:
     """Return the wholesale pool wallet address from config, falling back to KMS derivation."""
+    if _is_dev_signing_enabled() and settings.BLOCKCHAIN_DEV_TREASURY_ADDRESS:
+        return Web3.to_checksum_address(settings.BLOCKCHAIN_DEV_TREASURY_ADDRESS)
     if settings.BLOCKCHAIN_WHOLESALE_TREASURY_ADDRESS:
         return Web3.to_checksum_address(settings.BLOCKCHAIN_WHOLESALE_TREASURY_ADDRESS)
     return get_treasury_address(settings.KMS_WHOLESALE_KEY)
@@ -255,6 +261,29 @@ def get_usdc_balance(address: str) -> Decimal:
 
 
 # ---------------------------------------------------------------------------
+# Dev signing helpers (testnet / non-production only)
+# ---------------------------------------------------------------------------
+
+
+def _is_dev_signing_enabled() -> bool:
+    """True only when BLOCKCHAIN_DEV_PRIVATE_KEY is set in a non-production environment."""
+    return (
+        bool(settings.BLOCKCHAIN_DEV_PRIVATE_KEY)
+        and settings.ENVIRONMENT in ("development", "staging", "test")
+    )
+
+
+def _sign_with_dev_key(tx: dict) -> bytes:
+    """Sign a transaction with the local dev private key. Testnet only. Never production."""
+    from eth_account import Account
+    if settings.ENVIRONMENT == "production":
+        raise RuntimeError("Dev key signing is prohibited in production")
+    account = Account.from_key(settings.BLOCKCHAIN_DEV_PRIVATE_KEY)
+    signed = account.sign_transaction(tx)
+    return signed.raw_transaction
+
+
+# ---------------------------------------------------------------------------
 # KMS transaction signing
 # ---------------------------------------------------------------------------
 
@@ -264,6 +293,10 @@ def sign_transaction_with_kms(tx: dict, key_name: str | None = None) -> bytes:
 
     Returns the signed raw transaction bytes ready for broadcast.
     """
+    if _is_dev_signing_enabled():
+        logger.info("DEV MODE: signing with local dev private key (not KMS)")
+        return _sign_with_dev_key(tx)
+
     from eth_account import Account
     from eth_account._utils.legacy_transactions import (
         serializable_unsigned_transaction_from_dict,

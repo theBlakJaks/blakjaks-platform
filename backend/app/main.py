@@ -90,6 +90,9 @@ app.add_middleware(SecurityHeadersMiddleware)
 app.include_router(api_router)
 app.include_router(social_ws_router)
 
+from app.api import dev_tools
+app.include_router(dev_tools.router, prefix="/dev", tags=["dev"])
+
 # ---------------------------------------------------------------------------
 # Prometheus — expose /metrics endpoint
 # ---------------------------------------------------------------------------
