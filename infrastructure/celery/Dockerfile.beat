@@ -9,6 +9,10 @@ RUN pip install --no-cache-dir -e ".[dev]"
 # Copy application code
 COPY . .
 
+# Run as non-root user
+RUN addgroup --system appgroup && adduser --system --ingroup appgroup appuser
+USER appuser
+
 # Run Celery beat scheduler
 # --schedule persists beat state across restarts
 CMD ["celery", "-A", "app.celery_app.celery_app", "beat", \

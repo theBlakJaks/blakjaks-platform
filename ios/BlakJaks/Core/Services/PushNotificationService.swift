@@ -28,7 +28,9 @@ final class PushNotificationService: ObservableObject {
             }
             return granted
         } catch {
+            #if DEBUG
             print("[APNs] Permission request failed: \(error)")
+            #endif
             return false
         }
     }
@@ -43,14 +45,20 @@ final class PushNotificationService: ObservableObject {
     func storeDeviceToken(_ token: String) {
         deviceToken = token
         // TODO: POST token to backend (PATCH /users/me/push-token) in production polish pass
-        print("[APNs] Device token registered: \(token.prefix(20))...")
+        #if DEBUG
+        print("[APNs] Device token registered (debug only)")
+        #endif
     }
 
     // MARK: - Badge Management
 
     func updateBadgeCount(_ count: Int) {
         UNUserNotificationCenter.current().setBadgeCount(count) { error in
-            if let error { print("[APNs] Badge update failed: \(error)") }
+            if let error {
+                #if DEBUG
+                print("[APNs] Badge update failed: \(error)")
+                #endif
+            }
         }
     }
 
@@ -63,6 +71,7 @@ final class PushNotificationService: ObservableObject {
     func handleNotificationTap(userInfo: [AnyHashable: Any]) {
         guard let type = userInfo["type"] as? String else { return }
         // Deep link routing — handle in production polish pass with NavigationPath
+        #if DEBUG
         switch type {
         case "comp_earned":
             print("[APNs] Deep link → Wallet")
@@ -75,6 +84,7 @@ final class PushNotificationService: ObservableObject {
         default:
             print("[APNs] Deep link → \(type)")
         }
+        #endif
         // TODO: production — post Notification to NavigationCoordinator
     }
 }

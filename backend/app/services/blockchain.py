@@ -9,6 +9,7 @@ from Secret Manager (GKE) or environment variables (local dev).
 """
 
 import logging
+import re
 from decimal import Decimal
 
 from eth_account._utils.signing import to_standard_v  # noqa: F401 (kept for signing utility)
@@ -18,6 +19,9 @@ from app.core.config import settings
 from app.services import kms_service
 
 logger = logging.getLogger(__name__)
+
+# Polygon address validation: 0x followed by exactly 40 hex characters
+_POLYGON_ADDRESS_RE = re.compile(r"^0x[0-9a-fA-F]{40}$")
 
 # ---------------------------------------------------------------------------
 # Treasury pool allocation constants (percentages of gross profit)
@@ -315,6 +319,9 @@ def send_usdt_from_pool(pool_name: str, to_address: str, amount: Decimal) -> str
     Returns:
         Transaction hash hex string.
     """
+    if not _POLYGON_ADDRESS_RE.match(to_address):
+        raise ValueError(f"Invalid Polygon address format: {to_address!r}")
+
     if pool_name not in POOL_KEY_MAP:
         raise ValueError(f"Unknown pool: {pool_name}. Must be one of {list(POOL_KEY_MAP.keys())}")
 

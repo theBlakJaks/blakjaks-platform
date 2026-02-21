@@ -12,7 +12,7 @@ class Settings(BaseSettings):
     REFRESH_TOKEN_EXPIRE_DAYS: int = 30
     RESET_TOKEN_EXPIRE_MINUTES: int = 60
     ENVIRONMENT: str = "development"
-    CORS_ORIGINS: list[str] = ["*"]
+    CORS_ORIGINS: list[str] = []
 
     # -------------------------------------------------------------------------
     # Redis
@@ -183,4 +183,16 @@ class Settings(BaseSettings):
     model_config = {"env_file": ".env", "extra": "ignore"}
 
 
+def validate_settings(s: Settings) -> None:
+    if s.ENVIRONMENT == "production":
+        if s.SECRET_KEY in ("change-me-in-production", "") or len(s.SECRET_KEY) < 32:
+            raise ValueError(
+                "SECRET_KEY must be at least 32 characters and not the default value in production. "
+                "Generate one with: python -c \"import secrets; print(secrets.token_hex(32))\""
+            )
+        if not s.CORS_ORIGINS:
+            raise ValueError("CORS_ORIGINS must be explicitly configured in production.")
+
+
 settings = Settings()
+validate_settings(settings)

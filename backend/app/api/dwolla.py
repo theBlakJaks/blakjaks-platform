@@ -3,7 +3,7 @@
 from decimal import Decimal
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -126,6 +126,18 @@ async def initiate_ach_withdrawal(
     """Initiate an ACH payout from the platform balance to the user's linked bank."""
     from app.services.dwolla_service import initiate_transfer
 
+    if body.funding_source_url:
+        stored = await db.execute(
+            text("SELECT dwolla_funding_source_url FROM dwolla_customers WHERE user_id = :uid"),
+            {"uid": str(current_user.id)},
+        )
+        row = stored.fetchone()
+        if row is None or row[0] != body.funding_source_url:
+            raise HTTPException(
+                status.HTTP_403_FORBIDDEN,
+                "Funding source does not belong to this account",
+            )
+
     funding_source_url = body.funding_source_url
     if not funding_source_url:
         row = await db.execute(
@@ -159,10 +171,19 @@ async def initiate_ach_withdrawal(
 async def get_ach_status(
     transfer_id: str,
     current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
 ):
     """Get the current status of a Dwolla ACH transfer."""
     from app.services.dwolla_service import get_transfer_status
     from app.core.config import settings
+
+    # Verify this transfer belongs to the current user
+    result = await db.execute(
+        text("SELECT id FROM transactions WHERE dwolla_transfer_id = :tid AND user_id = :uid"),
+        {"tid": transfer_id, "uid": str(current_user.id)},
+    )
+    if result.fetchone() is None:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Transfer not found or access denied")
 
     base = (
         "https://api-sandbox.dwolla.com"
@@ -177,3 +198,37 @@ async def get_ach_status(
         raise HTTPException(status.HTTP_502_BAD_GATEWAY, f"Dwolla error: {exc}")
 
     return data
+
+
+@router.post("/webhook", include_in_schema=False)
+async def dwolla_webhook(
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+):
+    """Receive and verify Dwolla webhook events."""
+    import json
+    import logging as _logging
+
+    from app.services.dwolla_service import verify_dwolla_webhook
+
+    body = await request.body()
+    signature = request.headers.get("X-Request-Signature-Sha-256", "")
+
+    if not signature:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Missing webhook signature")
+
+    try:
+        if not verify_dwolla_webhook(body, signature):
+            raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid webhook signature")
+    except ValueError as e:
+        raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, str(e))
+
+    event = json.loads(body)
+    event_topic = event.get("topic", "")
+
+    # Log the verified event — actual handling to be implemented per topic
+    _logging.getLogger(__name__).info("Dwolla webhook received: %s", event_topic)
+
+    # TODO: Handle specific topics (transfer:completed, transfer:failed, etc.)
+
+    return {"status": "received"}

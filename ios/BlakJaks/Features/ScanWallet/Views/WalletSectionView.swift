@@ -11,9 +11,6 @@ struct WalletSectionView: View {
     @State private var showReceiveQR      = false
     @State private var addressCopied      = false
 
-    // Mock wallet address (Web3Auth provides this; using stub for now)
-    private let walletAddress = "0x3f2A9c8B1D7e4F0a5C6E2d8B9A1F3c7E4D2b0A8F"
-
     var body: some View {
         VStack(alignment: .leading, spacing: Spacing.lg) {
             sectionHeader("Wallet")
@@ -85,13 +82,13 @@ struct WalletSectionView: View {
                     Text("Wallet Address")
                         .font(.caption)
                         .foregroundColor(.secondary)
-                    Text(truncatedAddress(walletAddress))
+                    Text(truncatedAddress(viewModel.walletDetail?.address ?? ""))
                         .font(.system(.body, design: .monospaced))
                         .foregroundColor(.primary)
                 }
                 Spacer()
                 Button {
-                    UIPasteboard.general.string = walletAddress
+                    UIPasteboard.general.string = viewModel.walletDetail?.address ?? ""
                     addressCopied = true
                     DispatchQueue.main.asyncAfter(deadline: .now() + 2) { addressCopied = false }
                 } label: {
@@ -266,14 +263,14 @@ struct WalletSectionView: View {
                         .foregroundColor(.black)
                 }
 
-                Text(walletAddress)
+                Text(viewModel.walletDetail?.address ?? "")
                     .font(.system(.caption2, design: .monospaced))
                     .foregroundColor(.secondary)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal)
 
                 GoldButton("Copy Address") {
-                    UIPasteboard.general.string = walletAddress
+                    UIPasteboard.general.string = viewModel.walletDetail?.address ?? ""
                     showReceiveQR = false
                 }
                 .padding(.horizontal, Layout.screenMargin)

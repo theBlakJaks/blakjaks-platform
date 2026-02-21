@@ -173,11 +173,21 @@ async def translate(
 ):
     from sqlalchemy import select
     from app.models.message import Message
+    from app.models.channel import Channel
 
     msg_result = await db.execute(select(Message).where(Message.id == body.message_id))
     msg = msg_result.scalar_one_or_none()
     if msg is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Message not found")
+
+    if msg.channel_id != channel_id:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Message does not belong to this channel")
+
+    # Verify the channel exists
+    channel_result = await db.execute(select(Channel).where(Channel.id == channel_id))
+    channel = channel_result.scalar_one_or_none()
+    if channel is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Channel not found")
 
     source_lang = msg.original_language or await detect_language(msg.content)
     translated = await translate_message(msg.content, source_lang, body.target_lang, str(msg.id))

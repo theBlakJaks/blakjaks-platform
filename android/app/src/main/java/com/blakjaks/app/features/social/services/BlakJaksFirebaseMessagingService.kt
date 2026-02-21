@@ -26,10 +26,11 @@ class BlakJaksFirebaseMessagingService : FirebaseMessagingService() {
 
     override fun onNewToken(token: String) {
         super.onNewToken(token)
-        // Log the token for now.
         // TODO: Enqueue a WorkManager OneTimeWorkRequest to send token to backend
         //       via ApiClient.updatePushToken once WorkManager dependency is wired.
-        Log.d(TAG, "New token: $token")
+        if (BuildConfig.DEBUG) {
+            Log.d(TAG, "New FCM token received (debug only)")
+        }
     }
 
     // ─── Message Received ────────────────────────────────────────────────────

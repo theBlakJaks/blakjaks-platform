@@ -16,6 +16,8 @@ Sandbox base URL : https://api-sandbox.dwolla.com
 Production base URL: https://api.dwolla.com
 """
 
+import hashlib
+import hmac
 import logging
 from decimal import Decimal
 from uuid import UUID
@@ -238,3 +240,22 @@ def get_platform_balance() -> Decimal:
     except Exception as exc:
         logger.warning("Could not fetch Dwolla platform balance: %s", exc)
         return Decimal("0")
+
+
+def verify_dwolla_webhook(request_body: bytes, signature_header: str) -> bool:
+    """Verify Dwolla webhook authenticity using HMAC-SHA256.
+
+    The signature_header is the value of X-Request-Signature-Sha-256.
+    Raises ValueError if DWOLLA_SECRET is not configured.
+    """
+    secret = settings.DWOLLA_SECRET
+    if not secret:
+        raise ValueError("DWOLLA_SECRET must be configured to verify webhooks")
+
+    expected = hmac.new(
+        secret.encode("utf-8"),
+        request_body,
+        hashlib.sha256,
+    ).hexdigest()
+
+    return hmac.compare_digest(expected, signature_header)

@@ -12,7 +12,10 @@ export default function ReferralRedirect() {
 
   useEffect(() => {
     if (code) {
-      document.cookie = `bj_ref=${encodeURIComponent(code)};path=/;max-age=2592000`
+      // Note: HttpOnly cannot be set client-side. For full security, this should be
+      // set by the backend as a Set-Cookie response header with HttpOnly; Secure; SameSite=Strict.
+      // Client-side fallback for referral tracking (non-auth cookie):
+      document.cookie = `bj_ref=${encodeURIComponent(code)}; path=/; max-age=2592000; Secure; SameSite=Strict`
       router.push(`/signup?ref=${encodeURIComponent(code)}`)
     }
   }, [code, router])

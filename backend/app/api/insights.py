@@ -9,6 +9,8 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_db
+from app.api.deps import get_current_user
+from app.models.user import User
 from app.services.insights_service import (
     get_activity_feed,
     get_comp_stats,
@@ -19,6 +21,13 @@ from app.services.insights_service import (
 )
 
 router = APIRouter(prefix="/insights", tags=["insights"])
+
+
+def require_admin(user: User = Depends(get_current_user)) -> User:
+    from fastapi import HTTPException, status
+    if not user.is_admin:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Admin access required")
+    return user
 
 
 @router.get("/overview")
@@ -52,7 +61,7 @@ async def insights_partners(db: AsyncSession = Depends(get_db)) -> dict:
 
 
 @router.get("/dwolla-balance")
-async def insights_dwolla_balance() -> dict:
+async def insights_dwolla_balance(admin: User = Depends(require_admin)) -> dict:
     """Dwolla platform ACH reserve balance (admin-facing)."""
     from app.services.dwolla_service import get_platform_balance
     balance = get_platform_balance()

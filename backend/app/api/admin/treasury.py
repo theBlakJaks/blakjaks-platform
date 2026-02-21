@@ -1,8 +1,10 @@
 """Admin treasury bridge endpoints — admin-only, requires 2FA confirmation header."""
 
+import os
 from datetime import datetime, timezone
 from decimal import Decimal
 
+import pyotp
 from fastapi import APIRouter, Depends, Header, HTTPException, status
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -91,8 +93,21 @@ async def bridge_usdt(
     if not x_2fa_token:
         raise HTTPException(
             status.HTTP_403_FORBIDDEN,
-            "X-2FA-Token header is required for bridge operations",
+            "X-2FA-Token header is required for treasury operations",
         )
+
+    # TODO: Add totp_secret column to User model
+    # Admin must have a 2FA secret configured; fall back to environment variable
+    totp_secret = getattr(admin, "totp_secret", None) or os.environ.get("ADMIN_TOTP_SECRET")
+    if not totp_secret:
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN,
+            "Admin account has no 2FA configured. Contact system administrator.",
+        )
+
+    totp = pyotp.TOTP(totp_secret)
+    if not totp.verify(x_2fa_token, valid_window=1):
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Invalid or expired 2FA token")
 
     try:
         result = execute_bridge(body.amount_usdt, body.destination_address)

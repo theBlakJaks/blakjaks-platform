@@ -63,9 +63,9 @@ async def submit_scan(db: AsyncSession, user: User, raw_qr: str) -> dict:
     # Build the full unique_id stored in DB
     full_unique_id = f"BLAKJAKS-{product_code}-{unique_id}"
 
-    # Look up QR code
+    # Look up QR code — acquire row-level lock to prevent double-scan
     result = await db.execute(
-        select(QRCode).where(QRCode.unique_id == full_unique_id)
+        select(QRCode).where(QRCode.unique_id == full_unique_id).with_for_update()
     )
     qr = result.scalar_one_or_none()
     if qr is None:

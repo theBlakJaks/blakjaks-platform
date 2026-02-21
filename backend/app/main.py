@@ -5,10 +5,15 @@ import sentry_sdk
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from prometheus_fastapi_instrumentator import Instrumentator
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.requests import Request
 
+from app.api.auth import limiter
 from app.api.router import api_router
 from app.api.social_ws import router as social_ws_router
-from app.core.config import settings
+from app.core.config import settings, validate_settings
 from app.services.redis_client import close_redis, get_redis, ping_redis
 
 logger = logging.getLogger(__name__)
@@ -49,18 +54,38 @@ async def lifespan(app: FastAPI):
 
 
 # ---------------------------------------------------------------------------
+# Security headers middleware
+# ---------------------------------------------------------------------------
+
+class SecurityHeadersMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        response = await call_next(request)
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["X-XSS-Protection"] = "1; mode=block"
+        response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+        response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
+        return response
+
+
+# ---------------------------------------------------------------------------
 # App
 # ---------------------------------------------------------------------------
 
 app = FastAPI(title="BlakJaks Platform", version="0.1.0", lifespan=lifespan)
 
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.CORS_ORIGINS,
-    allow_credentials=True,
+    allow_credentials=len(settings.CORS_ORIGINS) > 0 and "*" not in settings.CORS_ORIGINS,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+app.add_middleware(SecurityHeadersMiddleware)
 
 app.include_router(api_router)
 app.include_router(social_ws_router)
@@ -70,6 +95,22 @@ app.include_router(social_ws_router)
 # ---------------------------------------------------------------------------
 
 Instrumentator().instrument(app).expose(app)
+
+
+# ---------------------------------------------------------------------------
+# Startup checks
+# ---------------------------------------------------------------------------
+
+@app.on_event("startup")
+async def startup_checks():
+    from app.core.config import validate_settings
+    validate_settings(settings)
+    if not settings.CORS_ORIGINS:
+        import logging
+        logging.getLogger("uvicorn").warning(
+            "CORS_ORIGINS is empty — all cross-origin requests will be blocked. "
+            "Set CORS_ORIGINS env var for web client access."
+        )
 
 
 # ---------------------------------------------------------------------------

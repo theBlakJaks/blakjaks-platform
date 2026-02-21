@@ -3,11 +3,19 @@
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user, get_db
 from app.api.schemas.social import MuteCreate, ReportOut, ReportUpdateRequest
 from app.models.user import User
+
+
+class BanUserRequest(BaseModel):
+    reason: str = Field(default="Banned by admin", min_length=1, max_length=500)
+    duration_days: int | None = Field(default=None, ge=1, le=3650)
+
+
 from app.services.chat_service import (
     ban_user,
     delete_message,
@@ -77,12 +85,11 @@ async def admin_mute_user(
 @router.post("/users/{user_id}/ban")
 async def admin_ban_user(
     user_id: uuid.UUID,
-    body: dict,
+    body: BanUserRequest,
     admin: User = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):
-    reason = body.get("reason", "Banned by admin")
-    mute = await ban_user(db, user_id, reason)
+    mute = await ban_user(db, user_id, body.reason)
     return {"message": "User banned", "muted_until": mute.muted_until.isoformat()}
 
 

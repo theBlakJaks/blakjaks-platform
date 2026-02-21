@@ -120,7 +120,9 @@ async def request_withdrawal(
 
     from app.models.user import User
 
-    user_result = await db.execute(select(User).where(User.id == user_id))
+    user_result = await db.execute(
+        select(User).where(User.id == user_id).with_for_update()
+    )
     user = user_result.scalar_one_or_none()
     if user is None:
         raise ValueError("User not found")

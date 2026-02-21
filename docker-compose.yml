@@ -1,5 +1,8 @@
 version: "3.9"
 
+# WARNING: DEVELOPMENT ONLY — Do NOT use these defaults in production.
+# Set POSTGRES_PASSWORD, GRAFANA_ADMIN_PASSWORD, etc. via environment or .env file.
+
 # ─────────────────────────────────────────────────────────────────────────────
 # BlakJaks Platform — Local Development Stack
 #
@@ -17,10 +20,10 @@ services:
     container_name: blakjaks-postgres
     environment:
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
       POSTGRES_DB: blakjaks
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -34,7 +37,7 @@ services:
     image: redis:7-alpine
     container_name: blakjaks-redis
     ports:
-      - "6379:6379"
+      - "127.0.0.1:6379:6379"
     volumes:
       - redis_data:/data
     healthcheck:
@@ -126,7 +129,7 @@ services:
     container_name: blakjaks-grafana
     environment:
       GF_SECURITY_ADMIN_USER: admin
-      GF_SECURITY_ADMIN_PASSWORD: blakjaks-local
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-blakjaks-local}
       GF_USERS_ALLOW_SIGN_UP: "false"
     volumes:
       - ./infrastructure/monitoring/grafana:/etc/grafana/provisioning:ro

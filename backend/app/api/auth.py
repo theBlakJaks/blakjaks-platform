@@ -3,9 +3,12 @@ import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from jose import JWTError
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
+from starlette.requests import Request
 
 from app.api.deps import get_db
 from app.api.schemas.auth import (
@@ -37,11 +40,14 @@ from app.services.user_service import assign_member_id
 
 logger = logging.getLogger(__name__)
 
+limiter = Limiter(key_func=get_remote_address)
+
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 
 @router.post("/signup", response_model=AuthResponse, status_code=status.HTTP_201_CREATED)
-async def signup(body: SignupRequest, db: AsyncSession = Depends(get_db)):
+@limiter.limit("5/minute")
+async def signup(request: Request, body: SignupRequest, db: AsyncSession = Depends(get_db)):
     from app.services.username_service import validate_username_format, is_profane, is_reserved
 
     # Validate username
@@ -112,7 +118,8 @@ async def signup(body: SignupRequest, db: AsyncSession = Depends(get_db)):
 
 
 @router.post("/login", response_model=AuthResponse)
-async def login(body: LoginRequest, db: AsyncSession = Depends(get_db)):
+@limiter.limit("10/minute")
+async def login(request: Request, body: LoginRequest, db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(User).where(User.email == body.email))
     user = result.scalar_one_or_none()
 
@@ -131,7 +138,8 @@ async def login(body: LoginRequest, db: AsyncSession = Depends(get_db)):
 
 
 @router.post("/refresh", response_model=AccessTokenResponse)
-async def refresh(body: RefreshRequest, db: AsyncSession = Depends(get_db)):
+@limiter.limit("20/minute")
+async def refresh(request: Request, body: RefreshRequest, db: AsyncSession = Depends(get_db)):
     try:
         payload = decode_token(body.refresh_token)
         if payload.get("type") != "refresh":
@@ -149,7 +157,8 @@ async def refresh(body: RefreshRequest, db: AsyncSession = Depends(get_db)):
 
 
 @router.post("/reset-password", response_model=MessageResponse)
-async def reset_password(body: ResetPasswordRequest, db: AsyncSession = Depends(get_db)):
+@limiter.limit("3/minute")
+async def reset_password(request: Request, body: ResetPasswordRequest, db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(User).where(User.email == body.email))
     user = result.scalar_one_or_none()
 
@@ -166,7 +175,8 @@ async def reset_password(body: ResetPasswordRequest, db: AsyncSession = Depends(
 
 
 @router.post("/reset-password/confirm", response_model=MessageResponse)
-async def reset_password_confirm(body: ResetPasswordConfirm, db: AsyncSession = Depends(get_db)):
+@limiter.limit("5/minute")
+async def reset_password_confirm(request: Request, body: ResetPasswordConfirm, db: AsyncSession = Depends(get_db)):
     try:
         payload = decode_token(body.token)
         if payload.get("type") != "reset":

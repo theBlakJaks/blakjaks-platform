@@ -16,7 +16,14 @@ class ApiClient(private val tokenManager: TokenManager) : ApiClientInterface {
 
     private val okHttpClient = OkHttpClient.Builder()
         .addInterceptor(AuthInterceptor(tokenManager))
-        .addInterceptor(HttpLoggingInterceptor().apply { level = HttpLoggingInterceptor.Level.BODY })
+        .also {
+            // Only log HTTP bodies in debug builds — NEVER in production (exposes credentials/PII)
+            if (BuildConfig.DEBUG) {
+                it.addInterceptor(HttpLoggingInterceptor().apply {
+                    level = HttpLoggingInterceptor.Level.BODY
+                })
+            }
+        }
         .connectTimeout(30, TimeUnit.SECONDS)
         .readTimeout(30, TimeUnit.SECONDS)
         .build()
