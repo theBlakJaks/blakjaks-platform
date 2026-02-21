@@ -183,6 +183,13 @@ class Settings(BaseSettings):
     SELERY_API_KEY: str = ""
     GOOGLE_TRANSLATE_API_KEY: str = ""
 
+    # -------------------------------------------------------------------------
+    # Oobit (crypto on-ramp/off-ramp widget)
+    # -------------------------------------------------------------------------
+    OOBIT_SECRET_KEY: str = ""
+    OOBIT_API_KEY: str = ""
+    OOBIT_WIDGET_URL: str = "https://widget.oobit.com"
+
     model_config = {"env_file": ".env", "extra": "ignore"}
 
 

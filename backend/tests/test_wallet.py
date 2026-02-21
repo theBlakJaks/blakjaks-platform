@@ -72,6 +72,8 @@ async def test_create_user_wallet_with_email(registered_user, db: AsyncSession):
 
     user2 = User(
         email="wallet2@example.com",
+        username="wallet2user",
+        username_lower="wallet2user",
         password_hash=hash_password("password123"),
         first_name="Wallet",
         last_name="Test",

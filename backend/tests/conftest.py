@@ -73,6 +73,7 @@ async def client():
 SIGNUP_PAYLOAD = {
     "email": "test@example.com",
     "password": "securepassword123",
+    "username": "TestUser01",
     "first_name": "Test",
     "last_name": "User",
     "birthdate": "1995-06-15",

@@ -66,8 +66,9 @@ def test_get_node_health_connected():
 
 
 def test_get_node_health_disconnected():
+    from unittest.mock import PropertyMock
     mock_w3 = MagicMock()
-    mock_w3.eth.block_number = MagicMock(side_effect=ConnectionError("timeout"))
+    type(mock_w3.eth).block_number = PropertyMock(side_effect=ConnectionError("timeout"))
     bc_module._w3_http = mock_w3
 
     result = get_node_health()

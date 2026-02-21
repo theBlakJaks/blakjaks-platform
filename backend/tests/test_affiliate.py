@@ -48,8 +48,11 @@ async def _create_user(db: AsyncSession, email: str, tier_name: str | None = Non
         if tier:
             tier_id = tier.id
 
+    _local = email.split("@")[0].replace("-", "_").replace(".", "_")[:20]
     user = User(
         email=email,
+        username=_local,
+        username_lower=_local.lower(),
         password_hash=hash_password("password123"),
         first_name=email.split("@")[0].capitalize(),
         last_name="Tester",

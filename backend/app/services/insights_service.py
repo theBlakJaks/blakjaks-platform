@@ -21,6 +21,41 @@ from app.models.transaction import Transaction
 from app.models.user import User
 from app.models.wholesale_account import WholesaleAccount
 
+# Module-level service imports — required for test patching
+# These are imported here so tests can patch them at the module level.
+# The try/except guards prevent import failures from crashing the module.
+try:
+    from app.services.redis_service import get_global_scan_count, get_scan_velocity
+except ImportError:
+    get_global_scan_count = None  # type: ignore[assignment]
+    get_scan_velocity = None  # type: ignore[assignment]
+
+try:
+    from app.services.comp_engine import (
+        get_pool_balances,
+        get_recent_comp_recipients,
+        get_treasury_stats,
+    )
+except ImportError:
+    get_pool_balances = None  # type: ignore[assignment]
+    get_recent_comp_recipients = None  # type: ignore[assignment]
+    get_treasury_stats = None  # type: ignore[assignment]
+
+try:
+    from app.services.teller_service import get_last_sync_status
+except ImportError:
+    get_last_sync_status = None  # type: ignore[assignment]
+
+try:
+    from app.services.timescale_service import get_treasury_sparkline
+except ImportError:
+    get_treasury_sparkline = None  # type: ignore[assignment]
+
+try:
+    from app.services.blockchain import get_node_health
+except ImportError:
+    get_node_health = None  # type: ignore[assignment]
+
 logger = logging.getLogger(__name__)
 
 # Crypto comp milestone thresholds (USDC)
@@ -54,7 +89,6 @@ async def get_overview(db: AsyncSession) -> dict:
 
     # --- global_scan_count (Redis) ---
     try:
-        from app.services.redis_service import get_global_scan_count
         result["global_scan_count"] = await get_global_scan_count()
     except Exception as exc:
         logger.warning("get_overview: could not fetch global_scan_count: %s", exc)
@@ -88,7 +122,6 @@ async def get_overview(db: AsyncSession) -> dict:
 
     # --- scan_velocity (Redis) ---
     try:
-        from app.services.redis_service import get_scan_velocity
         result["scan_velocity"] = await get_scan_velocity()
     except Exception as exc:
         logger.warning("get_overview: could not fetch scan_velocity: %s", exc)
@@ -96,7 +129,6 @@ async def get_overview(db: AsyncSession) -> dict:
 
     # --- recent_activity: last 20 comp recipients ---
     try:
-        from app.services.comp_engine import get_recent_comp_recipients
         recipients = await get_recent_comp_recipients(db, limit=20)
         # Ensure amounts are serialisable
         serialisable = []
@@ -114,7 +146,6 @@ async def get_overview(db: AsyncSession) -> dict:
 
     # --- next_milestone: progress toward the next $100K milestone ---
     try:
-        from app.services.comp_engine import get_treasury_stats
         stats = await get_treasury_stats(db)
         total_distributed = float(stats.get("total_distributed", 0))
         next_ms = None
@@ -144,7 +175,6 @@ async def get_treasury_insights(db: AsyncSession) -> dict:
 
     # --- pool_balances (on-chain, from comp_engine) ---
     try:
-        from app.services.comp_engine import get_pool_balances
         raw_pools = await get_pool_balances()
         # Convert Decimal values to float for JSON serialisation
         result["pool_balances"] = {
@@ -160,7 +190,6 @@ async def get_treasury_insights(db: AsyncSession) -> dict:
 
     # --- bank_balances (Teller, from teller_service) ---
     try:
-        from app.services.teller_service import get_last_sync_status
         result["bank_balances"] = await get_last_sync_status(db)
     except Exception as exc:
         logger.warning("get_treasury_insights: could not fetch bank_balances: %s", exc)
@@ -168,7 +197,6 @@ async def get_treasury_insights(db: AsyncSession) -> dict:
 
     # --- sparklines: 90-day daily history per pool ---
     try:
-        from app.services.timescale_service import get_treasury_sparkline
         sparklines = {}
         for pool in ("consumer", "affiliate", "wholesale"):
             try:
@@ -183,7 +211,6 @@ async def get_treasury_insights(db: AsyncSession) -> dict:
 
     # --- blockchain_health ---
     try:
-        from app.services.blockchain import get_node_health
         result["blockchain_health"] = get_node_health()
     except Exception as exc:
         logger.warning("get_treasury_insights: could not fetch blockchain_health: %s", exc)
@@ -202,7 +229,6 @@ async def get_systems_health(db: AsyncSession) -> dict:
 
     # --- scan_velocity (Redis) ---
     try:
-        from app.services.redis_service import get_scan_velocity
         result["scan_velocity"] = await get_scan_velocity()
     except Exception as exc:
         logger.warning("get_systems_health: could not fetch scan_velocity: %s", exc)
@@ -210,7 +236,6 @@ async def get_systems_health(db: AsyncSession) -> dict:
 
     # --- node_health (blockchain) ---
     try:
-        from app.services.blockchain import get_node_health
         result["node_health"] = get_node_health()
     except Exception as exc:
         logger.warning("get_systems_health: could not fetch node_health: %s", exc)
@@ -218,7 +243,6 @@ async def get_systems_health(db: AsyncSession) -> dict:
 
     # --- teller_sync ---
     try:
-        from app.services.teller_service import get_last_sync_status
         result["teller_sync"] = await get_last_sync_status(db)
     except Exception as exc:
         logger.warning("get_systems_health: could not fetch teller_sync: %s", exc)
@@ -279,7 +303,6 @@ async def get_comp_stats(db: AsyncSession) -> dict:
 
     # --- total_comps_paid and active_members from treasury stats ---
     try:
-        from app.services.comp_engine import get_treasury_stats
         stats = await get_treasury_stats(db)
         result["total_comps_paid"] = float(stats.get("total_distributed", 0))
         result["active_members"] = stats.get("total_members_comped", 0)

@@ -38,8 +38,11 @@ pytestmark = pytest.mark.asyncio
 async def _create_user(db: AsyncSession, email: str, referred_by: uuid.UUID | None = None) -> User:
     from app.core.security import hash_password
 
+    _local = email.split("@")[0].replace("-", "_").replace(".", "_")[:20]
     user = User(
         email=email,
+        username=_local,
+        username_lower=_local.lower(),
         password_hash=hash_password("password123"),
         first_name="Test",
         last_name="User",

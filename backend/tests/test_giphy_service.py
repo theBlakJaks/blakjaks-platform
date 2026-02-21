@@ -65,7 +65,7 @@ async def test_search_gifs_returns_results():
     mock_client.get = AsyncMock(return_value=mock_resp)
 
     with patch.object(settings, "GIPHY_API_KEY", "fake-key"), \
-         patch("app.services.giphy_service._get_redis", return_value=AsyncMock(return_value=mock_redis)), \
+         patch("app.services.giphy_service._get_redis", new=AsyncMock(return_value=mock_redis)), \
          patch("app.services.giphy_service.httpx.AsyncClient", return_value=mock_client):
         results = await search_gifs("cat")
 
@@ -82,7 +82,7 @@ async def test_search_gifs_returns_cached_result():
     mock_redis = _mock_redis(cached_value=json.dumps(cached_gifs))
 
     with patch.object(settings, "GIPHY_API_KEY", "fake-key"), \
-         patch("app.services.giphy_service._get_redis", return_value=AsyncMock(return_value=mock_redis)):
+         patch("app.services.giphy_service._get_redis", new=AsyncMock(return_value=mock_redis)):
         results = await search_gifs("cats")
 
     assert results == cached_gifs
@@ -107,7 +107,7 @@ async def test_search_gifs_returns_empty_on_http_error():
     )
 
     with patch.object(settings, "GIPHY_API_KEY", "fake-key"), \
-         patch("app.services.giphy_service._get_redis", return_value=AsyncMock(return_value=mock_redis)), \
+         patch("app.services.giphy_service._get_redis", new=AsyncMock(return_value=mock_redis)), \
          patch("app.services.giphy_service.httpx.AsyncClient", return_value=mock_client):
         results = await search_gifs("error")
 
@@ -139,7 +139,7 @@ async def test_get_trending_gifs_returns_results():
     mock_client.get = AsyncMock(return_value=mock_resp)
 
     with patch.object(settings, "GIPHY_API_KEY", "fake-key"), \
-         patch("app.services.giphy_service._get_redis", return_value=AsyncMock(return_value=mock_redis)), \
+         patch("app.services.giphy_service._get_redis", new=AsyncMock(return_value=mock_redis)), \
          patch("app.services.giphy_service.httpx.AsyncClient", return_value=mock_client):
         results = await get_trending_gifs(limit=3)
 
@@ -155,7 +155,7 @@ async def test_get_trending_gifs_cached():
     mock_redis = _mock_redis(cached_value=json.dumps(cached))
 
     with patch.object(settings, "GIPHY_API_KEY", "fake-key"), \
-         patch("app.services.giphy_service._get_redis", return_value=AsyncMock(return_value=mock_redis)):
+         patch("app.services.giphy_service._get_redis", new=AsyncMock(return_value=mock_redis)):
         results = await get_trending_gifs()
 
     assert results == cached

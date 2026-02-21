@@ -142,6 +142,7 @@ async def submit_scan(db: AsyncSession, user: User, raw_qr: str) -> dict:
             comp_earned = {
                 "id": txn.id,
                 "amount": float(milestone["amount"]),
+                "type": "crypto_comp",
                 "status": "pending_choice",
                 "requires_payout_choice": True,
             }

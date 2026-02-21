@@ -50,8 +50,11 @@ async def _create_user_with_tier(db: AsyncSession, email: str, tier_name: str) -
         tier_result = await db.execute(select(Tier).where(Tier.name == tier_name))
         tier = tier_result.scalar_one_or_none()
 
+    _local = email.split("@")[0].replace("-", "_").replace(".", "_")[:20]
     user = User(
         email=email,
+        username=_local,
+        username_lower=_local.lower(),
         password_hash=hash_password("password123"),
         first_name=email.split("@")[0].capitalize(),
         last_name="Tester",

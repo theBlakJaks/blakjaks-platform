@@ -28,8 +28,11 @@ async def _create_user(db: AsyncSession, email: str):
     from app.models.user import User
     from app.services.wallet_service import create_user_wallet
 
+    _local = email.split("@")[0].replace("-", "_").replace(".", "_")[:20]
     user = User(
         email=email,
+        username=_local,
+        username_lower=_local.lower(),
         password_hash=hash_password("password123"),
         first_name="Test",
         last_name="User",

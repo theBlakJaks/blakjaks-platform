@@ -67,8 +67,11 @@ async def _create_user(db: AsyncSession, email: str):
     from app.models.user import User
     from app.services.wallet_service import create_user_wallet
 
+    _local = email.split("@")[0].replace("-", "_").replace(".", "_")[:20]
     user = User(
         email=email,
+        username=_local,
+        username_lower=_local.lower(),
         password_hash=hash_password("password123"),
         first_name="Test",
         last_name="User",
@@ -535,6 +538,8 @@ async def test_send_push_to_segment_filters_by_tier(db: AsyncSession):
 
     vip_user = User(
         email="seg-vip@example.com",
+        username="seg_vip_user",
+        username_lower="seg_vip_user",
         password_hash=hash_password("pw"),
         first_name="VIP",
         last_name="User",
@@ -542,6 +547,8 @@ async def test_send_push_to_segment_filters_by_tier(db: AsyncSession):
     )
     std_user = User(
         email="seg-std@example.com",
+        username="seg_std_user",
+        username_lower="seg_std_user",
         password_hash=hash_password("pw"),
         first_name="Std",
         last_name="User",
