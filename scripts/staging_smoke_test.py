@@ -541,10 +541,10 @@ def run_flow_9_push(smoke_token: str) -> None:
     flow("Flow 9 — Push Token Registration")
 
     for platform, token_val in [("ios", "smoke-test-token-ios-0000"), ("android", "smoke-test-token-android-0000")]:
-        r, ms = req("PATCH", "/users/me/push-token",
+        r, ms = req("POST", "/notifications/device-token",
                     headers=json_header(smoke_token),
                     json_body={"device_token": token_val, "platform": platform})
-        step(f"9.{'1' if platform == 'ios' else '2'} PATCH /users/me/push-token platform={platform} — 200",
+        step(f"9.{'1' if platform == 'ios' else '2'} POST /notifications/device-token platform={platform} — 200",
              r.status_code == 200, ms, f"got {r.status_code}", r)
 
 
