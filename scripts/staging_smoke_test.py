@@ -369,24 +369,28 @@ def run_flow_4_shop(smoke_token: str) -> None:
          r.status_code == 200 and len(items) >= 1 and float(subtotal) > 0,
          ms, f"items={len(items)} subtotal={subtotal}", r)
 
-    # 4.4 Tax estimate
+    # 4.4 Tax estimate — body is ShippingAddress directly (not nested)
     r, ms = req("POST", "/tax/estimate",
                 headers=json_header(smoke_token),
-                json_body={"shipping_address": {
-                    "street": "123 Main St",
+                json_body={
+                    "line1": "123 Main St",
                     "city": "Austin",
                     "state": "TX",
-                    "zip": "78701",
+                    "zip_code": "78701",
                     "country": "US",
-                }})
+                })
     body = r.json() if r.status_code == 200 else {}
     step("4.4 POST /tax/estimate — 200 + tax_amount >= 0",
          r.status_code == 200 and float(body.get("tax_amount", -1)) >= 0,
          ms, f"status={r.status_code} tax={body.get('tax_amount')}", r)
 
-    # 4.5 Remove from cart
-    r, ms = req("DELETE", f"/cart/{product_id}", headers=auth_header(smoke_token))
-    step("4.5 DELETE /cart/{id} — 200", r.status_code == 200, ms, f"got {r.status_code}", r)
+    # 4.5 Remove from cart — DELETE /cart/{item_id} (cart item id, not product id)
+    cart_item_id = items[0]["id"] if items else None
+    if cart_item_id:
+        r, ms = req("DELETE", f"/cart/{cart_item_id}", headers=auth_header(smoke_token))
+        step("4.5 DELETE /cart/{item_id} — 200", r.status_code == 200, ms, f"got {r.status_code}", r)
+    else:
+        step("4.5 DELETE /cart/{item_id} — skipped (no cart items)", True, 0, "cart empty")
 
     # 4.6 Cart is empty
     r, ms = req("GET", "/cart", headers=auth_header(smoke_token))
