@@ -370,7 +370,7 @@ def send_usdc_from_pool(pool_name: str, to_address: str, amount: Decimal) -> str
     if not contract_addr:
         raise RuntimeError(f"No USDC contract address for network {settings.POLYGON_NETWORK}")
 
-    pool_address = get_treasury_address(key_name)
+    pool_address = get_all_pool_addresses()[pool_name]
     checksum_contract = Web3.to_checksum_address(contract_addr)
     checksum_to = Web3.to_checksum_address(to_address)
 
