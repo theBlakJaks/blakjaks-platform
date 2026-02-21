@@ -1,0 +1,3 @@
+app_identifier("com.blakjaks.app")
+apple_id("developer@blakjaks.com")
+team_id("BLAKJAKS123")   # replace with actual Apple Team ID

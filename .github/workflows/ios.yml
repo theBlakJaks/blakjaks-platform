@@ -1,0 +1,143 @@
+name: iOS CI
+
+on:
+  pull_request:
+    branches: [main, staging]
+    paths:
+      - 'ios/**'
+  push:
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+'
+
+permissions:
+  contents: read
+
+jobs:
+
+  # ── Unit + UI tests on every PR touching ios/** ────────────────────────────
+  test:
+    if: github.event_name == 'pull_request'
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode_16.app/Contents/Developer
+
+      - name: Show build environment
+        run: |
+          xcodebuild -version
+          xcrun simctl list devices available --json | python3 -c "
+          import json, sys
+          d = json.load(sys.stdin)
+          iphones = [dev for runtime, devs in d['devices'].items()
+                     for dev in devs
+                     if 'iPhone' in dev.get('name','') and dev['isAvailable']]
+          iphones.sort(key=lambda x: x['name'], reverse=True)
+          if iphones: print(iphones[0]['name'], iphones[0]['udid'])
+          "
+
+      - name: Cache Swift Package Manager
+        uses: actions/cache@v4
+        with:
+          path: |
+            ios/.build
+            ~/Library/Developer/Xcode/DerivedData
+          key: ${{ runner.os }}-spm-${{ hashFiles('ios/**/Package.resolved') }}
+          restore-keys: |
+            ${{ runner.os }}-spm-
+
+      - name: Resolve Swift packages
+        working-directory: ios
+        run: xcodebuild -resolvePackageDependencies -project BlakJaks.xcodeproj -scheme BlakJaks
+
+      - name: Build & test (unit tests)
+        working-directory: ios
+        run: |
+          xcodebuild test \
+            -project BlakJaks.xcodeproj \
+            -scheme BlakJaks \
+            -destination 'platform=iOS Simulator,name=iPhone 16 Pro,OS=latest' \
+            -testPlan BlakJaksTests \
+            -resultBundlePath TestResults.xcresult \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            | xcpretty --color
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-test-results
+          path: ios/TestResults.xcresult
+          retention-days: 7
+
+  # ── TestFlight upload on version tag ───────────────────────────────────────
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: macos-14
+    environment: testflight
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode_16.app/Contents/Developer
+
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3'
+          bundler-cache: true
+          working-directory: ios
+
+      - name: Cache Swift Package Manager
+        uses: actions/cache@v4
+        with:
+          path: |
+            ios/.build
+            ~/Library/Developer/Xcode/DerivedData
+          key: ${{ runner.os }}-spm-release-${{ hashFiles('ios/**/Package.resolved') }}
+          restore-keys: |
+            ${{ runner.os }}-spm-
+
+      - name: Install certificates and provisioning profiles
+        env:
+          BUILD_CERTIFICATE_BASE64: ${{ secrets.BUILD_CERTIFICATE_BASE64 }}
+          P12_PASSWORD: ${{ secrets.P12_PASSWORD }}
+          BUILD_PROVISION_PROFILE_BASE64: ${{ secrets.BUILD_PROVISION_PROFILE_BASE64 }}
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+        run: |
+          # Decode and import signing certificate
+          CERT_PATH=$RUNNER_TEMP/build_certificate.p12
+          PP_PATH=$RUNNER_TEMP/build_pp.mobileprovision
+          KEYCHAIN_PATH=$RUNNER_TEMP/blakjaks.keychain-db
+
+          echo -n "$BUILD_CERTIFICATE_BASE64" | base64 --decode -o $CERT_PATH
+          echo -n "$BUILD_PROVISION_PROFILE_BASE64" | base64 --decode -o $PP_PATH
+
+          security create-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
+          security set-keychain-settings -lut 21600 $KEYCHAIN_PATH
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
+          security import $CERT_PATH -P "$P12_PASSWORD" -A -t cert -f pkcs12 -k $KEYCHAIN_PATH
+          security set-key-partition-list -S apple-tool:,apple: -k "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
+          security list-keychain -d user -s $KEYCHAIN_PATH
+
+          mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
+          cp $PP_PATH ~/Library/MobileDevice/Provisioning\ Profiles
+
+      - name: Extract version from tag
+        id: version
+        run: echo "VERSION=${GITHUB_REF_NAME#v}" >> $GITHUB_OUTPUT
+
+      - name: Upload to TestFlight via Fastlane
+        working-directory: ios
+        env:
+          APP_STORE_CONNECT_API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
+          APP_STORE_CONNECT_API_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_API_ISSUER_ID }}
+          APP_STORE_CONNECT_API_KEY_CONTENT: ${{ secrets.APP_STORE_CONNECT_API_KEY_CONTENT }}
+          MARKETING_VERSION: ${{ steps.version.outputs.VERSION }}
+        run: bundle exec fastlane beta
+
+      - name: Clean up keychain
+        if: always()
+        run: security delete-keychain $RUNNER_TEMP/blakjaks.keychain-db

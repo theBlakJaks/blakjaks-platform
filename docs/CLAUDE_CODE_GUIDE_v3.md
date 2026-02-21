@@ -1214,7 +1214,7 @@ Tasks I4 (Insights Dashboard + QR Scanner), I5 (Scan & Wallet), and I6 (Shop + C
 
 ---
 
-### Task I7 — iOS Social Hub + Profile + Push Notifications + Polish Pass `[PENDING]`
+### Task I7 — iOS Social Hub + Profile + Push Notifications + Polish Pass `[COMPLETE]`
 
 **Dependency check:** Tasks I2 (Design System), I3 (Auth), I4 (QRScannerController + ScannerViewModel already built), I5 (Scan & Wallet), I6 (Shop) all complete.
 
@@ -1452,7 +1452,7 @@ Target: 25+ test cases across the 3 files.
 
 ---
 
-### Task J1 — Android Project Setup + Design System `[PENDING]`
+### Task J1 — Android Project Setup + Design System `[COMPLETE]`
 
 **Objective:** Initialize the Android project and build the design system before any feature screens.
 
@@ -1544,7 +1544,7 @@ android/app/src/main/java/com/blakjaks/app/
 
 ---
 
-### Task J2 — Authentication `[PENDING]`
+### Task J2 — Authentication `[COMPLETE]`
 
 **⚡ Requires:** J1 complete.
 **Reference:** Read all files in `ios/BlakJaks/Features/Authentication/` before writing any Kotlin.
@@ -1562,7 +1562,7 @@ android/app/src/main/java/com/blakjaks/app/
 
 ---
 
-### Task J3 — Insights Dashboard + QR Scanner `[PENDING]`
+### Task J3 — Insights Dashboard + QR Scanner `[COMPLETE]`
 
 **⚡ Requires:** J2 complete.
 **Reference:** Read all files in `ios/BlakJaks/Features/Insights/` + `ios/BlakJaks/Features/ScanWallet/QRScannerController.swift`.
@@ -1586,7 +1586,7 @@ android/app/src/main/java/com/blakjaks/app/
 
 ---
 
-### Task J4 — Scan & Wallet `[PENDING]`
+### Task J4 — Scan & Wallet `[COMPLETE]`
 
 **⚡ Requires:** J3 complete (QR infrastructure).
 **Reference:** Read all files in `ios/BlakJaks/Features/ScanWallet/`.
@@ -1608,7 +1608,7 @@ android/app/src/main/java/com/blakjaks/app/
 
 ---
 
-### Task J5 — Shop + Checkout `[PENDING]`
+### Task J5 — Shop + Checkout `[COMPLETE]`
 
 **⚡ Requires:** J2 complete.
 **Reference:** Read all files in `ios/BlakJaks/Features/Shop/`.
@@ -1626,7 +1626,7 @@ android/app/src/main/java/com/blakjaks/app/
 
 ---
 
-### Task J6 — Social Hub + Profile + FCM + Polish `[PENDING]`
+### Task J6 — Social Hub + Profile + FCM + Polish `[COMPLETE]`
 
 **⚡ Requires:** J4, J5 complete.
 **Reference:** Read all files in `ios/BlakJaks/Features/Social/` and `ios/BlakJaks/Features/Profile/`. Also read `web-app/src/app/(app)/social/page.tsx` for visual reference.
@@ -1727,7 +1727,7 @@ feat(android): J6 — social hub + profile + FCM push notifications + polish pas
 
 ---
 
-### Task K1 — Complete CI/CD Pipeline `[PENDING]`
+### Task K1 — Complete CI/CD Pipeline `[COMPLETE]`
 
 **Dependency check:** Task I1 (iOS project in repo), Task A3 (`test.yml` created).
 

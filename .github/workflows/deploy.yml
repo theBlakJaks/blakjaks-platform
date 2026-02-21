@@ -2,7 +2,7 @@ name: Build & Deploy
 
 on:
   push:
-    branches: [main]
+    branches: [main, staging]
   pull_request:
     branches: [main]
 
@@ -17,10 +17,55 @@ env:
   REGISTRY: us-central1-docker.pkg.dev/blakjaks-production/blakjaks-repo
 
 jobs:
-  build-and-test:
+
+  # ── Detect which directories changed ───────────────────────────────────────
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      backend:   ${{ steps.filter.outputs.backend }}
+      web-app:   ${{ steps.filter.outputs.web-app }}
+      affiliate: ${{ steps.filter.outputs.affiliate }}
+      admin:     ${{ steps.filter.outputs.admin }}
+      wholesale: ${{ steps.filter.outputs.wholesale }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            backend:
+              - 'backend/**'
+            web-app:
+              - 'web-app/**'
+            affiliate:
+              - 'affiliate/**'
+            admin:
+              - 'admin/**'
+            wholesale:
+              - 'wholesale/**'
+
+  # ── Backend: build image + run tests ───────────────────────────────────────
+  test:
+    needs: [changes]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Install backend dependencies
+        run: pip install -r backend/requirements.txt
+
+      - name: Run backend tests
+        run: pytest backend/tests/ -v --tb=short
+        env:
+          DATABASE_URL: sqlite+aiosqlite:///./test.db
+          SECRET_KEY: test-secret-key-ci
+          ENVIRONMENT: test
 
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v2
@@ -30,18 +75,23 @@ jobs:
 
       - name: Set up Docker auth
         uses: google-github-actions/setup-gcloud@v2
-      
+
       - run: gcloud auth configure-docker us-central1-docker.pkg.dev --quiet
 
-      - name: Build backend image
+      - name: Build & push backend image
         run: |
           docker build -t $REGISTRY/backend:$GITHUB_SHA ./backend
           docker push $REGISTRY/backend:$GITHUB_SHA
 
-  deploy:
-    needs: build-and-test
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+  # ── Production: API + Celery worker + Celery beat ──────────────────────────
+  deploy-api:
+    needs: [changes, test]
+    if: |
+      github.ref == 'refs/heads/main' &&
+      github.event_name == 'push' &&
+      needs.changes.outputs.backend == 'true'
     runs-on: ubuntu-latest
+    environment: production
     steps:
       - uses: actions/checkout@v4
 
@@ -54,9 +104,237 @@ jobs:
       - name: Get GKE credentials
         uses: google-github-actions/get-gke-credentials@v2
         with:
-          cluster_name: blakjaks-primary
-          location: us-central1
+          cluster_name: ${{ env.CLUSTER }}
+          location: ${{ env.REGION }}
 
-      - name: Deploy to GKE
+      - name: Deploy API + Celery to production
         run: |
-          kubectl set image deployment/backend backend=$REGISTRY/backend:$GITHUB_SHA -n production
+          kubectl set image deployment/backend       backend=$REGISTRY/backend:$GITHUB_SHA       -n production
+          kubectl set image deployment/celery-worker celery-worker=$REGISTRY/backend:$GITHUB_SHA -n production
+          kubectl set image deployment/celery-beat   celery-beat=$REGISTRY/backend:$GITHUB_SHA   -n production
+          kubectl rollout status deployment/backend       -n production --timeout=300s
+          kubectl rollout status deployment/celery-worker -n production --timeout=300s
+          kubectl rollout status deployment/celery-beat   -n production --timeout=300s
+
+  # ── Production: web-app ─────────────────────────────────────────────────────
+  deploy-web-app:
+    needs: [changes, test]
+    if: |
+      github.ref == 'refs/heads/main' &&
+      github.event_name == 'push' &&
+      needs.changes.outputs.web-app == 'true'
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: projects/752012521116/locations/global/workloadIdentityPools/github-pool/providers/github-provider
+          service_account: blakjaks-service-account@blakjaks-production.iam.gserviceaccount.com
+
+      - name: Set up Docker auth
+        uses: google-github-actions/setup-gcloud@v2
+
+      - run: gcloud auth configure-docker us-central1-docker.pkg.dev --quiet
+
+      - name: Build & push web-app image
+        run: |
+          docker build -t $REGISTRY/web-app:$GITHUB_SHA ./web-app
+          docker push $REGISTRY/web-app:$GITHUB_SHA
+
+      - name: Get GKE credentials
+        uses: google-github-actions/get-gke-credentials@v2
+        with:
+          cluster_name: ${{ env.CLUSTER }}
+          location: ${{ env.REGION }}
+
+      - name: Deploy web-app to production
+        run: |
+          kubectl set image deployment/web-app web-app=$REGISTRY/web-app:$GITHUB_SHA -n production
+          kubectl rollout status deployment/web-app -n production --timeout=300s
+
+  # ── Production: affiliate portal ────────────────────────────────────────────
+  deploy-affiliate:
+    needs: [changes, test]
+    if: |
+      github.ref == 'refs/heads/main' &&
+      github.event_name == 'push' &&
+      needs.changes.outputs.affiliate == 'true'
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: projects/752012521116/locations/global/workloadIdentityPools/github-pool/providers/github-provider
+          service_account: blakjaks-service-account@blakjaks-production.iam.gserviceaccount.com
+
+      - name: Set up Docker auth
+        uses: google-github-actions/setup-gcloud@v2
+
+      - run: gcloud auth configure-docker us-central1-docker.pkg.dev --quiet
+
+      - name: Build & push affiliate image
+        run: |
+          docker build -t $REGISTRY/affiliate:$GITHUB_SHA ./affiliate
+          docker push $REGISTRY/affiliate:$GITHUB_SHA
+
+      - name: Get GKE credentials
+        uses: google-github-actions/get-gke-credentials@v2
+        with:
+          cluster_name: ${{ env.CLUSTER }}
+          location: ${{ env.REGION }}
+
+      - name: Deploy affiliate to production
+        run: |
+          kubectl set image deployment/affiliate affiliate=$REGISTRY/affiliate:$GITHUB_SHA -n production
+          kubectl rollout status deployment/affiliate -n production --timeout=300s
+
+  # ── Production: admin dashboard ─────────────────────────────────────────────
+  deploy-admin:
+    needs: [changes, test]
+    if: |
+      github.ref == 'refs/heads/main' &&
+      github.event_name == 'push' &&
+      needs.changes.outputs.admin == 'true'
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: projects/752012521116/locations/global/workloadIdentityPools/github-pool/providers/github-provider
+          service_account: blakjaks-service-account@blakjaks-production.iam.gserviceaccount.com
+
+      - name: Set up Docker auth
+        uses: google-github-actions/setup-gcloud@v2
+
+      - run: gcloud auth configure-docker us-central1-docker.pkg.dev --quiet
+
+      - name: Build & push admin image
+        run: |
+          docker build -t $REGISTRY/admin:$GITHUB_SHA ./admin
+          docker push $REGISTRY/admin:$GITHUB_SHA
+
+      - name: Get GKE credentials
+        uses: google-github-actions/get-gke-credentials@v2
+        with:
+          cluster_name: ${{ env.CLUSTER }}
+          location: ${{ env.REGION }}
+
+      - name: Deploy admin to production
+        run: |
+          kubectl set image deployment/admin admin=$REGISTRY/admin:$GITHUB_SHA -n production
+          kubectl rollout status deployment/admin -n production --timeout=300s
+
+  # ── Production: wholesale portal ─────────────────────────────────────────────
+  deploy-wholesale:
+    needs: [changes, test]
+    if: |
+      github.ref == 'refs/heads/main' &&
+      github.event_name == 'push' &&
+      needs.changes.outputs.wholesale == 'true'
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: projects/752012521116/locations/global/workloadIdentityPools/github-pool/providers/github-provider
+          service_account: blakjaks-service-account@blakjaks-production.iam.gserviceaccount.com
+
+      - name: Set up Docker auth
+        uses: google-github-actions/setup-gcloud@v2
+
+      - run: gcloud auth configure-docker us-central1-docker.pkg.dev --quiet
+
+      - name: Build & push wholesale image
+        run: |
+          docker build -t $REGISTRY/wholesale:$GITHUB_SHA ./wholesale
+          docker push $REGISTRY/wholesale:$GITHUB_SHA
+
+      - name: Get GKE credentials
+        uses: google-github-actions/get-gke-credentials@v2
+        with:
+          cluster_name: ${{ env.CLUSTER }}
+          location: ${{ env.REGION }}
+
+      - name: Deploy wholesale to production
+        run: |
+          kubectl set image deployment/wholesale wholesale=$REGISTRY/wholesale:$GITHUB_SHA -n production
+          kubectl rollout status deployment/wholesale -n production --timeout=300s
+
+  # ── Staging: full-stack deploy on push to staging branch ───────────────────
+  deploy-staging:
+    needs: [test]
+    if: github.ref == 'refs/heads/staging' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    environment: staging
+    env:
+      STAGING_REGISTRY: us-central1-docker.pkg.dev/blakjaks-production/blakjaks-repo
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: projects/752012521116/locations/global/workloadIdentityPools/github-pool/providers/github-provider
+          service_account: blakjaks-service-account@blakjaks-production.iam.gserviceaccount.com
+
+      - name: Set up Docker auth
+        uses: google-github-actions/setup-gcloud@v2
+
+      - run: gcloud auth configure-docker us-central1-docker.pkg.dev --quiet
+
+      - name: Build staging images
+        run: |
+          docker build -t $STAGING_REGISTRY/backend:staging-$GITHUB_SHA   ./backend
+          docker build -t $STAGING_REGISTRY/web-app:staging-$GITHUB_SHA   ./web-app
+          docker build -t $STAGING_REGISTRY/affiliate:staging-$GITHUB_SHA ./affiliate
+          docker build -t $STAGING_REGISTRY/admin:staging-$GITHUB_SHA     ./admin
+          docker build -t $STAGING_REGISTRY/wholesale:staging-$GITHUB_SHA ./wholesale
+          docker push $STAGING_REGISTRY/backend:staging-$GITHUB_SHA
+          docker push $STAGING_REGISTRY/web-app:staging-$GITHUB_SHA
+          docker push $STAGING_REGISTRY/affiliate:staging-$GITHUB_SHA
+          docker push $STAGING_REGISTRY/admin:staging-$GITHUB_SHA
+          docker push $STAGING_REGISTRY/wholesale:staging-$GITHUB_SHA
+
+      - name: Get GKE credentials
+        uses: google-github-actions/get-gke-credentials@v2
+        with:
+          cluster_name: ${{ env.CLUSTER }}
+          location: ${{ env.REGION }}
+
+      - name: Deploy all services to staging namespace
+        env:
+          BLOCKCHAIN_POLYGON_NETWORK: mumbai
+          TELLER_ENV: sandbox
+          TAG: staging-${{ github.sha }}
+        run: |
+          # Backend API
+          kubectl set image deployment/backend       backend=$STAGING_REGISTRY/backend:$TAG       -n staging
+          kubectl set image deployment/celery-worker celery-worker=$STAGING_REGISTRY/backend:$TAG -n staging
+          kubectl set image deployment/celery-beat   celery-beat=$STAGING_REGISTRY/backend:$TAG   -n staging
+          # Frontends
+          kubectl set image deployment/web-app   web-app=$STAGING_REGISTRY/web-app:$TAG     -n staging
+          kubectl set image deployment/affiliate affiliate=$STAGING_REGISTRY/affiliate:$TAG  -n staging
+          kubectl set image deployment/admin     admin=$STAGING_REGISTRY/admin:$TAG          -n staging
+          kubectl set image deployment/wholesale wholesale=$STAGING_REGISTRY/wholesale:$TAG  -n staging
+          # Patch staging-specific env vars onto API deployment
+          kubectl set env deployment/backend \
+            BLOCKCHAIN_POLYGON_NETWORK=$BLOCKCHAIN_POLYGON_NETWORK \
+            TELLER_ENV=$TELLER_ENV \
+            -n staging
+          # Wait for rollouts
+          kubectl rollout status deployment/backend       -n staging --timeout=300s
+          kubectl rollout status deployment/celery-worker -n staging --timeout=300s
+          kubectl rollout status deployment/celery-beat   -n staging --timeout=300s
+          kubectl rollout status deployment/web-app       -n staging --timeout=300s
