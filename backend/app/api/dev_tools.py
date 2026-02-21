@@ -6,7 +6,14 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from decimal import Decimal
 from app.core.config import settings
-from app.api.deps import get_current_admin_user, get_db
+from app.api.deps import get_current_user, get_db
+from app.models.user import User
+
+
+def get_current_admin_user(user: User = Depends(get_current_user)) -> User:
+    if not user.is_admin:
+        raise HTTPException(status_code=403, detail="Admin access required")
+    return user
 
 router = APIRouter()
 

@@ -13,6 +13,7 @@ TTL_SCAN_VELOCITY_MINUTE = 60    # 1 minute sliding window
 TTL_SCAN_VELOCITY_HOUR = 3600    # 1 hour sliding window
 TTL_UNREAD_NOTIFICATIONS = 0     # no TTL — persists until cleared
 TTL_GIF_SEARCH = 300             # 5 minutes — Giphy search results
+TTL_GIF_TRENDING = 600           # 10 minutes — Giphy trending GIFs
 TTL_LEADERBOARD_MONTHLY = 0      # no TTL — expires via monthly reset
 TTL_LEADERBOARD_ALL_TIME = 0     # no TTL — permanent
 TTL_GLOBAL_SCAN_COUNTER = 0      # no TTL — permanent counter
