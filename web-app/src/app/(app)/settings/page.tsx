@@ -304,8 +304,9 @@ export default function SettingsPage() {
                 currentAvatarUrl={user.avatarUrl}
                 onUpload={async (file) => {
                   const result = await api.settings.uploadAvatar(file)
-                  updateUser({ avatarUrl: result.avatarUrl })
-                  return result
+                  const avatarUrl = result.avatar_url
+                  updateUser({ avatarUrl })
+                  return { avatarUrl }
                 }}
                 onDelete={async () => {
                   await api.settings.deleteAvatar()
