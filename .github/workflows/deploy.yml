@@ -367,11 +367,11 @@ jobs:
       - name: Run smoke test
         env:
           STAGING_API_URL: ${{ secrets.STAGING_API_URL }}
-          SMOKE_TEST_EMAIL: ${{ secrets.LOAD_TEST_EMAIL }}
-          SMOKE_TEST_PASSWORD: ${{ secrets.LOAD_TEST_PASSWORD }}
+          SMOKE_TEST_EMAIL: ${{ secrets.SMOKE_TEST_EMAIL }}
+          SMOKE_TEST_PASSWORD: ${{ secrets.SMOKE_TEST_PASSWORD }}
           SMOKE_ADMIN_EMAIL: ${{ secrets.SMOKE_ADMIN_EMAIL }}
           SMOKE_ADMIN_PASSWORD: ${{ secrets.SMOKE_ADMIN_PASSWORD }}
-          SMOKE_TEST_QR_CODE: ${{ secrets.LOAD_TEST_QR_CODE }}
+          SMOKE_TEST_QR_CODE: ${{ secrets.SMOKE_TEST_QR_CODE }}
         run: python scripts/staging_smoke_test.py --stop-on-fail
 
   # ── Load tests: run against staging after deploy ────────────────────────────
