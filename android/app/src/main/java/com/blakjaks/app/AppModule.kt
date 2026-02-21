@@ -6,10 +6,12 @@ import com.blakjaks.app.core.storage.TokenManager
 import com.blakjaks.app.core.storage.UserPreferences
 import com.blakjaks.app.features.auth.AuthViewModel
 import com.blakjaks.app.features.insights.InsightsViewModel
+import com.blakjaks.app.features.profile.ProfileViewModel
 import com.blakjaks.app.features.scanwallet.ScanWalletViewModel
 import com.blakjaks.app.features.scanwallet.WalletViewModel
 import com.blakjaks.app.features.shop.CartViewModel
 import com.blakjaks.app.features.shop.ShopViewModel
+import com.blakjaks.app.features.social.SocialViewModel
 import org.koin.android.ext.koin.androidContext
 import org.koin.androidx.viewmodel.dsl.viewModel
 import org.koin.dsl.module
@@ -28,4 +30,6 @@ val appModule = module {
     viewModel { InsightsViewModel(get()) }
     viewModel { ShopViewModel(get()) }
     viewModel { CartViewModel(get()) }
+    viewModel { SocialViewModel(get()) }
+    viewModel { ProfileViewModel(get()) }
 }
