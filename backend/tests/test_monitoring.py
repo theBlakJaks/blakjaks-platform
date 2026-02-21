@@ -65,7 +65,7 @@ def test_alertmanager_config_is_valid_yaml():
     import yaml
     from pathlib import Path
 
-    config_path = Path(__file__).parents[3] / "infrastructure/monitoring/alertmanager.yml"
+    config_path = Path(__file__).parents[2] / "infrastructure/monitoring/alertmanager.yml"
     with open(config_path) as f:
         data = yaml.safe_load(f)
 
@@ -78,7 +78,7 @@ def test_prometheus_config_is_valid_yaml():
     import yaml
     from pathlib import Path
 
-    config_path = Path(__file__).parents[3] / "infrastructure/monitoring/prometheus.yml"
+    config_path = Path(__file__).parents[2] / "infrastructure/monitoring/prometheus.yml"
     with open(config_path) as f:
         data = yaml.safe_load(f)
 

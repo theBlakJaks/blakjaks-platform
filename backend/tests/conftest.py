@@ -1,5 +1,10 @@
+import os
 import uuid
 from datetime import datetime, timezone
+
+# Disable rate limiting before app is imported so the Limiter instance is created
+# with rate limiting off. This prevents 429 errors across the test suite.
+os.environ.setdefault("RATELIMIT_ENABLED", "False")
 
 import pytest
 from httpx import ASGITransport, AsyncClient

@@ -17,6 +17,7 @@ Stargate Router address (Polygon):
 import logging
 from decimal import Decimal
 
+import httpx
 from web3 import Web3
 
 from app.core.config import settings
@@ -232,8 +233,6 @@ def get_bridge_status(tx_hash: str) -> dict:
     Returns:
         dict with: tx_hash, scan_url, status (pending/delivered/failed)
     """
-    import httpx
-
     scan_url = f"{LAYERZERO_SCAN_BASE}/{tx_hash}"
     api_url = f"https://api-mainnet.layerzero-scan.com/tx/{tx_hash}"
 

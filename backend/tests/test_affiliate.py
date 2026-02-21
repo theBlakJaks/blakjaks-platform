@@ -169,6 +169,7 @@ async def test_signup_with_referral_code(client: AsyncClient, db: AsyncSession):
     resp = await client.post("/api/auth/signup", json={
         "email": "referred@test.com",
         "password": "securepassword123",
+        "username": "referred_user1",
         "first_name": "Referred",
         "last_name": "User",
         "birthdate": "1995-06-15",

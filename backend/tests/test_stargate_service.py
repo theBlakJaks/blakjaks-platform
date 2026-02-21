@@ -162,11 +162,12 @@ def test_execute_bridge_applies_slippage_tolerance():
     w3_mock = _make_w3_mock(router_mock)
 
     captured_args = {}
+    mock_swap = router_mock.functions.swap.return_value  # save before replacing
 
     def capture_swap(*args, **kwargs):
         captured_args["args"] = args
         captured_args["kwargs"] = kwargs
-        return router_mock.functions.swap.return_value
+        return mock_swap
 
     router_mock.functions.swap = capture_swap
 
@@ -189,11 +190,12 @@ def test_execute_bridge_amount_ld_uses_6_decimals():
     w3_mock = _make_w3_mock(router_mock)
 
     captured_args = {}
+    mock_swap = router_mock.functions.swap.return_value  # save before replacing
 
     def capture_swap(*args, **kwargs):
         captured_args["args"] = args
         captured_args["kwargs"] = kwargs
-        return router_mock.functions.swap.return_value
+        return mock_swap
 
     router_mock.functions.swap = capture_swap
 
