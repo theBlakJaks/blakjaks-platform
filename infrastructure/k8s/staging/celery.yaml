@@ -60,7 +60,7 @@ spec:
       containers:
         - name: celery-beat
           image: us-central1-docker.pkg.dev/blakjaks-production/blakjaks-repo/backend:latest
-          command: ["celery", "-A", "app.celery_app", "beat", "--loglevel=info"]
+          command: ["celery", "-A", "app.celery_app", "beat", "--loglevel=info", "--schedule=/tmp/celerybeat-schedule"]
           envFrom:
             - configMapRef:
                 name: blakjaks-config
