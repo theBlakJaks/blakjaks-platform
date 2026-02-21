@@ -301,15 +301,14 @@ def run_flow_2_scan(smoke_token: str) -> None:
 def run_flow_3_wallet(smoke_token: str) -> None:
     flow("Flow 3 — Wallet + Payout Choice")
 
-    # 3.1 GET wallet
+    # 3.1 GET wallet — WalletDetailResponse: address, comp_balance, pending_comps, balance_available
     r, ms = req("GET", "/wallet/detail", headers=auth_header(smoke_token))
     body = r.json() if r.status_code == 200 else {}
     has_balance = "comp_balance" in body
-    has_address = bool(body.get("wallet_address", ""))
-    has_txns = "transactions" in body
-    step("3.1 GET /users/me/wallet — comp_balance, wallet_address, transactions",
-         r.status_code == 200 and has_balance and has_txns,
-         ms, f"status={r.status_code} balance={has_balance} addr={has_address} txns={has_txns}", r)
+    has_pending = "pending_comps" in body
+    step("3.1 GET /wallet/detail — comp_balance + pending_comps",
+         r.status_code == 200 and has_balance and has_pending,
+         ms, f"status={r.status_code} balance={has_balance} pending_comps={has_pending}", r)
 
     balance_before = float(body.get("comp_balance", 0))
 
