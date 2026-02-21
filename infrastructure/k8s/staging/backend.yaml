@@ -83,6 +83,12 @@ spec:
             - name: BLOCKCHAIN_DEV_TREASURY_ADDRESS
               valueFrom:
                 secretKeyRef: { name: blakjaks-secrets, key: BLOCKCHAIN_DEV_TREASURY_ADDRESS }
+            - name: BLOCKCHAIN_POLYGON_NODE_URL
+              value: "https://polygon-amoy.infura.io/v3/$(INFURA_PROJECT_ID)"
+            - name: BLOCKCHAIN_POLYGON_NODE_WS_URL
+              value: "wss://polygon-amoy.infura.io/ws/v3/$(INFURA_PROJECT_ID)"
+            - name: POLYGON_RPC_URL
+              value: "https://polygon-amoy.infura.io/v3/$(INFURA_PROJECT_ID)"
           resources:
             requests:
               cpu: "250m"
