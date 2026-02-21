@@ -201,7 +201,7 @@ export default function Insights() {
 
   // ── Derived values ──────────────────────────────────────────────────────────
 
-  const nodeHealth = systemsData?.node_health ?? {}
+  const nodeHealth = systemsData?.node_health as { api?: string; database?: string; redis?: string; polygon_node?: string } ?? {}
   const scanVelocity = systemsData?.scan_velocity
   const tellerSync = systemsData?.teller_sync
   const tierDist = systemsData?.tier_distribution ?? {}
@@ -215,7 +215,7 @@ export default function Insights() {
   const poolBalances = treasuryData?.pool_balances
   const blockchainHealth = treasuryData?.blockchain_health
 
-  const prizeTiers = compData?.prize_tiers ?? {}
+  const prizeTiers = (compData?.prize_tiers ?? {}) as Record<string, number>
   const PRIZE_ORDER = ['100', '1000', '10000', '200000']
 
   // ── Render ──────────────────────────────────────────────────────────────────
