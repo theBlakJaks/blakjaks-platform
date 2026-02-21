@@ -5,8 +5,8 @@ locals {
     "blakjaks-qr-codes"        = { versioning = false, public = false }
     "blakjaks-admin-uploads"   = { versioning = false, public = false }
     "blakjaks-backups"         = { versioning = true,  public = false }
-    "blakjaks-user-avatars"    = { versioning = false, public = true  }
-    "blakjaks-hls-streams"     = { versioning = false, public = true  }
+    "blakjaks-user-avatars"    = { versioning = false, public = false }
+    "blakjaks-hls-streams"     = { versioning = false, public = false }
   }
 }
 
