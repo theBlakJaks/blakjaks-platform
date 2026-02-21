@@ -166,6 +166,9 @@ async def submit_scan(db: AsyncSession, user: User, raw_qr: str) -> dict:
     return {
         "success": True,
         "product_name": product_name,
+        "chip_earned": True,
+        "tier_name": tier_name,
+        "quarterly_scan_count": quarterly_scans,
         "usdc_earned": float(usdc_earned),
         "tier_multiplier": float(tier_multiplier),
         "tier_progress": {

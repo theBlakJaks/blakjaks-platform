@@ -129,28 +129,27 @@ async def test_crypto_comp_milestone_whale(db: AsyncSession):
 
 
 async def test_award_crypto_comp_creates_transaction(db: AsyncSession):
-    """award_crypto_comp should create a completed transaction and update wallet."""
+    """award_crypto_comp should create a pending_choice transaction (user must choose payout method)."""
     user = await _create_user(db, "comp@example.com")
 
     txn = await award_crypto_comp(db, user.id, Decimal("100"))
     assert txn.type == "comp_award"
     assert txn.amount == Decimal("100")
-    assert txn.status == "completed"
+    assert txn.status == "pending_choice"  # Balance credited only after payout choice
 
-    # Check wallet balance updated
-    await db.refresh(user)
+    # Wallet balance NOT updated until payout choice is made
     wallet_result = await db.execute(
         __import__("sqlalchemy").select(Wallet).where(Wallet.user_id == user.id)
     )
     wallet = wallet_result.scalar_one()
-    assert wallet.balance_available == Decimal("100")
+    assert wallet.balance_available == Decimal("0")
 
 
 # ── 21% affiliate reward matching ────────────────────────────────────
 
 
 async def test_affiliate_reward_matching(db: AsyncSession):
-    """When a referred user receives a comp, affiliate gets 21%."""
+    """When a referred user receives a comp payout, affiliate gets 21%."""
     # Create affiliate (referrer)
     affiliate_user = await _create_user(db, "affiliate@example.com")
     affiliate = Affiliate(
@@ -164,8 +163,9 @@ async def test_affiliate_reward_matching(db: AsyncSession):
     # Create referred user
     referred_user = await _create_user(db, "referred@example.com", referred_by=affiliate_user.id)
 
-    # Award comp to referred user — should trigger 21% match
+    # Award comp then explicitly trigger affiliate matching (normally done on payout choice)
     txn = await award_crypto_comp(db, referred_user.id, Decimal("100"))
+    await process_affiliate_reward_match(db, referred_user.id, Decimal("100"))
 
     # Check affiliate got 21%
     from sqlalchemy import select
@@ -209,10 +209,19 @@ async def test_guaranteed_comp_new_member(db: AsyncSession):
 
 
 async def test_guaranteed_comp_not_eligible_after_organic_comp(db: AsyncSession):
-    """Member who received >= $5 in comps this month should not get guaranteed comp."""
+    """Member who received >= $5 in completed comps this month should not get guaranteed comp."""
+    from app.models.transaction import Transaction
+
     user = await _create_user(db, "organic@example.com")
-    # Award $5 organically
-    await award_crypto_comp(db, user.id, Decimal("5.00"))
+    # Simulate a completed comp (user already chose payout method)
+    txn = Transaction(
+        user_id=user.id,
+        type="comp_award",
+        amount=Decimal("5.00"),
+        status="completed",
+    )
+    db.add(txn)
+    await db.commit()
 
     eligible = await check_guaranteed_comp(db, user.id)
     assert eligible is False
@@ -290,9 +299,18 @@ async def test_treasury_pools_endpoint(client: AsyncClient):
 
 async def test_treasury_recipients_endpoint(client: AsyncClient, db: AsyncSession):
     """GET /treasury/recipients should return masked usernames."""
-    # Create a user and award a comp
+    from app.models.transaction import Transaction
+
+    # Create a user with a completed comp (only completed comps appear in recipients)
     user = await _create_user(db, "recipient@example.com")
-    await award_crypto_comp(db, user.id, Decimal("50"))
+    txn = Transaction(
+        user_id=user.id,
+        type="comp_award",
+        amount=Decimal("50"),
+        status="completed",
+    )
+    db.add(txn)
+    await db.commit()
 
     resp = await client.get("/api/treasury/recipients")
     assert resp.status_code == 200
