@@ -33,6 +33,10 @@ dependencies = [
     "sentry-sdk[fastapi]>=1.40.0",
     # Prometheus
     "prometheus-fastapi-instrumentator>=6.1.0",
+    # Rate limiting
+    "slowapi>=0.1.9",
+    # OTP / 2FA
+    "pyotp>=2.9.0",
 ]
 
 [project.optional-dependencies]
