@@ -338,3 +338,66 @@ jobs:
           kubectl rollout status deployment/celery-worker -n staging --timeout=300s
           kubectl rollout status deployment/celery-beat   -n staging --timeout=300s
           kubectl rollout status deployment/web-app       -n staging --timeout=300s
+
+  # ── Load tests: run against staging after deploy ────────────────────────────
+  load-test:
+    name: Load Test (Staging)
+    needs: [deploy-staging]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install k6
+        run: |
+          sudo gpg -k
+          sudo gpg --no-default-keyring \
+            --keyring /usr/share/keyrings/k6-archive-keyring.gpg \
+            --keyserver hkp://keyserver.ubuntu.com:80 \
+            --recv-keys C5AD17C747E3415A3642D57D77C6C491D6AC1D69
+          echo "deb [signed-by=/usr/share/keyrings/k6-archive-keyring.gpg] https://dl.k6.io/deb stable main" \
+            | sudo tee /etc/apt/sources.list.d/k6.list
+          sudo apt-get update && sudo apt-get install k6 -y
+
+      - name: Wait for staging to be healthy
+        run: |
+          echo "Waiting for staging API to become healthy…"
+          for i in {1..12}; do
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" "${{ secrets.STAGING_API_URL }}/health" || echo "000")
+            if [ "$STATUS" = "200" ]; then
+              echo "Staging healthy after ${i}x10s"
+              break
+            fi
+            echo "  Attempt $i/12 — status $STATUS — waiting 10s…"
+            sleep 10
+          done
+
+      - name: Create results directory
+        run: mkdir -p results
+
+      - name: Run scan burst test
+        run: |
+          k6 run \
+            -e K6_BASE_URL=${{ secrets.STAGING_API_URL }} \
+            -e K6_TEST_EMAIL=${{ secrets.LOAD_TEST_EMAIL }} \
+            -e K6_TEST_PASSWORD=${{ secrets.LOAD_TEST_PASSWORD }} \
+            -e K6_TEST_QR_CODE=${{ secrets.LOAD_TEST_QR_CODE }} \
+            --out json=results/scan_burst.json \
+            load-tests/scan_burst.js
+
+      - name: Run withdrawal safety test
+        run: |
+          k6 run \
+            -e K6_BASE_URL=${{ secrets.STAGING_API_URL }} \
+            -e K6_TEST_EMAIL=${{ secrets.LOAD_TEST_EMAIL }} \
+            -e K6_TEST_PASSWORD=${{ secrets.LOAD_TEST_PASSWORD }} \
+            -e K6_TEST_COMP_ID=${{ secrets.LOAD_TEST_COMP_ID }} \
+            --out json=results/withdrawal_safety.json \
+            load-tests/withdrawal_safety.js
+
+      - name: Upload k6 results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: k6-results-${{ github.sha }}
+          path: results/
+          retention-days: 30
