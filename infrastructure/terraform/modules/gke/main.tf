@@ -22,4 +22,10 @@ resource "google_container_cluster" "primary" {
       display_name = "All"
     }
   }
+
+  lifecycle {
+    # Autopilot manages node pools, release channel, security posture, etc.
+    # Ignore all GCP-managed attributes to prevent spurious replacements.
+    ignore_changes = all
+  }
 }
