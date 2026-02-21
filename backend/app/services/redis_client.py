@@ -32,12 +32,16 @@ async def get_redis() -> aioredis.Redis:
     """Return the singleton async Redis client, initialising it on first call."""
     global _redis_client
     if _redis_client is None:
-        _redis_client = aioredis.from_url(
-            settings.REDIS_URL,
-            encoding="utf-8",
-            decode_responses=True,
-            ssl=settings.REDIS_SSL_ENABLED,
-        )
+        kwargs: dict = {
+            "encoding": "utf-8",
+            "decode_responses": True,
+        }
+        # rediss:// scheme already implies SSL; passing ssl= as a kwarg is not
+        # supported in redis-py 5.x.  For Cloud Memorystore we disable client-
+        # certificate verification (server-side TLS only).
+        if settings.REDIS_URL.startswith("rediss://"):
+            kwargs["ssl_cert_reqs"] = "none"
+        _redis_client = aioredis.from_url(settings.REDIS_URL, **kwargs)
         logger.info("Redis client initialised — %s", settings.REDIS_URL)
     return _redis_client
 

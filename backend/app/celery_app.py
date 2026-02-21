@@ -25,6 +25,9 @@ celery_app = Celery(
     ],
 )
 
+_ssl_opts = {"ssl_cert_reqs": None}  # no client cert required (Cloud Memorystore server-side TLS)
+_use_ssl = settings.CELERY_BROKER_URL.startswith("rediss://")
+
 celery_app.conf.update(
     task_serializer="json",
     result_serializer="json",
@@ -33,6 +36,7 @@ celery_app.conf.update(
     enable_utc=True,
     worker_prefetch_multiplier=1,
     task_acks_late=True,
+    **({"broker_use_ssl": _ssl_opts, "redis_backend_use_ssl": _ssl_opts} if _use_ssl else {}),
 )
 
 celery_app.conf.beat_schedule = {

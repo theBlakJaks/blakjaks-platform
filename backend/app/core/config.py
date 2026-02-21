@@ -1,3 +1,4 @@
+from pydantic import model_validator
 from pydantic_settings import BaseSettings
 
 
@@ -24,8 +25,22 @@ class Settings(BaseSettings):
     # -------------------------------------------------------------------------
     # Celery
     # -------------------------------------------------------------------------
-    CELERY_BROKER_URL: str = "redis://localhost:6379/1"
-    CELERY_RESULT_BACKEND: str = "redis://localhost:6379/2"
+    # If not explicitly set, these are derived from REDIS_URL (DB 1 and DB 2)
+    # so that Celery automatically inherits the correct host, credentials, and
+    # scheme (rediss:// for Cloud Memorystore TLS) without extra K8s secrets.
+    CELERY_BROKER_URL: str = ""
+    CELERY_RESULT_BACKEND: str = ""
+
+    @model_validator(mode="after")
+    def _derive_celery_urls(self) -> "Settings":
+        base = self.REDIS_URL  # e.g. rediss://:pass@10.x.x.x:6379/0
+        # Strip the trailing DB number so we can append /1 and /2
+        prefix = base.rsplit("/", 1)[0]
+        if not self.CELERY_BROKER_URL:
+            self.CELERY_BROKER_URL = f"{prefix}/1"
+        if not self.CELERY_RESULT_BACKEND:
+            self.CELERY_RESULT_BACKEND = f"{prefix}/2"
+        return self
 
     # -------------------------------------------------------------------------
     # Polygon / blockchain
