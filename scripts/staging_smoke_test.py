@@ -238,12 +238,12 @@ def run_flow_2_scan(smoke_token: str) -> None:
                 headers=json_header(smoke_token),
                 json_body={"qr_code": TEST_QR_CODE})
     body = r.json() if r.status_code == 200 else {}
-    has_scan_id = "scan_id" in body
-    has_tier = "tier" in body
+    has_success = "success" in body
+    has_tier = "tier_name" in body
     has_product = "product_name" in body
-    step("2.2 POST /scan/submit — 200 + scan_id, tier, product_name",
-         r.status_code == 200 and has_scan_id and has_tier,
-         ms, f"status={r.status_code} scan_id={has_scan_id} tier={has_tier}", r)
+    step("2.2 POST /scans/submit — 200 + success, tier_name, product_name",
+         r.status_code == 200 and has_success and has_tier,
+         ms, f"status={r.status_code} success={has_success} tier_name={has_tier}", r)
 
     # 2.3 comp_earned present (nullable is fine)
     step("2.3 scan response has comp_earned field",
