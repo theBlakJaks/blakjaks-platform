@@ -58,7 +58,7 @@ jobs:
           cache: 'pip'
 
       - name: Install backend dependencies
-        run: pip install -r backend/requirements-test.txt
+        run: pip install -e "backend/[dev]"
 
       - name: Run backend tests
         run: pytest backend/tests/ -v --tb=short
