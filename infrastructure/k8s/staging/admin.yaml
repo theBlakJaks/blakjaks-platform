@@ -13,8 +13,6 @@ spec:
       labels:
         app: admin
     spec:
-      nodeSelector:
-        pool: api
       containers:
         - name: admin
           image: us-central1-docker.pkg.dev/blakjaks-production/blakjaks-repo/admin:latest

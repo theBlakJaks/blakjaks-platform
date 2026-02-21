@@ -14,8 +14,6 @@ spec:
         app: backend
     spec:
       serviceAccountName: backend-ksa
-      nodeSelector:
-        pool: api
       containers:
         - name: backend
           image: us-central1-docker.pkg.dev/blakjaks-production/blakjaks-repo/backend:latest

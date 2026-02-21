@@ -13,8 +13,6 @@ spec:
       labels:
         app: affiliate
     spec:
-      nodeSelector:
-        pool: api
       containers:
         - name: affiliate
           image: us-central1-docker.pkg.dev/blakjaks-production/blakjaks-repo/affiliate:latest

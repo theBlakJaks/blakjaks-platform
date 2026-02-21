@@ -13,8 +13,6 @@ spec:
       labels:
         app: web-app
     spec:
-      nodeSelector:
-        pool: api
       containers:
         - name: web-app
           image: us-central1-docker.pkg.dev/blakjaks-production/blakjaks-repo/web-app:latest

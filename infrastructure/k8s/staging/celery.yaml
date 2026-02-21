@@ -14,12 +14,6 @@ spec:
         app: celery-worker
     spec:
       serviceAccountName: backend-ksa
-      nodeSelector:
-        pool: workers
-      tolerations:
-        - key: "pool"
-          value: "workers"
-          effect: "NoSchedule"
       containers:
         - name: celery-worker
           image: us-central1-docker.pkg.dev/blakjaks-production/blakjaks-repo/backend:latest
@@ -63,12 +57,6 @@ spec:
         app: celery-beat
     spec:
       serviceAccountName: backend-ksa
-      nodeSelector:
-        pool: workers
-      tolerations:
-        - key: "pool"
-          value: "workers"
-          effect: "NoSchedule"
       containers:
         - name: celery-beat
           image: us-central1-docker.pkg.dev/blakjaks-production/blakjaks-repo/backend:latest

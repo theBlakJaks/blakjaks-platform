@@ -13,8 +13,6 @@ spec:
       labels:
         app: wholesale
     spec:
-      nodeSelector:
-        pool: api
       containers:
         - name: wholesale
           image: us-central1-docker.pkg.dev/blakjaks-production/blakjaks-repo/wholesale:latest
