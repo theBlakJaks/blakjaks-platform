@@ -224,19 +224,35 @@ def run_flow_1_auth() -> str | None:
 def run_flow_2_scan(smoke_token: str) -> None:
     flow("Flow 2 — QR Scan + Comp Award")
 
-    if not TEST_QR_CODE:
-        step("2.1–2.4 QR scan flow — skipped (SMOKE_TEST_QR_CODE not set)", False, 0,
-             "Set SMOKE_TEST_QR_CODE env var")
+    # Prefer a fresh unused code from the admin API (makes test repeatable across runs).
+    # Fall back to the SMOKE_TEST_QR_CODE secret if no admin credentials are available.
+    qr_code_to_use = None
+    if ADMIN_EMAIL and ADMIN_PASSWORD:
+        admin_tok = login(ADMIN_EMAIL, ADMIN_PASSWORD)
+        if admin_tok:
+            r_adm, _ = req("GET", "/admin/qr-codes?is_used=false&per_page=1",
+                           headers=auth_header(admin_tok))
+            if r_adm.status_code == 200:
+                items = r_adm.json().get("items", [])
+                if items:
+                    qr_code_to_use = items[0].get("full_code")
+
+    if not qr_code_to_use:
+        qr_code_to_use = TEST_QR_CODE
+
+    if not qr_code_to_use:
+        step("2.1–2.4 QR scan flow — skipped (no unused QR codes and SMOKE_TEST_QR_CODE not set)",
+             False, 0, "Set SMOKE_TEST_QR_CODE or ensure unused QR codes exist in staging")
         return
 
-    # Pre-scan total_scans
+    # 2.1 Pre-scan total_scans baseline
     r_pre, _ = req("GET", "/users/me", headers=auth_header(smoke_token))
     scans_before = r_pre.json().get("total_scans", 0) if r_pre.status_code == 200 else None
 
     # 2.2 Submit scan
     r, ms = req("POST", "/scans/submit",
                 headers=json_header(smoke_token),
-                json_body={"qr_code": TEST_QR_CODE})
+                json_body={"qr_code": qr_code_to_use})
     body = r.json() if r.status_code == 200 else {}
     has_success = "success" in body
     has_tier = "tier_name" in body
