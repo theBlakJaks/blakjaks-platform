@@ -1,0 +1,52 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: admin
+  namespace: staging
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: admin
+  template:
+    metadata:
+      labels:
+        app: admin
+    spec:
+      nodeSelector:
+        pool: api
+      containers:
+        - name: admin
+          image: us-central1-docker.pkg.dev/blakjaks-production/blakjaks-repo/admin:latest
+          ports:
+            - containerPort: 3000
+          envFrom:
+            - configMapRef:
+                name: blakjaks-config
+          env:
+            - name: SENTRY_DSN
+              valueFrom:
+                secretKeyRef: { name: blakjaks-secrets, key: SENTRY_DSN }
+            - name: NEXT_PUBLIC_SENTRY_DSN
+              valueFrom:
+                secretKeyRef: { name: blakjaks-secrets, key: SENTRY_DSN }
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "256Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: admin
+  namespace: staging
+spec:
+  selector:
+    app: admin
+  ports:
+    - port: 80
+      targetPort: 3000
+  type: ClusterIP

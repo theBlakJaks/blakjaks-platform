@@ -1,0 +1,52 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: affiliate
+  namespace: production
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: affiliate
+  template:
+    metadata:
+      labels:
+        app: affiliate
+    spec:
+      nodeSelector:
+        pool: api
+      containers:
+        - name: affiliate
+          image: us-central1-docker.pkg.dev/blakjaks-production/blakjaks-repo/affiliate:latest
+          ports:
+            - containerPort: 3000
+          envFrom:
+            - configMapRef:
+                name: blakjaks-config
+          env:
+            - name: SENTRY_DSN
+              valueFrom:
+                secretKeyRef: { name: blakjaks-secrets, key: SENTRY_DSN }
+            - name: NEXT_PUBLIC_SENTRY_DSN
+              valueFrom:
+                secretKeyRef: { name: blakjaks-secrets, key: SENTRY_DSN }
+          resources:
+            requests:
+              cpu: "200m"
+              memory: "512Mi"
+            limits:
+              cpu: "1000m"
+              memory: "1Gi"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: affiliate
+  namespace: production
+spec:
+  selector:
+    app: affiliate
+  ports:
+    - port: 80
+      targetPort: 3000
+  type: ClusterIP

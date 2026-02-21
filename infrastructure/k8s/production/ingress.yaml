@@ -1,0 +1,75 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: blakjaks-ingress
+  namespace: production
+  annotations:
+    kubernetes.io/ingress.class: "gce"
+    kubernetes.io/ingress.global-static-ip-name: "blakjaks-ingress-ip"
+    networking.gke.io/managed-certificates: "blakjaks-production-cert"
+    kubernetes.io/ingress.allow-http: "false"
+spec:
+  rules:
+    - host: api.blakjaks.com
+      http:
+        paths:
+          - path: /*
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: backend
+                port:
+                  number: 80
+    - host: app.blakjaks.com
+      http:
+        paths:
+          - path: /*
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: web-app
+                port:
+                  number: 80
+    - host: admin.blakjaks.com
+      http:
+        paths:
+          - path: /*
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: admin
+                port:
+                  number: 80
+    - host: affiliate.blakjaks.com
+      http:
+        paths:
+          - path: /*
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: affiliate
+                port:
+                  number: 80
+    - host: wholesale.blakjaks.com
+      http:
+        paths:
+          - path: /*
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: wholesale
+                port:
+                  number: 80
+---
+apiVersion: networking.gke.io/v1
+kind: ManagedCertificate
+metadata:
+  name: blakjaks-production-cert
+  namespace: production
+spec:
+  domains:
+    - api.blakjaks.com
+    - app.blakjaks.com
+    - admin.blakjaks.com
+    - affiliate.blakjaks.com
+    - wholesale.blakjaks.com

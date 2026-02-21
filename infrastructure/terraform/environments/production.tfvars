@@ -1,0 +1,8 @@
+environment         = "production"
+project_id          = "blakjaks-production"
+region              = "us-central1"
+gke_cluster_name    = "blakjaks-primary"
+db_instance_name    = "blakjaks-postgres"
+db_name             = "blakjaks_production"
+db_user             = "blakjaks_user"
+redis_instance_name = "blakjaks-redis"

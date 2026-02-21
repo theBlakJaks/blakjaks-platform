@@ -1,0 +1,12 @@
+variable "project_id"          { default = "blakjaks-production" }
+variable "project_number"      { default = "752012521116" }
+variable "region"              { default = "us-central1" }
+variable "zone"                { default = "us-central1-a" }
+variable "environment"         { description = "staging or production" }
+variable "gke_cluster_name"    { default = "blakjaks-primary" }
+variable "db_instance_name"    { default = "blakjaks-postgres" }
+variable "db_name"             { default = "blakjaks_production" }
+variable "db_user"             { default = "blakjaks_user" }
+variable "db_password"         { sensitive = true }
+variable "redis_instance_name" { default = "blakjaks-redis" }
+variable "github_repo"         { default = "theBlakJaks/blakjaks-platform" }

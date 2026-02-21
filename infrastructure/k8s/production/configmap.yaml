@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: blakjaks-config
+  namespace: production
+data:
+  ENVIRONMENT: "production"
+  BLOCKCHAIN_POLYGON_NETWORK: "mainnet"
+  TELLER_ENV: "production"
+  PAYMENT_AUTHORIZE_ENV: "production"
+  DATABASE_POOL_SIZE: "20"
+  DATABASE_MAX_OVERFLOW: "10"
+  REDIS_DB: "0"
+  SENTRY_ENVIRONMENT: "production"
+  GIPHY_RATING: "pg-13"
+  OPENAI_MODERATION_ENABLED: "true"
+  STORAGE_CDN_URL: "https://cdn.blakjaks.com"
+  GOOGLE_CLOUD_PROJECT_ID: "blakjaks-production"
+  GOOGLE_CLOUD_REGION: "us-central1"

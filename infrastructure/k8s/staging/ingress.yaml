@@ -1,0 +1,75 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: blakjaks-ingress
+  namespace: staging
+  annotations:
+    kubernetes.io/ingress.class: "gce"
+    kubernetes.io/ingress.global-static-ip-name: "blakjaks-ingress-ip"
+    networking.gke.io/managed-certificates: "blakjaks-staging-cert"
+    kubernetes.io/ingress.allow-http: "false"
+spec:
+  rules:
+    - host: staging-api.blakjaks.com
+      http:
+        paths:
+          - path: /*
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: backend
+                port:
+                  number: 80
+    - host: staging.blakjaks.com
+      http:
+        paths:
+          - path: /*
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: web-app
+                port:
+                  number: 80
+    - host: staging-admin.blakjaks.com
+      http:
+        paths:
+          - path: /*
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: admin
+                port:
+                  number: 80
+    - host: staging-affiliate.blakjaks.com
+      http:
+        paths:
+          - path: /*
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: affiliate
+                port:
+                  number: 80
+    - host: staging-wholesale.blakjaks.com
+      http:
+        paths:
+          - path: /*
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: wholesale
+                port:
+                  number: 80
+---
+apiVersion: networking.gke.io/v1
+kind: ManagedCertificate
+metadata:
+  name: blakjaks-staging-cert
+  namespace: staging
+spec:
+  domains:
+    - staging-api.blakjaks.com
+    - staging.blakjaks.com
+    - staging-admin.blakjaks.com
+    - staging-affiliate.blakjaks.com
+    - staging-wholesale.blakjaks.com

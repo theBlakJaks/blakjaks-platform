@@ -1,0 +1,95 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: celery-worker
+  namespace: production
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: celery-worker
+  template:
+    metadata:
+      labels:
+        app: celery-worker
+    spec:
+      serviceAccountName: backend-ksa
+      nodeSelector:
+        pool: workers
+      tolerations:
+        - key: "pool"
+          value: "workers"
+          effect: "NoSchedule"
+      containers:
+        - name: celery-worker
+          image: us-central1-docker.pkg.dev/blakjaks-production/blakjaks-repo/backend:latest
+          command: ["celery", "-A", "app.celery_app", "worker", "--loglevel=info", "--concurrency=4"]
+          envFrom:
+            - configMapRef:
+                name: blakjaks-config
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef: { name: blakjaks-secrets, key: DATABASE_URL }
+            - name: REDIS_URL
+              valueFrom:
+                secretKeyRef: { name: blakjaks-secrets, key: REDIS_URL }
+            - name: SECRET_KEY
+              valueFrom:
+                secretKeyRef: { name: blakjaks-secrets, key: SECRET_KEY }
+          resources:
+            requests:
+              cpu: "250m"
+              memory: "512Mi"
+            limits:
+              cpu: "1000m"
+              memory: "1Gi"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: celery-beat
+  namespace: production
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: celery-beat
+  template:
+    metadata:
+      labels:
+        app: celery-beat
+    spec:
+      serviceAccountName: backend-ksa
+      nodeSelector:
+        pool: workers
+      tolerations:
+        - key: "pool"
+          value: "workers"
+          effect: "NoSchedule"
+      containers:
+        - name: celery-beat
+          image: us-central1-docker.pkg.dev/blakjaks-production/blakjaks-repo/backend:latest
+          command: ["celery", "-A", "app.celery_app", "beat", "--loglevel=info"]
+          envFrom:
+            - configMapRef:
+                name: blakjaks-config
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef: { name: blakjaks-secrets, key: DATABASE_URL }
+            - name: REDIS_URL
+              valueFrom:
+                secretKeyRef: { name: blakjaks-secrets, key: REDIS_URL }
+            - name: SECRET_KEY
+              valueFrom:
+                secretKeyRef: { name: blakjaks-secrets, key: SECRET_KEY }
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "256Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
