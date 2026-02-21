@@ -195,7 +195,7 @@ def run_flow_1_auth() -> str | None:
         r, ms = req("GET", "/users/me", headers=auth_header(token))
         body = r.json() if r.status_code == 200 else {}
         email_ok = body.get("email") == fresh_email
-        tier_ok = body.get("tier", "").lower() == "standard"
+        tier_ok = (body.get("tier") or "").lower() == "standard"
         member_id_ok = str(body.get("member_id", "")).startswith("BJ-")
         step("1.4 GET /users/me — email, tier=standard, member_id BJ-",
              r.status_code == 200 and email_ok and tier_ok and member_id_ok, ms,
