@@ -35,6 +35,8 @@ async def get_redis() -> aioredis.Redis:
         kwargs: dict = {
             "encoding": "utf-8",
             "decode_responses": True,
+            "socket_connect_timeout": 5,  # fail fast if Redis unreachable
+            "socket_timeout": 5,
         }
         # rediss:// scheme already implies SSL; passing ssl= as a kwarg is not
         # supported in redis-py 5.x.  For Cloud Memorystore we disable client-

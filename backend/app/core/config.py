@@ -36,10 +36,12 @@ class Settings(BaseSettings):
         base = self.REDIS_URL  # e.g. rediss://:pass@10.x.x.x:6379/0
         # Strip the trailing DB number so we can append /1 and /2
         prefix = base.rsplit("/", 1)[0]
+        # Celery requires ssl_cert_reqs as a URL query parameter for rediss://
+        ssl_param = "?ssl_cert_reqs=CERT_NONE" if base.startswith("rediss://") else ""
         if not self.CELERY_BROKER_URL:
-            self.CELERY_BROKER_URL = f"{prefix}/1"
+            self.CELERY_BROKER_URL = f"{prefix}/1{ssl_param}"
         if not self.CELERY_RESULT_BACKEND:
-            self.CELERY_RESULT_BACKEND = f"{prefix}/2"
+            self.CELERY_RESULT_BACKEND = f"{prefix}/2{ssl_param}"
         return self
 
     # -------------------------------------------------------------------------
