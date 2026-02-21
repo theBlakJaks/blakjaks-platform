@@ -82,13 +82,13 @@ struct WalletSectionView: View {
                     Text("Wallet Address")
                         .font(.caption)
                         .foregroundColor(.secondary)
-                    Text(truncatedAddress(viewModel.walletDetail?.address ?? ""))
+                    Text(truncatedAddress(viewModel.wallet?.address ?? ""))
                         .font(.system(.body, design: .monospaced))
                         .foregroundColor(.primary)
                 }
                 Spacer()
                 Button {
-                    UIPasteboard.general.string = viewModel.walletDetail?.address ?? ""
+                    UIPasteboard.general.string = viewModel.wallet?.address ?? ""
                     addressCopied = true
                     DispatchQueue.main.asyncAfter(deadline: .now() + 2) { addressCopied = false }
                 } label: {
@@ -263,14 +263,14 @@ struct WalletSectionView: View {
                         .foregroundColor(.black)
                 }
 
-                Text(viewModel.walletDetail?.address ?? "")
+                Text(viewModel.wallet?.address ?? "")
                     .font(.system(.caption2, design: .monospaced))
                     .foregroundColor(.secondary)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal)
 
                 GoldButton("Copy Address") {
-                    UIPasteboard.general.string = viewModel.walletDetail?.address ?? ""
+                    UIPasteboard.general.string = viewModel.wallet?.address ?? ""
                     showReceiveQR = false
                 }
                 .padding(.horizontal, Layout.screenMargin)

@@ -13,7 +13,8 @@ enum MockTransactions {
             lastFour: "4242",
             type: "checking",
             status: "verified"
-        )
+        ),
+        address: nil
     )
 
     static let list: [Transaction] = [

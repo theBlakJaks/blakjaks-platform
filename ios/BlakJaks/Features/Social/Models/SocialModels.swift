@@ -2,7 +2,7 @@ import Foundation
 
 // MARK: - LiveStream
 
-struct LiveStream: Identifiable {
+struct LiveStream: Identifiable, Codable {
     let id: Int
     let title: String
     let hlsUrl: String?   // nil = offline

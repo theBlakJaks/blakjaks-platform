@@ -15,7 +15,7 @@ final class InsightsViewModel: ObservableObject {
     @Published var comps:     InsightsComps?
     @Published var partners:  InsightsPartners?
 
-    @Published var feedPage:    [InsightsFeedItem] = []
+    @Published var feedPage:    [ActivityFeedItem] = []
     @Published var isLoading  = false
     @Published var error: Error?
 

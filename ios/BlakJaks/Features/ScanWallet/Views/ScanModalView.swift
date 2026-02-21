@@ -371,7 +371,7 @@ struct ScanConfirmationView: View {
             Text("+$\(comp.amount.formatted(.number.precision(.fractionLength(2))))")
                 .font(.walletBalance)
                 .foregroundColor(.gold)
-                .contentTransition(.numericText(value: comp.amount))
+                .contentTransition(.numericText())
 
             if comp.requiresPayoutChoice {
                 Text("Choose how to receive your comp below.")

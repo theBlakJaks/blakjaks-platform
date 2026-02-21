@@ -70,9 +70,8 @@ struct OrderHistoryView: View {
 
             // Total
             Text(order.total.formatted(.currency(code: "USD")))
-                .font(.body.weight(.bold))
+                .font(.system(.body, design: .monospaced).weight(.bold))
                 .foregroundColor(.gold)
-                .fontDesign(.monospaced)
         }
         .padding(.vertical, Spacing.xs)
     }

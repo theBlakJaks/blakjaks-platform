@@ -183,7 +183,7 @@ struct ChatView: View {
                     let displayContent: String = {
                         var c = message.content
                         if c.hasPrefix("[REPLY]"), let range = c.range(of: "]") {
-                            c = String(c[c.index(after: range.upperIndex)...]).trimmingCharacters(in: .whitespaces)
+                            c = String(c[c.index(after: range.upperBound)...]).trimmingCharacters(in: .whitespaces)
                         }
                         return translated ?? c
                     }()
@@ -584,7 +584,7 @@ private struct ScrollOffsetPreferenceKey: PreferenceKey {
 
 // MARK: - FlowLayout (wrapping HStack for reactions)
 
-private struct FlowLayout: Layout {
+private struct FlowLayout: SwiftUI.Layout {
     var spacing: CGFloat = 4
 
     func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {

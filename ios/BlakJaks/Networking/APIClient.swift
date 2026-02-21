@@ -192,7 +192,7 @@ final class APIClient: APIClientProtocol {
         try await request(APIEndpoints.insightsPartners)
     }
 
-    func getInsightsFeed(limit: Int, offset: Int) async throws -> [InsightsFeedItem] {
+    func getInsightsFeed(limit: Int, offset: Int) async throws -> [ActivityFeedItem] {
         try await request(APIEndpoints.insightsFeed, parameters: ["limit": limit, "offset": offset], encoding: URLEncoding.default)
     }
 
@@ -296,30 +296,55 @@ final class APIClient: APIClientProtocol {
 
     // MARK: - Notifications
 
-    func getNotifications() async throws -> [AppNotification] {
-        try await request(APIEndpoints.notifications)
+    func getNotifications(typeFilter: String?, limit: Int, offset: Int) async throws -> [AppNotification] {
+        var params: Parameters = ["limit": limit, "offset": offset]
+        if let typeFilter { params["type"] = typeFilter }
+        return try await request(APIEndpoints.notifications, parameters: params, encoding: URLEncoding.default)
+    }
+
+    func markNotificationRead(id: Int) async throws {
+        try await requestVoid(APIEndpoints.notifications + "/\(id)/read")
     }
 
     func markAllNotificationsRead() async throws {
         try await requestVoid(APIEndpoints.notificationsMarkRead)
     }
 
-    func registerPushToken(_ token: String, platform: String) async throws {
-        let params: Parameters = ["token": token, "platform": platform]
-        try await requestVoid(APIEndpoints.pushToken)
-        _ = params  // used in body — suppress warning
+    func getUnreadNotificationCount() async throws -> Int {
+        struct CountResponse: Decodable { let count: Int }
+        let response: CountResponse = try await request(APIEndpoints.notifications + "/unread-count")
+        return response.count
     }
 
     // MARK: - Social
 
-    func getChannels() async throws -> [SocialChannel] {
+    func getChannels() async throws -> [Channel] {
         try await request(APIEndpoints.channels)
     }
 
-    func getMessages(channelId: String, before: String?, limit: Int) async throws -> [ChatMessage] {
+    func getMessages(channelId: Int, limit: Int, before: Int?) async throws -> [ChatMessage] {
         var params: Parameters = ["limit": limit]
         if let before { params["before"] = before }
-        return try await request(APIEndpoints.channelMessages(channelId), parameters: params, encoding: URLEncoding.default)
+        return try await request(APIEndpoints.channelMessages(String(channelId)), parameters: params, encoding: URLEncoding.default)
+    }
+
+    func sendMessage(channelId: Int, content: String, mediaType: String?) async throws -> ChatMessage {
+        var params: Parameters = ["content": content]
+        if let mediaType { params["media_type"] = mediaType }
+        return try await request(APIEndpoints.channelMessages(String(channelId)), method: .post, parameters: params)
+    }
+
+    func translateMessage(messageId: Int, targetLanguage: String) async throws -> TranslatedMessage {
+        let params: Parameters = ["target_language": targetLanguage]
+        return try await request(APIEndpoints.channels + "/messages/\(messageId)/translate", method: .post, parameters: params)
+    }
+
+    func addReaction(messageId: Int, emoji: String) async throws {
+        try await requestVoid(APIEndpoints.channels + "/messages/\(messageId)/reactions")
+    }
+
+    func removeReaction(messageId: Int, emoji: String) async throws {
+        try await requestVoid(APIEndpoints.channels + "/messages/\(messageId)/reactions")
     }
 
     func getLiveStreams() async throws -> [LiveStream] {
@@ -328,31 +353,67 @@ final class APIClient: APIClientProtocol {
 
     // MARK: - Governance
 
-    func getProposals() async throws -> [GovernanceVote] {
+    func getActiveVotes() async throws -> [GovernanceVote] {
         try await request(APIEndpoints.proposals)
     }
 
-    func castVote(proposalId: Int, choice: String) async throws -> GovernanceVote {
-        let params: Parameters = ["choice": choice]
-        return try await request(APIEndpoints.vote(proposalId), method: .post, parameters: params)
+    func getVoteDetail(id: Int) async throws -> GovernanceVoteDetail {
+        try await request(APIEndpoints.proposals + "/\(id)")
     }
 
-    // MARK: - Wholesale / Affiliate
+    func castBallot(voteId: Int, selectedOption: String) async throws {
+        try await requestVoid(APIEndpoints.vote(voteId))
+    }
+
+    // MARK: - Comp Payout
+
+    func submitPayoutChoice(compId: String, method: String) async throws -> CompPayoutResult {
+        let params: Parameters = ["comp_id": compId, "method": method]
+        return try await request(APIEndpoints.compVault + "/payout", method: .post, parameters: params)
+    }
+
+    // MARK: - Wholesale
+
+    func submitWholesaleApplication(businessName: String, contactEmail: String, estimatedMonthlyVolume: Double) async throws {
+        try await requestVoid(APIEndpoints.wholesaleDashboard + "/apply")
+    }
 
     func getWholesaleDashboard() async throws -> WholesaleDashboard {
         try await request(APIEndpoints.wholesaleDashboard)
     }
 
+    func getWholesaleOrders(limit: Int, offset: Int) async throws -> [WholesaleOrder] {
+        try await request(APIEndpoints.wholesaleDashboard + "/orders", parameters: ["limit": limit, "offset": offset], encoding: URLEncoding.default)
+    }
+
+    func createWholesaleOrder(items: [WholesaleOrderItem]) async throws -> WholesaleOrder {
+        try await requestEncodable(APIEndpoints.wholesaleDashboard + "/orders", body: items)
+    }
+
+    func getWholesaleChips() async throws -> WholesaleChips {
+        try await request(APIEndpoints.wholesaleDashboard + "/chips")
+    }
+
+    // MARK: - Affiliate
+
     func getAffiliateDashboard() async throws -> AffiliateDashboard {
         try await request(APIEndpoints.affiliateDashboard)
     }
 
-    func getAffiliateReferrals() async throws -> [AffiliateReferral] {
+    func getAffiliateDownline(limit: Int, offset: Int) async throws -> [AffiliateDownlineMember] {
+        try await request(APIEndpoints.affiliateReferrals, parameters: ["limit": limit, "offset": offset], encoding: URLEncoding.default)
+    }
+
+    func getAffiliateChips() async throws -> AffiliateChips {
         try await request(APIEndpoints.affiliateReferrals)
     }
 
-    func getAffiliatePayouts() async throws -> [AffiliateReferral] {
-        try await request(APIEndpoints.affiliatePayouts)
+    func getAffiliatePayouts(limit: Int, offset: Int) async throws -> [AffiliatePayout] {
+        try await request(APIEndpoints.affiliatePayouts, parameters: ["limit": limit, "offset": offset], encoding: URLEncoding.default)
+    }
+
+    func getAffiliateReferralCode() async throws -> ReferralCode {
+        try await request(APIEndpoints.affiliateReferrals)
     }
 }
 
@@ -423,35 +484,17 @@ final class TokenRefreshInterceptor: RequestInterceptor {
     }
 }
 
-// MARK: - APIError
+// MARK: - APIError+Alamofire
 
-enum APIError: LocalizedError {
-    case serverError(statusCode: Int, message: String)
-    case networkError(String)
-    case unauthorized
-    case unknown
-
+extension APIError {
     static func from(afError: AFError, response: HTTPURLResponse?) -> APIError {
         if let code = response?.statusCode {
             if code == 401 { return .unauthorized }
             return .serverError(statusCode: code, message: afError.localizedDescription)
         }
         if case .sessionTaskFailed = afError {
-            return .networkError(afError.localizedDescription)
+            return .networkError(afError)
         }
         return .unknown
-    }
-
-    var errorDescription: String? {
-        switch self {
-        case .serverError(let code, let message):
-            return "Server error (\(code)): \(message)"
-        case .networkError(let message):
-            return "Network error: \(message)"
-        case .unauthorized:
-            return "Your session has expired. Please sign in again."
-        case .unknown:
-            return "An unexpected error occurred."
-        }
     }
 }

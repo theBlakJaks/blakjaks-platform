@@ -157,18 +157,20 @@ struct TransactionsView: View {
         return "\(sign)$\(abs.formatted(.number.precision(.fractionLength(2))))"
     }
 
+    @ViewBuilder
     private func statusBadge(_ tx: Transaction) -> some View {
         if tx.status == "pending" {
-            return Text("PENDING")
+            Text("PENDING")
                 .font(.system(size: 8, weight: .bold))
                 .foregroundColor(.warning)
                 .padding(.horizontal, 5)
                 .padding(.vertical, 2)
                 .background(Capsule().fill(Color.warning.opacity(0.15)))
+        } else {
+            Text("")
+                .font(.system(size: 8))
+                .foregroundColor(.clear)
         }
-        return Text("")
-            .font(.system(size: 8))
-            .foregroundColor(.clear)
     }
 
     private func polygonScanURL(_ hash: String) -> URL {
