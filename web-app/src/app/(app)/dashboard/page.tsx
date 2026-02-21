@@ -42,7 +42,7 @@ export default function DashboardPage() {
     async function load() {
       try {
         const data = await api.dashboard.get()
-        setActivity(data.recentActivity.slice(0, 5))
+        setActivity((data.recentActivity as ActivityFeedItem[]).slice(0, 5))
         setRecentComps(mockComps.slice(0, 3))
       } finally {
         setLoading(false)
