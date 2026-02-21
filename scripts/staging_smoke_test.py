@@ -224,12 +224,13 @@ def run_flow_1_auth() -> str | None:
 def run_flow_2_scan(smoke_token: str) -> None:
     flow("Flow 2 — QR Scan + Comp Award")
 
-    # Prefer a fresh unused code from the admin API (makes test repeatable across runs).
-    # Fall back to the SMOKE_TEST_QR_CODE secret if no admin credentials are available.
+    # Fetch or generate a fresh unused QR code via the admin API.
+    # This makes the test repeatable across CI runs (QR codes are single-use).
     qr_code_to_use = None
     if ADMIN_EMAIL and ADMIN_PASSWORD:
         admin_tok = login(ADMIN_EMAIL, ADMIN_PASSWORD)
         if admin_tok:
+            # First try to find an existing unused code
             r_adm, _ = req("GET", "/admin/qr-codes?is_used=false&per_page=1",
                            headers=auth_header(admin_tok))
             if r_adm.status_code == 200:
@@ -237,12 +238,28 @@ def run_flow_2_scan(smoke_token: str) -> None:
                 if items:
                     qr_code_to_use = items[0].get("full_code")
 
+            # If all codes are spent, generate a fresh batch using the first available product
+            if not qr_code_to_use:
+                r_prod, _ = req("GET", "/shop/products?limit=1", headers=auth_header(admin_tok))
+                if r_prod.status_code == 200:
+                    prod_body = r_prod.json()
+                    products = prod_body.get("items") or prod_body.get("products") or []
+                    if products:
+                        product_id = products[0]["id"]
+                        r_gen, _ = req("POST", "/admin/qr-codes/generate",
+                                       headers=json_header(admin_tok),
+                                       json_body={"product_id": product_id, "quantity": 5})
+                        if r_gen.status_code in (200, 201):
+                            codes = r_gen.json().get("codes", [])
+                            if codes:
+                                qr_code_to_use = codes[0]
+
     if not qr_code_to_use:
         qr_code_to_use = TEST_QR_CODE
 
     if not qr_code_to_use:
-        step("2.1–2.4 QR scan flow — skipped (no unused QR codes and SMOKE_TEST_QR_CODE not set)",
-             False, 0, "Set SMOKE_TEST_QR_CODE or ensure unused QR codes exist in staging")
+        step("2.1–2.4 QR scan flow — skipped (no QR codes available)",
+             False, 0, "No unused QR codes and SMOKE_TEST_QR_CODE not set")
         return
 
     # 2.1 Pre-scan total_scans baseline
