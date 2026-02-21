@@ -8,6 +8,6 @@ resource "google_redis_instance" "cache" {
   redis_version           = "REDIS_7_0"
   auth_enabled            = true
   transit_encryption_mode = "SERVER_AUTHENTICATION"
-  reserved_ip_range       = "10.0.16.0/29"
+  reserved_ip_range       = "blakjaks-private-services"
   labels                  = { environment = var.environment }
 }
