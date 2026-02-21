@@ -339,10 +339,45 @@ jobs:
           kubectl rollout status deployment/celery-beat   -n staging --timeout=300s
           kubectl rollout status deployment/web-app       -n staging --timeout=300s
 
+  # ── Staging smoke test: runs after deploy, before load tests ────────────────
+  smoke-test:
+    name: Staging Smoke Test
+    needs: [deploy-staging]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install httpx rich
+
+      - name: Wait for staging to be healthy
+        run: |
+          echo "Waiting for staging API…"
+          for i in {1..12}; do
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" "${{ secrets.STAGING_API_URL }}/health" || echo "000")
+            if [ "$STATUS" = "200" ]; then echo "Healthy after ${i}×10s"; break; fi
+            echo "  Attempt $i/12 — HTTP $STATUS — waiting 10s…"
+            sleep 10
+          done
+
+      - name: Run smoke test
+        env:
+          STAGING_API_URL: ${{ secrets.STAGING_API_URL }}
+          SMOKE_TEST_EMAIL: ${{ secrets.LOAD_TEST_EMAIL }}
+          SMOKE_TEST_PASSWORD: ${{ secrets.LOAD_TEST_PASSWORD }}
+          SMOKE_ADMIN_EMAIL: ${{ secrets.SMOKE_ADMIN_EMAIL }}
+          SMOKE_ADMIN_PASSWORD: ${{ secrets.SMOKE_ADMIN_PASSWORD }}
+          SMOKE_TEST_QR_CODE: ${{ secrets.LOAD_TEST_QR_CODE }}
+        run: python scripts/staging_smoke_test.py --stop-on-fail
+
   # ── Load tests: run against staging after deploy ────────────────────────────
   load-test:
     name: Load Test (Staging)
-    needs: [deploy-staging]
+    needs: [deploy-staging, smoke-test]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
