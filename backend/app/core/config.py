@@ -44,9 +44,12 @@ class Settings(BaseSettings):
     BLOCKCHAIN_AFFILIATE_TREASURY_ADDRESS: str = ""
     BLOCKCHAIN_WHOLESALE_TREASURY_ADDRESS: str = ""
 
-    # USDT contract addresses
-    USDT_CONTRACT_ADDRESS_MAINNET: str = "0xc2132D05D31c914a87C6611C10748AEb04B58e8F"
-    USDT_CONTRACT_ADDRESS_AMOY: str = ""
+    # USDC contract addresses
+    USDC_CONTRACT_ADDRESS_MAINNET: str = "0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359"  # Native USDC on Polygon mainnet
+    USDC_CONTRACT_ADDRESS_AMOY: str = "0x41E94Eb019C0762f9Bfcf9Fb1E58725BfB0e7582"     # USDC on Polygon Amoy testnet
+
+    BLOCKCHAIN_DEV_PRIVATE_KEY: str = ""       # 0x-prefixed hex, local dev/staging only, never production
+    BLOCKCHAIN_DEV_TREASURY_ADDRESS: str = ""  # corresponding wallet address
 
     # -------------------------------------------------------------------------
     # Cloud KMS (treasury signing)

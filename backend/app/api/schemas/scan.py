@@ -25,7 +25,7 @@ class CompEarned(BaseModel):
 class ScanResponse(BaseModel):
     success: bool
     product_name: str
-    usdt_earned: float
+    usdc_earned: float
     tier_multiplier: float
     tier_progress: TierProgress
     comp_earned: CompEarned | None

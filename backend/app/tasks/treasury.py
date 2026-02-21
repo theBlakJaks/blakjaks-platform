@@ -14,7 +14,7 @@ def take_treasury_snapshot(self) -> dict:
     """Capture on-chain and bank balances for all 3 treasury pools.
 
     Runs hourly. Reads Teller bank balances (if configured) and on-chain
-    USDT balances from Polygon. Writes to treasury_snapshots table.
+    USDC balances from Polygon. Writes to treasury_snapshots table.
     """
     from app.db.session import AsyncSessionLocal
     from app.services.timescale_service import write_treasury_snapshot
@@ -34,8 +34,8 @@ def take_treasury_snapshot(self) -> dict:
                 onchain = Decimal("0")
                 if address:
                     try:
-                        from app.services.blockchain import get_usdt_balance
-                        onchain = get_usdt_balance(address)
+                        from app.services.blockchain import get_usdc_balance
+                        onchain = get_usdc_balance(address)
                     except Exception as exc:
                         logger.warning("Could not fetch on-chain balance for %s: %s", pool_type, exc)
 

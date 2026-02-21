@@ -95,7 +95,7 @@ async def test_stats_tier_promotion(client: AsyncClient, auth_headers, registere
         qr = QRCode(product_code="TP001", unique_id=f"qr-{uuid.uuid4()}", product_id=product.id)
         db.add(qr)
         await db.flush()
-        scan = Scan(user_id=user_id, qr_code_id=qr.id, usdt_earned=1, streak_day=i + 1)
+        scan = Scan(user_id=user_id, qr_code_id=qr.id, usdc_earned=1, streak_day=i + 1)
         db.add(scan)
 
     await db.commit()
@@ -160,7 +160,7 @@ async def test_mark_notification_read(
     client: AsyncClient, auth_headers, registered_user, db: AsyncSession,
 ):
     user_id = uuid.UUID(registered_user["user"]["id"])
-    notif = Notification(user_id=user_id, type="scan", title="New scan!", body="You earned 1 USDT")
+    notif = Notification(user_id=user_id, type="scan", title="New scan!", body="You earned 1 USDC")
     db.add(notif)
     await db.commit()
     await db.refresh(notif)

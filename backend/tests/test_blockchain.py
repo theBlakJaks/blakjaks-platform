@@ -18,7 +18,7 @@ from app.services.blockchain import (
     get_w3,
     get_node_health,
     get_wallet_balance,
-    get_usdt_balance,
+    get_usdc_balance,
     get_consumer_pool_address,
     get_affiliate_pool_address,
     get_wholesale_pool_address,
@@ -127,13 +127,13 @@ def test_treasury_pool_constants():
     assert CONSUMER_POOL + AFFILIATE_POOL + WHOLESALE_POOL + COMPANY_RETAINED == Decimal("100")
 
 
-# ── USDT contract address ───────────────────────────────────────────
+# ── USDC contract address ───────────────────────────────────────────
 
 
-def test_usdt_mainnet_address_is_valid():
+def test_usdc_mainnet_address_is_valid():
     from app.core.config import settings
 
-    addr = settings.USDT_CONTRACT_ADDRESS_MAINNET
+    addr = settings.USDC_CONTRACT_ADDRESS_MAINNET
     assert addr.startswith("0x")
     assert len(addr) == 42
     # Should be checksummed
@@ -196,13 +196,13 @@ def test_get_wallet_balance_with_mock():
         bc_module._w3_http = None
 
 
-def test_get_usdt_balance_no_contract_on_testnet():
+def test_get_usdc_balance_no_contract_on_testnet():
     """On amoy with no contract address, should return 0."""
     with patch("app.services.blockchain.settings") as mock_settings:
         mock_settings.POLYGON_NETWORK = "amoy"
-        mock_settings.USDT_CONTRACT_ADDRESS_AMOY = ""
-        mock_settings.USDT_CONTRACT_ADDRESS_MAINNET = "0xc2132D05D31c914a87C6611C10748AEb04B58e8F"
-        balance = get_usdt_balance("0x" + "a1" * 20)
+        mock_settings.USDC_CONTRACT_ADDRESS_AMOY = ""
+        mock_settings.USDC_CONTRACT_ADDRESS_MAINNET = "0xc2132D05D31c914a87C6611C10748AEb04B58e8F"
+        balance = get_usdc_balance("0x" + "a1" * 20)
         assert balance == Decimal("0")
 
 

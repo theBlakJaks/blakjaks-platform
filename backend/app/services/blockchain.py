@@ -236,16 +236,16 @@ def get_wallet_balance(address: str) -> Decimal:
     return Decimal(str(Web3.from_wei(balance_wei, "ether")))
 
 
-def get_usdt_balance(address: str) -> Decimal:
-    """Get USDT (ERC-20) token balance for an address."""
+def get_usdc_balance(address: str) -> Decimal:
+    """Get USDC (ERC-20) token balance for an address."""
     w3 = get_w3()
     contract_addr = (
-        settings.USDT_CONTRACT_ADDRESS_MAINNET
+        settings.USDC_CONTRACT_ADDRESS_MAINNET
         if settings.POLYGON_NETWORK == "mainnet"
-        else settings.USDT_CONTRACT_ADDRESS_AMOY
+        else settings.USDC_CONTRACT_ADDRESS_AMOY
     )
     if not contract_addr:
-        logger.warning("No USDT contract address configured for network %s", settings.POLYGON_NETWORK)
+        logger.warning("No USDC contract address configured for network %s", settings.POLYGON_NETWORK)
         return Decimal("0")
 
     checksum = Web3.to_checksum_address(contract_addr)
@@ -303,18 +303,18 @@ def sign_transaction_with_kms(tx: dict, key_name: str | None = None) -> bytes:
     return signed_tx_bytes
 
 
-def send_usdt_transfer(to_address: str, amount: Decimal) -> str:
-    """Build, sign via KMS, and broadcast a USDT transfer from the consumer treasury."""
-    return send_usdt_from_pool("consumer", to_address, amount)
+def send_usdc_transfer(to_address: str, amount: Decimal) -> str:
+    """Build, sign via KMS, and broadcast a USDC transfer from the consumer treasury."""
+    return send_usdc_from_pool("consumer", to_address, amount)
 
 
-def send_usdt_from_pool(pool_name: str, to_address: str, amount: Decimal) -> str:
-    """Build, sign via KMS, and broadcast a USDT transfer from a specific pool.
+def send_usdc_from_pool(pool_name: str, to_address: str, amount: Decimal) -> str:
+    """Build, sign via KMS, and broadcast a USDC transfer from a specific pool.
 
     Args:
         pool_name: One of "consumer", "affiliate", "wholesale".
         to_address: Recipient Polygon address.
-        amount: USDT amount (human-readable, e.g. Decimal("10.50")).
+        amount: USDC amount (human-readable, e.g. Decimal("10.50")).
 
     Returns:
         Transaction hash hex string.
@@ -330,12 +330,12 @@ def send_usdt_from_pool(pool_name: str, to_address: str, amount: Decimal) -> str
     key_name = getattr(settings, key_attr)
 
     contract_addr = (
-        settings.USDT_CONTRACT_ADDRESS_MAINNET
+        settings.USDC_CONTRACT_ADDRESS_MAINNET
         if settings.POLYGON_NETWORK == "mainnet"
-        else settings.USDT_CONTRACT_ADDRESS_AMOY
+        else settings.USDC_CONTRACT_ADDRESS_AMOY
     )
     if not contract_addr:
-        raise RuntimeError(f"No USDT contract address for network {settings.POLYGON_NETWORK}")
+        raise RuntimeError(f"No USDC contract address for network {settings.POLYGON_NETWORK}")
 
     pool_address = get_treasury_address(key_name)
     checksum_contract = Web3.to_checksum_address(contract_addr)
@@ -359,7 +359,7 @@ def send_usdt_from_pool(pool_name: str, to_address: str, amount: Decimal) -> str
     tx_hash = w3.eth.send_raw_transaction(signed_raw)
 
     logger.info(
-        "USDT transfer from %s pool: %s -> %s, amount=%s, tx=%s",
+        "USDC transfer from %s pool: %s -> %s, amount=%s, tx=%s",
         pool_name, pool_address, to_address, amount, tx_hash.hex(),
     )
     return tx_hash.hex()

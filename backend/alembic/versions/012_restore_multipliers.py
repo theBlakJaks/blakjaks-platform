@@ -1,7 +1,7 @@
 """Restore multiplier columns removed in migration 002.
 
 Revision ID: 012
-Revises: 011
+Revises: e6f7g8h9i0j1
 Create Date: 2026-02-20
 """
 
@@ -9,7 +9,7 @@ from alembic import op
 import sqlalchemy as sa
 
 revision = "012"
-down_revision = "011"
+down_revision = "e6f7g8h9i0j1"
 branch_labels = None
 depends_on = None
 

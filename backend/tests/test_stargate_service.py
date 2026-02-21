@@ -59,7 +59,7 @@ def test_get_bridge_quote_returns_expected_keys():
 
     assert "native_fee_wei" in result
     assert "native_fee_eth" in result
-    assert "amount_usdt" in result
+    assert "amount_usdc" in result
 
 
 def test_get_bridge_quote_fee_values():
@@ -76,7 +76,7 @@ def test_get_bridge_quote_fee_values():
 
     assert result["native_fee_wei"] == native_fee
     assert abs(result["native_fee_eth"] - 0.0005) < 1e-8
-    assert result["amount_usdt"] == 250.0
+    assert result["amount_usdc"] == 250.0
 
 
 def test_get_bridge_quote_calls_quote_with_correct_chain_id():
@@ -133,8 +133,8 @@ def test_execute_bridge_returns_tx_hash():
 
     assert "tx_hash" in result
     assert "layerzero_scan_url" in result
-    assert "amount_usdt" in result
-    assert result["amount_usdt"] == 500.0
+    assert "amount_usdc" in result
+    assert result["amount_usdc"] == 500.0
 
 
 def test_execute_bridge_includes_layerzero_scan_url():
@@ -182,7 +182,7 @@ def test_execute_bridge_applies_slippage_tolerance():
 
 
 def test_execute_bridge_amount_ld_uses_6_decimals():
-    """USDT has 6 decimals — amount_ld = amount * 1_000_000."""
+    """USDC has 6 decimals — amount_ld = amount * 1_000_000."""
     from app.services.stargate_service import execute_bridge
 
     router_mock = _make_router_mock()

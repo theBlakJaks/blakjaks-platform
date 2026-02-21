@@ -161,7 +161,7 @@ struct WalletSectionView: View {
         NavigationStack {
             VStack(spacing: Spacing.xl) {
                 VStack(alignment: .leading, spacing: Spacing.xs) {
-                    Text("Amount (USDT)")
+                    Text("Amount (USDC)")
                         .font(.footnote.weight(.medium))
                         .foregroundColor(.secondary)
                     TextField("0.00", text: $viewModel.withdrawAmount)
@@ -183,14 +183,14 @@ struct WalletSectionView: View {
                         .background(Color.backgroundSecondary)
                         .cornerRadius(Layout.buttonCornerRadius)
                 }
-                GoldButton("Withdraw USDT", isLoading: viewModel.withdrawIsLoading) {
+                GoldButton("Withdraw USDC", isLoading: viewModel.withdrawIsLoading) {
                     let success = await viewModel.withdrawCrypto()
                     if success { showCryptoWithdraw = false }
                 }
                 Spacer()
             }
             .padding(Layout.screenMargin)
-            .navigationTitle("Send USDT")
+            .navigationTitle("Send USDC")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {

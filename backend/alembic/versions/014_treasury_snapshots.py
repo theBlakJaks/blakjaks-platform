@@ -26,10 +26,14 @@ def upgrade() -> None:
         sa.Column("metadata", postgresql.JSONB, nullable=True),
     )
 
-    try:
-        op.execute("SELECT create_hypertable('treasury_snapshots', 'timestamp', if_not_exists => TRUE)")
-    except Exception:
-        pass
+    op.execute("""
+        DO $$
+        BEGIN
+            IF EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'timescaledb') THEN
+                PERFORM create_hypertable('treasury_snapshots', 'timestamp', if_not_exists => TRUE);
+            END IF;
+        END $$;
+    """)
 
 
 def downgrade() -> None:

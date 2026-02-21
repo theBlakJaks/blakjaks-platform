@@ -11,8 +11,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.transaction import Transaction
 from app.models.wallet import Wallet
 
-# Minimum withdrawal amount in USDT
-MIN_WITHDRAWAL_USDT = Decimal("5.00")
+# Minimum withdrawal amount in USDC
+MIN_WITHDRAWAL_USDC = Decimal("5.00")
 
 # Polygon address regex: 0x followed by 40 hex chars
 POLYGON_ADDRESS_RE = re.compile(r"^0x[0-9a-fA-F]{40}$")
@@ -112,8 +112,8 @@ async def request_withdrawal(
     For crypto: to_address is the Polygon wallet address.
     For bank: to_address is None (Dwolla handles via stored funding source).
     """
-    if amount < MIN_WITHDRAWAL_USDT:
-        raise ValueError(f"Minimum withdrawal is {MIN_WITHDRAWAL_USDT} USDT")
+    if amount < MIN_WITHDRAWAL_USDC:
+        raise ValueError(f"Minimum withdrawal is {MIN_WITHDRAWAL_USDC} USDC")
 
     if method == "crypto" and to_address and not POLYGON_ADDRESS_RE.match(to_address):
         raise ValueError("Invalid Polygon address format")

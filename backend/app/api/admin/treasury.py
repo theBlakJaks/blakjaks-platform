@@ -30,20 +30,20 @@ def require_admin(user: User = Depends(get_current_user)) -> User:
 
 
 class BridgeRequest(BaseModel):
-    amount_usdt: Decimal = Field(..., gt=0, description="USDT amount to bridge")
+    amount_usdc: Decimal = Field(..., gt=0, description="USDC amount to bridge")
     destination_address: str = Field(..., description="Polygon recipient address")
 
 
 class BridgeQuoteResponse(BaseModel):
     native_fee_wei: int
     native_fee_eth: float
-    amount_usdt: float
+    amount_usdc: float
 
 
 class BridgeResponse(BaseModel):
     tx_hash: str
     layerzero_scan_url: str
-    amount_usdt: float
+    amount_usdc: float
 
 
 # ---------------------------------------------------------------------------
@@ -53,39 +53,39 @@ class BridgeResponse(BaseModel):
 
 @router.get("/bridge/quote", response_model=BridgeQuoteResponse)
 async def bridge_quote(
-    amount_usdt: Decimal = Depends(lambda amount_usdt: amount_usdt),
+    amount_usdc: Decimal = Depends(lambda amount_usdc: amount_usdc),
     admin: User = Depends(require_admin),
 ):
-    """Get LayerZero fee estimate for bridging USDT to Polygon."""
+    """Get LayerZero fee estimate for bridging USDC to Polygon."""
     from fastapi import Query
 
     raise HTTPException(
         status.HTTP_422_UNPROCESSABLE_ENTITY,
-        "Use query param: /quote?amount_usdt=100",
+        "Use query param: /quote?amount_usdc=100",
     )
 
 
 @router.get("/bridge/quote-amount")
 async def bridge_quote_amount(
-    amount_usdt: Decimal,
+    amount_usdc: Decimal,
     admin: User = Depends(require_admin),
 ):
-    """Get LayerZero fee estimate for bridging a specific USDT amount."""
+    """Get LayerZero fee estimate for bridging a specific USDC amount."""
     try:
-        quote = get_bridge_quote(amount_usdt)
+        quote = get_bridge_quote(amount_usdc)
     except RuntimeError as exc:
         raise HTTPException(status.HTTP_502_BAD_GATEWAY, str(exc))
     return quote
 
 
 @router.post("/bridge", response_model=BridgeResponse)
-async def bridge_usdt(
+async def bridge_usdc(
     body: BridgeRequest,
     admin: User = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
     x_2fa_token: str | None = Header(None, alias="X-2FA-Token"),
 ):
-    """Bridge USDT from Ethereum treasury to Polygon.
+    """Bridge USDC from Ethereum treasury to Polygon.
 
     Requires the X-2FA-Token header to be present (admin 2FA confirmation).
     Logs the action to audit_logs.
@@ -110,7 +110,7 @@ async def bridge_usdt(
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Invalid or expired 2FA token")
 
     try:
-        result = execute_bridge(body.amount_usdt, body.destination_address)
+        result = execute_bridge(body.amount_usdc, body.destination_address)
     except Exception as exc:
         raise HTTPException(status.HTTP_502_BAD_GATEWAY, f"Bridge failed: {exc}")
 
@@ -121,7 +121,7 @@ async def bridge_usdt(
         resource_type="stargate_bridge",
         resource_id=result["tx_hash"],
         details={
-            "amount_usdt": str(body.amount_usdt),
+            "amount_usdc": str(body.amount_usdc),
             "destination_address": body.destination_address,
             "tx_hash": result["tx_hash"],
             "layerzero_scan_url": result["layerzero_scan_url"],

@@ -236,7 +236,7 @@ export interface Proposal {
 export interface PoolBalance {
   pool_name: string
   address: string
-  usdt_balance: number
+  usdc_balance: number
   matic_balance: number
   allocation_pct: number
 }

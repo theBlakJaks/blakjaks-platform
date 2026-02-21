@@ -511,7 +511,7 @@ private fun ScanHistoryRow(scan: com.blakjaks.app.core.network.models.Scan) {
             }
         }
         Text(
-            text = "+${"%.2f".format(scan.usdtEarned)}",
+            text = "+${"%.2f".format(scan.usdcEarned)}",
             color = Success,
             fontWeight = FontWeight.Bold,
             fontSize = 14.sp

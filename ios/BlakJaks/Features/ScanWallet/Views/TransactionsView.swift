@@ -30,7 +30,7 @@ struct TransactionsView: View {
                 EmptyStateView(
                     icon: "dollarsign.circle",
                     title: "No Transactions",
-                    subtitle: "Earn your first USDT by scanning a BlakJaks product.",
+                    subtitle: "Earn your first USDC by scanning a BlakJaks product.",
                     actionTitle: nil
                 )
                 .padding(.horizontal, Layout.screenMargin)

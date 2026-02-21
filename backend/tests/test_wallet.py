@@ -6,7 +6,7 @@ from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.services.wallet_service import (
-    MIN_WITHDRAWAL_USDT,
+    MIN_WITHDRAWAL_USDC,
     _deterministic_placeholder_address,
     create_user_wallet,
     get_user_transactions,

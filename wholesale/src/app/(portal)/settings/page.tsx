@@ -135,7 +135,7 @@ export default function SettingsPage() {
       {tab === 'Wallet' && profile && (
         <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-bg-card)] p-6">
           <h3 className="mb-6 text-sm font-semibold text-white">Wallet Address</h3>
-          <p className="mb-4 text-sm text-[var(--color-text-muted)]">Your Polygon USDT wallet address for comp payouts.</p>
+          <p className="mb-4 text-sm text-[var(--color-text-muted)]">Your Polygon USDC wallet address for comp payouts.</p>
           <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] px-4 py-3">
             {profile.wallet_address ? (
               <div>

@@ -37,7 +37,7 @@ async def write_treasury_snapshot(
 
     Args:
         pool_type: One of "consumer", "affiliate", "wholesale".
-        onchain_balance: On-chain USDT balance in human-readable units.
+        onchain_balance: On-chain USDC balance in human-readable units.
         bank_balance: Teller bank balance in USD.
         metadata: Optional dict of extra info (e.g. block number).
 

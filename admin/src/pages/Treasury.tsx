@@ -135,7 +135,7 @@ export default function Treasury() {
       return
     }
     const pool = pools.find(p => p.pool_name === sendPool)
-    if (pool && parseFloat(sendAmount) > pool.usdt_balance) {
+    if (pool && parseFloat(sendAmount) > pool.usdc_balance) {
       toast.error('Amount exceeds pool balance')
       return
     }
@@ -162,7 +162,7 @@ export default function Treasury() {
   }
 
   const txTotalPages = Math.ceil(txTotal / 20)
-  const totalBalance = pools.reduce((s, p) => s + p.usdt_balance, 0)
+  const totalBalance = pools.reduce((s, p) => s + p.usdc_balance, 0)
   const selectedPool = pools.find(p => p.pool_name === sendPool)
 
   return (
@@ -195,8 +195,8 @@ export default function Treasury() {
 
               <div className="mb-4 space-y-2">
                 <div>
-                  <p className="text-xs text-slate-500">USDT Balance</p>
-                  <p className="text-2xl font-bold text-slate-900">${pool.usdt_balance.toLocaleString('en-US', { minimumFractionDigits: 2 })}</p>
+                  <p className="text-xs text-slate-500">USDC Balance</p>
+                  <p className="text-2xl font-bold text-slate-900">${pool.usdc_balance.toLocaleString('en-US', { minimumFractionDigits: 2 })}</p>
                 </div>
                 <div>
                   <p className="text-xs text-slate-500">MATIC (Gas)</p>
@@ -208,7 +208,7 @@ export default function Treasury() {
                 onClick={() => openSend(pool.pool_name)}
                 className="flex w-full items-center justify-center gap-1.5 rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-indigo-700"
               >
-                <Send size={16} /> Send USDT
+                <Send size={16} /> Send USDC
               </button>
             </div>
           ))}
@@ -397,20 +397,20 @@ export default function Treasury() {
         )}
       </div>
 
-      {/* Send USDT Modal — Two-step confirmation */}
-      <Modal open={sendOpen} onClose={() => setSendOpen(false)} title={`Send USDT from ${POOL_LABELS[sendPool] || sendPool}`}>
+      {/* Send USDC Modal — Two-step confirmation */}
+      <Modal open={sendOpen} onClose={() => setSendOpen(false)} title={`Send USDC from ${POOL_LABELS[sendPool] || sendPool}`}>
         {sendStep === 'form' && (
           <div className="space-y-4">
             <div className="rounded-lg bg-slate-50 p-3">
               <p className="text-xs text-slate-500">Available Balance</p>
-              <p className="text-lg font-bold text-slate-900">${selectedPool?.usdt_balance.toLocaleString('en-US', { minimumFractionDigits: 2 }) || '0.00'}</p>
+              <p className="text-lg font-bold text-slate-900">${selectedPool?.usdc_balance.toLocaleString('en-US', { minimumFractionDigits: 2 }) || '0.00'}</p>
             </div>
             <div>
               <label className="mb-1 block text-sm font-medium text-slate-700">To Address</label>
               <input type="text" value={sendTo} onChange={(e) => setSendTo(e.target.value)} placeholder="0x..." className="w-full rounded-lg border border-slate-300 px-3 py-2.5 font-mono text-sm outline-none focus:border-indigo-500" />
             </div>
             <div>
-              <label className="mb-1 block text-sm font-medium text-slate-700">Amount (USDT)</label>
+              <label className="mb-1 block text-sm font-medium text-slate-700">Amount (USDC)</label>
               <input type="number" value={sendAmount} onChange={(e) => setSendAmount(e.target.value)} min="0.01" step="0.01" className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-indigo-500" />
             </div>
             <div>

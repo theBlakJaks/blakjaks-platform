@@ -3,7 +3,7 @@ import SwiftUI
 // MARK: - BlakJaks Typography System
 // SF Pro (default):   All UI text, navigation, buttons, body content
 // New York (serif):   Brand headlines, premium display, tier names
-// SF Mono:            Wallet addresses, transaction hashes, USDT amounts
+// SF Mono:            Wallet addresses, transaction hashes, USDC amounts
 
 extension Font {
 
@@ -19,7 +19,7 @@ extension Font {
     static let monoTitle = Font.system(.title, design: .monospaced).weight(.semibold)
     static let monoTitle2 = Font.system(.title2, design: .monospaced).weight(.semibold)
 
-    // MARK: - USDT / Balance amounts (large monospaced)
+    // MARK: - USDC / Balance amounts (large monospaced)
     static let walletBalance = Font.system(size: 44, weight: .semibold, design: .monospaced)
     static let walletBalanceSmall = Font.system(size: 28, weight: .medium, design: .monospaced)
 }

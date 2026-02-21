@@ -12,7 +12,7 @@ struct WelcomeView: View {
     private let onboardingCards: [OnboardingCard] = [
         OnboardingCard(
             icon: "qrcode.viewfinder",
-            title: "Earn USDT Rewards",
+            title: "Earn USDC Rewards",
             subtitle: "Scan QR codes on every BlakJaks product and earn real crypto directly to your wallet."
         ),
         OnboardingCard(

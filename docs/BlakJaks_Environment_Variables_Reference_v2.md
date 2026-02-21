@@ -4,6 +4,12 @@
 **Date:** February 20, 2026
 **Purpose:** Complete reference for all environment variables required across all BlakJaks platform services
 
+**Changelog (v2.1 → v2.2):**
+- Renamed USDT → USDC throughout (token, variable names, comments)
+- Renamed `BLOCKCHAIN_USDT_CONTRACT_ADDRESS` → `BLOCKCHAIN_USDC_CONTRACT_ADDRESS_MAINNET` / `BLOCKCHAIN_USDC_CONTRACT_ADDRESS_AMOY`
+- Updated MAINNET contract address to `0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359` (Native USDC on Polygon mainnet)
+- Updated AMOY testnet contract address to `0x41E94Eb019C0762f9Bfcf9Fb1E58725BfB0e7582` (USDC on Polygon Amoy testnet)
+
 **Changelog (v2.0 → v2.1):**
 - Removed Oobit integration (replaced by Dwolla ACH payout service)
 - Added Dwolla payout service variables (ACH withdrawals, Plaid bank linking)
@@ -241,7 +247,7 @@ BLOCKCHAIN_AFFILIATE_TREASURY_ADDRESS=0xabcdef1234567890abcdef1234567890abcdef12
 BLOCKCHAIN_WHOLESALE_TREASURY_ADDRESS=0x7890abcdef1234567890abcdef1234567890abcd
 
 # Treasury Monitoring
-BLOCKCHAIN_TREASURY_BALANCE_WARNING_THRESHOLD=10000  # USDT
+BLOCKCHAIN_TREASURY_BALANCE_WARNING_THRESHOLD=10000  # USDC
 BLOCKCHAIN_TREASURY_ALERT_EMAIL=treasury@blakjaks.com
 ```
 
@@ -254,12 +260,13 @@ BLOCKCHAIN_TREASURY_ALERT_EMAIL=treasury@blakjaks.com
 
 ---
 
-### USDT Token Contract
+### USDC Token Contract
 
 ```shell
-# USDT Contract on Polygon
-BLOCKCHAIN_USDT_CONTRACT_ADDRESS=0xc2132D05D31c914a87C6611C10748AEb04B58e8F  # Polygon mainnet
-BLOCKCHAIN_USDT_DECIMALS=6
+# USDC Contract on Polygon
+BLOCKCHAIN_USDC_CONTRACT_ADDRESS_MAINNET=0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359  # Native USDC on Polygon mainnet
+BLOCKCHAIN_USDC_CONTRACT_ADDRESS_AMOY=0x41E94Eb019C0762f9Bfcf9Fb1E58725BfB0e7582  # USDC on Polygon Amoy testnet
+BLOCKCHAIN_USDC_DECIMALS=6
 
 # Gas Settings
 BLOCKCHAIN_GAS_PRICE_MULTIPLIER=1.2
@@ -269,7 +276,7 @@ BLOCKCHAIN_GAS_LIMIT_TRANSFER=100000
 
 **Where to get:**
 
-* USDT contract address: Public (Polygon mainnet)
+* USDC contract address: Public (Polygon mainnet / Amoy testnet)
 * Gas settings: Configuration values
 
 **Required for:** Backend API, Blockchain Worker
@@ -1530,4 +1537,4 @@ kubectl rollout restart deployment/api-server -n production
 
 ---
 
-**End of Environment Variables Reference v2.0**
+**End of Environment Variables Reference v2.2**

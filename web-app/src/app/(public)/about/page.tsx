@@ -19,7 +19,7 @@ const values = [
   {
     icon: Coins,
     title: 'Real Rewards',
-    description: 'No points, no gimmicks. We pay real USDT cryptocurrency directly to your wallet. Withdraw anytime, no minimum balance. Your loyalty earns you real money.',
+    description: 'No points, no gimmicks. We pay real USDC cryptocurrency directly to your wallet. Withdraw anytime, no minimum balance. Your loyalty earns you real money.',
   },
   {
     icon: Heart,
@@ -37,7 +37,7 @@ const howItWorksSteps = [
   {
     icon: Coins,
     title: 'Instant Comps',
-    description: 'When you scan a POP code, our system verifies it on-chain and immediately sends your USDT comp to your BlakJaks wallet. Comps are funded from our transparent treasury pools.',
+    description: 'When you scan a POP code, our system verifies it on-chain and immediately sends your USDC comp to your BlakJaks wallet. Comps are funded from our transparent treasury pools.',
   },
   {
     icon: TrendingUp,
@@ -47,7 +47,7 @@ const howItWorksSteps = [
   {
     icon: Zap,
     title: 'Withdraw Anytime',
-    description: 'Your USDT balance is always yours. Withdraw to any Polygon-compatible wallet at any time. No lock-ups, no waiting periods, no minimum balance requirements.',
+    description: 'Your USDC balance is always yours. Withdraw to any Polygon-compatible wallet at any time. No lock-ups, no waiting periods, no minimum balance requirements.',
   },
 ]
 
@@ -88,7 +88,7 @@ export default function AboutPage() {
                   We asked ourselves: what if every purchase was verified on-chain? What if rewards were real cryptocurrency you could withdraw instantly? What if the entire treasury was transparent and publicly auditable?
                 </p>
                 <p>
-                  BlakJaks is the result. A premium nicotine pouch brand where every tin you buy earns you real USDT, every dollar in our treasury is publicly visible, and every major decision is made by the community.
+                  BlakJaks is the result. A premium nicotine pouch brand where every tin you buy earns you real USDC, every dollar in our treasury is publicly visible, and every major decision is made by the community.
                 </p>
               </div>
             </div>
@@ -108,7 +108,7 @@ export default function AboutPage() {
                   </div>
                   <div className="rounded-xl bg-[var(--color-bg-surface)] p-4">
                     <p className="text-2xl font-bold gold-gradient-text">$137,395+</p>
-                    <p className="text-xs text-[var(--color-text-dim)]">USDT Paid to Members</p>
+                    <p className="text-xs text-[var(--color-text-dim)]">USDC Paid to Members</p>
                   </div>
                 </div>
               </div>

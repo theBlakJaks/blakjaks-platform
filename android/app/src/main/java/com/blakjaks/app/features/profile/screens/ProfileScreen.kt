@@ -251,7 +251,7 @@ fun ProfileScreen(navController: NavController) {
                     )
                     StatCard(
                         label = "Lifetime Comps",
-                        value = "$${String.format("%.0f", profile?.lifetimeUsdt ?: 0.0)}",
+                        value = "$${String.format("%.0f", profile?.lifetimeUsdc ?: 0.0)}",
                         modifier = Modifier.weight(1f)
                     )
                     StatCard(

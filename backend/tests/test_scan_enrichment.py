@@ -1,6 +1,6 @@
 """Tests for E1 — Scan Submit Enrichment.
 
-Verifies: usdt_earned calculation, tier_multiplier storage, Redis increments,
+Verifies: usdc_earned calculation, tier_multiplier storage, Redis increments,
 comp milestone trigger, and full ScanResponse schema.
 """
 
@@ -76,7 +76,7 @@ def _setup_db(qr, user, wallet=None, product_name="Test Product"):
 
 
 @pytest.mark.asyncio
-async def test_usdt_earned_standard_tier():
+async def test_usdc_earned_standard_tier():
     """Standard tier multiplier=1.0 earns BASE_RATE per scan."""
     from app.services.qr_code import submit_scan, BASE_RATE
 
@@ -94,12 +94,12 @@ async def test_usdt_earned_standard_tier():
          patch("app.services.redis_service.get_global_scan_count", return_value=1):
         result = await submit_scan(mock_db, user, "BLAKJAKS-PROD-ABCDEF123456")
 
-    assert result["usdt_earned"] == float(BASE_RATE * Decimal("1.0"))
+    assert result["usdc_earned"] == float(BASE_RATE * Decimal("1.0"))
     assert result["tier_multiplier"] == 1.0
 
 
 @pytest.mark.asyncio
-async def test_usdt_earned_vip_tier():
+async def test_usdc_earned_vip_tier():
     """VIP multiplier=1.5 earns 1.5× base."""
     from app.services.qr_code import submit_scan, BASE_RATE
 
@@ -118,11 +118,11 @@ async def test_usdt_earned_vip_tier():
         result = await submit_scan(mock_db, user, "BLAKJAKS-PROD-ABCDEF123456")
 
     assert result["tier_multiplier"] == 1.5
-    assert abs(result["usdt_earned"] - float(BASE_RATE * Decimal("1.5"))) < 1e-8
+    assert abs(result["usdc_earned"] - float(BASE_RATE * Decimal("1.5"))) < 1e-8
 
 
 @pytest.mark.asyncio
-async def test_usdt_earned_high_roller_tier():
+async def test_usdc_earned_high_roller_tier():
     """High Roller multiplier=2.0."""
     from app.services.qr_code import submit_scan, BASE_RATE
 
@@ -143,7 +143,7 @@ async def test_usdt_earned_high_roller_tier():
 
 
 @pytest.mark.asyncio
-async def test_usdt_earned_whale_tier():
+async def test_usdc_earned_whale_tier():
     """Whale multiplier=3.0."""
     from app.services.qr_code import submit_scan, BASE_RATE
 
@@ -161,7 +161,7 @@ async def test_usdt_earned_whale_tier():
         result = await submit_scan(mock_db, user, "BLAKJAKS-PROD-ABCDEF123456")
 
     assert result["tier_multiplier"] == 3.0
-    assert abs(result["usdt_earned"] - float(BASE_RATE * Decimal("3.0"))) < 1e-8
+    assert abs(result["usdc_earned"] - float(BASE_RATE * Decimal("3.0"))) < 1e-8
 
 
 @pytest.mark.asyncio

@@ -31,7 +31,7 @@ export interface User {
   effectiveTier: Tier
   totalScans: number
   quarterlyScans: number
-  lifetimeUSDT: number
+  lifetimeUSDC: number
   walletAddress: string
   memberSince: string
   avatar?: string

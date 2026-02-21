@@ -5,7 +5,7 @@ struct Scan: Codable, Identifiable {
     let qrCode: String
     let productName: String
     let productSku: String
-    let usdtEarned: Double
+    let usdcEarned: Double
     let tierMultiplier: Double
     let tier: String
     let createdAt: String
@@ -14,7 +14,7 @@ struct Scan: Codable, Identifiable {
 struct ScanResult: Codable {
     let success: Bool
     let productName: String
-    let usdtEarned: Double
+    let usdcEarned: Double
     let tierMultiplier: Double
     let tierProgress: TierProgress
     let compEarned: CompEarned?

@@ -106,7 +106,7 @@ def upgrade() -> None:
         sa.Column("id", sa.UUID(), server_default=sa.text("gen_random_uuid()"), nullable=False),
         sa.Column("user_id", sa.UUID(), nullable=False),
         sa.Column("qr_code_id", sa.UUID(), nullable=False),
-        sa.Column("usdt_earned", sa.Numeric(12, 2), nullable=False),
+        sa.Column("usdc_earned", sa.Numeric(12, 2), nullable=False),  # Renamed from usdt_earned in migration 024
         sa.Column("tier_multiplier", sa.Numeric(5, 2), nullable=False),
         sa.Column("streak_day", sa.Integer(), nullable=False),
         sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),

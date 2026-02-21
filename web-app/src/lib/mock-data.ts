@@ -23,7 +23,7 @@ export const currentUser: User = {
   effectiveTier: 'vip',
   totalScans: 347,
   quarterlyScans: 42,
-  lifetimeUSDT: 186.50,
+  lifetimeUSDC: 186.50,
   walletAddress: '0x7a3B...9f4E',
   memberSince: '2024-06-15',
 }
@@ -163,7 +163,7 @@ function generateMessages(channelId: string, count: number): Message[] {
   const baseMessages = [
     'Has anyone tried the new Cinnamon flavor? Absolutely fire.',
     'Just hit 100 scans this quarter! VIP here I come.',
-    'The comp system is so generous. Love getting USDT just for scanning.',
+    'The comp system is so generous. Love getting USDC just for scanning.',
     'Anyone know when the next governance vote is?',
     'Wintergreen is still the GOAT flavor. Fight me.',
     'My withdrawal went through in like 2 minutes. Impressive.',
@@ -337,26 +337,26 @@ export const transparencyOverview: TransparencyOverview = {
 }
 
 export const activityFeed: ActivityFeedItem[] = [
-  { id: 'af_001', message: 'You scanned a QR code and earned $0.50 USDT', timestamp: '2025-02-17T10:00:00Z', type: 'scan' },
+  { id: 'af_001', message: 'You scanned a QR code and earned $0.50 USDC', timestamp: '2025-02-17T10:00:00Z', type: 'scan' },
   { id: 'af_002', message: 'Order BJ-20250215 is now processing', timestamp: '2025-02-16T16:45:00Z', type: 'order' },
   { id: 'af_003', message: 'New governance vote: "New Flavor: Mango Tango"', timestamp: '2025-02-16T12:00:00Z', type: 'governance' },
-  { id: 'af_004', message: 'You earned $0.50 USDT from a QR scan', timestamp: '2025-02-15T09:00:00Z', type: 'comp' },
+  { id: 'af_004', message: 'You earned $0.50 USDC from a QR scan', timestamp: '2025-02-15T09:00:00Z', type: 'comp' },
   { id: 'af_005', message: 'cryptoQueen mentioned you in #General Chat', timestamp: '2025-02-15T08:30:00Z', type: 'social' },
   { id: 'af_006', message: 'Order BJ-20250201 has shipped!', timestamp: '2025-02-14T12:00:00Z', type: 'order' },
-  { id: 'af_007', message: 'You earned $0.50 USDT from a QR scan', timestamp: '2025-02-14T16:45:00Z', type: 'scan' },
+  { id: 'af_007', message: 'You earned $0.50 USDC from a QR scan', timestamp: '2025-02-14T16:45:00Z', type: 'scan' },
   { id: 'af_008', message: 'You earned $2.50 referral bonus from user92', timestamp: '2025-02-13T11:20:00Z', type: 'comp' },
-  { id: 'af_009', message: 'VIP Monthly Tier Bonus: $5.00 USDT', timestamp: '2025-02-12T08:15:00Z', type: 'comp' },
+  { id: 'af_009', message: 'VIP Monthly Tier Bonus: $5.00 USDC', timestamp: '2025-02-12T08:15:00Z', type: 'comp' },
   { id: 'af_010', message: 'New message in #Flavor Reviews', timestamp: '2025-02-11T14:00:00Z', type: 'social' },
   { id: 'af_011', message: 'Order BJ-20250187 delivered!', timestamp: '2025-02-10T18:00:00Z', type: 'order' },
-  { id: 'af_012', message: 'Withdrawal of $50.00 USDT completed', timestamp: '2025-02-08T13:30:00Z', type: 'comp' },
+  { id: 'af_012', message: 'Withdrawal of $50.00 USDC completed', timestamp: '2025-02-08T13:30:00Z', type: 'comp' },
   { id: 'af_013', message: 'System maintenance completed successfully', timestamp: '2025-02-07T06:00:00Z', type: 'system' },
-  { id: 'af_014', message: 'You scanned a QR code and earned $0.50 USDT', timestamp: '2025-02-06T10:00:00Z', type: 'scan' },
+  { id: 'af_014', message: 'You scanned a QR code and earned $0.50 USDC', timestamp: '2025-02-06T10:00:00Z', type: 'scan' },
   { id: 'af_015', message: 'Governance vote "Packaging Redesign" closed', timestamp: '2025-02-01T00:00:00Z', type: 'governance' },
-  { id: 'af_016', message: 'Monthly VIP Bonus: $10.00 USDT', timestamp: '2025-02-01T08:00:00Z', type: 'comp' },
+  { id: 'af_016', message: 'Monthly VIP Bonus: $10.00 USDC', timestamp: '2025-02-01T08:00:00Z', type: 'comp' },
   { id: 'af_017', message: 'New channel: #Crypto Talk is now available', timestamp: '2025-01-28T10:00:00Z', type: 'social' },
   { id: 'af_018', message: 'You earned $2.50 referral bonus from sarah_k', timestamp: '2025-01-25T11:00:00Z', type: 'comp' },
   { id: 'af_019', message: 'Order BJ-20250102 delivered!', timestamp: '2025-01-20T14:00:00Z', type: 'order' },
-  { id: 'af_020', message: 'Withdrawal of $25.00 USDT completed', timestamp: '2025-01-20T09:45:00Z', type: 'comp' },
+  { id: 'af_020', message: 'Withdrawal of $25.00 USDC completed', timestamp: '2025-01-20T09:45:00Z', type: 'comp' },
   { id: 'af_021', message: 'You earned $5.00 referral bonus from mike_d', timestamp: '2025-01-15T10:30:00Z', type: 'comp' },
 ]
 

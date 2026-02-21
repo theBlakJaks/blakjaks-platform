@@ -423,7 +423,7 @@ export default function Insights() {
                   <p className={`text-3xl font-bold ${POOL_ACCENT[pool]}`}>
                     {formatUsdt(balance.amount)}
                   </p>
-                  <p className="mt-0.5 text-xs text-slate-400">{balance.currency ?? 'USDT'}</p>
+                  <p className="mt-0.5 text-xs text-slate-400">{balance.currency ?? 'USDC'}</p>
 
                   {sparkValues.length > 0 && (
                     <div className="mt-4">

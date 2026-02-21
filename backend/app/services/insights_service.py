@@ -23,7 +23,7 @@ from app.models.wholesale_account import WholesaleAccount
 
 logger = logging.getLogger(__name__)
 
-# Crypto comp milestone thresholds (USDT)
+# Crypto comp milestone thresholds (USDC)
 _MILESTONES = [100_000, 200_000, 300_000, 400_000, 500_000]
 
 

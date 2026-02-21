@@ -35,7 +35,7 @@
 	</array>
 	<!-- Privacy Descriptions -->
 	<key>NSCameraUsageDescription</key>
-	<string>BlakJaks uses the camera to scan product QR codes and earn USDT rewards.</string>
+	<string>BlakJaks uses the camera to scan product QR codes and earn USDC rewards.</string>
 	<key>NSFaceIDUsageDescription</key>
 	<string>BlakJaks uses Face ID for fast, secure sign-in to your account.</string>
 	<!-- Custom URL Scheme — Web3Auth redirect -->

@@ -488,7 +488,7 @@ async def approve_payout_batch(db: AsyncSession, batch_date: datetime | None = N
 
 async def execute_payouts(db: AsyncSession) -> int:
     """Execute approved payouts: update to paid status. Returns count executed.
-    TODO: Send USDT from affiliate pool wallet via blockchain.py.
+    TODO: Send USDC from affiliate pool wallet via blockchain.py.
     """
     result = await db.execute(
         update(AffiliatePayout)

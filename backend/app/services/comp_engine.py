@@ -13,9 +13,9 @@ Consumer Pool breakdown:
 - Trip Comps: 10% of Consumer Pool
 
 Crypto comp milestones (predetermined, automatic):
-- $100 USDT — VIP+ eligible
-- $1,000 USDT — High Roller+ eligible
-- $10,000 USDT — Whale only
+- $100 USDC — VIP+ eligible
+- $1,000 USDC — High Roller+ eligible
+- $10,000 USDC — Whale only
 
 New member guaranteed comp:
 - Every new member gets $50 in comps during first year
@@ -403,7 +403,7 @@ async def process_weekly_affiliate_payout(
 
 
 async def get_pool_balances() -> dict[str, dict]:
-    """Return on-chain USDT balances of all three pool wallets.
+    """Return on-chain USDC balances of all three pool wallets.
 
     Uses mocked values on testnet when no contract address is configured.
     """
@@ -411,7 +411,7 @@ async def get_pool_balances() -> dict[str, dict]:
         get_consumer_pool_address,
         get_affiliate_pool_address,
         get_wholesale_pool_address,
-        get_usdt_balance,
+        get_usdc_balance,
     )
 
     pools = {}
@@ -422,7 +422,7 @@ async def get_pool_balances() -> dict[str, dict]:
     ]:
         try:
             addr = get_addr()
-            balance = get_usdt_balance(addr)
+            balance = get_usdc_balance(addr)
         except Exception:
             # KMS not available in dev/test — return placeholder
             addr = None

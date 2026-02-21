@@ -1,7 +1,7 @@
 import SwiftUI
 
 // MARK: - ScanHistoryView
-// List of recent QR scans: product name, USDT earned, relative timestamp.
+// List of recent QR scans: product name, USDC earned, relative timestamp.
 
 struct ScanHistoryView: View {
     let scans: [Scan]
@@ -16,7 +16,7 @@ struct ScanHistoryView: View {
                 EmptyStateView(
                     icon: "qrcode.viewfinder",
                     title: "No Scans Yet",
-                    subtitle: "Scan your first BlakJaks product QR code to start earning USDT rewards."
+                    subtitle: "Scan your first BlakJaks product QR code to start earning USDC rewards."
                 )
                 .padding(.horizontal, Layout.screenMargin)
             } else {
@@ -65,7 +65,7 @@ struct ScanHistoryView: View {
 
             Spacer()
 
-            Text("+$\(scan.usdtEarned.formatted(.number.precision(.fractionLength(2)))) USDT")
+            Text("+$\(scan.usdcEarned.formatted(.number.precision(.fractionLength(2)))) USDC")
                 .font(.system(.footnote, design: .monospaced).weight(.semibold))
                 .foregroundColor(.success)
         }

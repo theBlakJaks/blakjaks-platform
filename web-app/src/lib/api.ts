@@ -666,7 +666,7 @@ export const api = {
           id: string
           date: string
           product_name: string
-          usdt_earned: number
+          usdc_earned: number
           tier_multiplier: number
           tier: string
         }>

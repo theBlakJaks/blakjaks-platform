@@ -18,7 +18,7 @@ from app.services.tier import get_all_tiers, get_quarterly_scan_count, get_user_
 
 logger = logging.getLogger(__name__)
 
-# Base USDT earn rate per scan (before tier multiplier)
+# Base USDC earn rate per scan (before tier multiplier)
 BASE_RATE = Decimal("0.01")
 
 QR_PATTERN = re.compile(r"^BLAKJAKS-([A-Za-z0-9_]+)-([A-Za-z0-9]+)$")
@@ -93,13 +93,13 @@ async def submit_scan(db: AsyncSession, user: User, raw_qr: str) -> dict:
     tier_name = tier.name if tier else "Standard"
 
     # Calculate earnings
-    usdt_earned = BASE_RATE * tier_multiplier
+    usdc_earned = BASE_RATE * tier_multiplier
 
     # Record the scan
     scan = Scan(
         user_id=user.id,
         qr_code_id=qr.id,
-        usdt_earned=usdt_earned,
+        usdc_earned=usdc_earned,
         tier_multiplier=tier_multiplier,
         streak_day=0,
     )
@@ -117,7 +117,7 @@ async def submit_scan(db: AsyncSession, user: User, raw_qr: str) -> dict:
     wallet = wallet_result.scalar_one_or_none()
     wallet_balance = Decimal("0")
     if wallet:
-        wallet.balance_available += usdt_earned
+        wallet.balance_available += usdc_earned
         wallet_balance = wallet.balance_available
 
     await db.commit()
@@ -165,7 +165,7 @@ async def submit_scan(db: AsyncSession, user: User, raw_qr: str) -> dict:
     return {
         "success": True,
         "product_name": product_name,
-        "usdt_earned": float(usdt_earned),
+        "usdc_earned": float(usdc_earned),
         "tier_multiplier": float(tier_multiplier),
         "tier_progress": {
             "quarter": quarter,

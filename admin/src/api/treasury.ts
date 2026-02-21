@@ -2,9 +2,9 @@ import client from './client'
 import type { PoolBalance, TreasuryTransaction } from '../types'
 
 const MOCK_POOLS: PoolBalance[] = [
-  { pool_name: 'consumer', address: '0x742d35Cc6634C0532925a3b844Bc9e7595f2bD38', usdt_balance: 127_450.82, matic_balance: 45.23, allocation_pct: 50 },
-  { pool_name: 'affiliate', address: '0x8Ba1f109551bD432803012645Ac136ddd64DBA72', usdt_balance: 12_745.08, matic_balance: 12.50, allocation_pct: 5 },
-  { pool_name: 'wholesale', address: '0x2546BcD3c84621e976D8185a91A922aE77ECEc30', usdt_balance: 12_745.08, matic_balance: 8.75, allocation_pct: 5 },
+  { pool_name: 'consumer', address: '0x742d35Cc6634C0532925a3b844Bc9e7595f2bD38', usdc_balance: 127_450.82, matic_balance: 45.23, allocation_pct: 50 },
+  { pool_name: 'affiliate', address: '0x8Ba1f109551bD432803012645Ac136ddd64DBA72', usdc_balance: 12_745.08, matic_balance: 12.50, allocation_pct: 5 },
+  { pool_name: 'wholesale', address: '0x2546BcD3c84621e976D8185a91A922aE77ECEc30', usdc_balance: 12_745.08, matic_balance: 8.75, allocation_pct: 5 },
 ]
 
 const DIRECTIONS: ('in' | 'out')[] = ['in', 'out']

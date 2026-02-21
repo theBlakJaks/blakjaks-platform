@@ -102,7 +102,7 @@ export default function DashboardPage() {
       {/* Stat Cards */}
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <StatCard icon={QrCode} label="Total Scans" value={user.totalScans.toLocaleString()} sub="Lifetime" />
-        <StatCard icon={DollarSign} label="USDT Earned" value={formatCurrency(user.lifetimeUSDT)} sub="Lifetime" color="#22C55E" />
+        <StatCard icon={DollarSign} label="USDC Earned" value={formatCurrency(user.lifetimeUSDC)} sub="Lifetime" color="#22C55E" />
         <StatCard icon={Zap} label="Quarter Scans" value={String(user.quarterlyScans)} sub="Current quarter" color="#3B82F6" />
         <StatCard icon={Flame} label="Active Streak" value="12 days" sub="Keep it going!" color="#EF4444" />
       </div>

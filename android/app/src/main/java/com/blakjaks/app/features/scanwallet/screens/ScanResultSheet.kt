@@ -66,7 +66,7 @@ fun ScanResultSheet(
             // ─── Points Earned ────────────────────────────────────────────────
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(
-                    text = "+${"%.2f".format(scanResult.usdtEarned)}",
+                    text = "+${"%.2f".format(scanResult.usdcEarned)}",
                     color = Gold,
                     fontWeight = FontWeight.Bold,
                     fontSize = 40.sp

@@ -35,7 +35,7 @@ final class APIClientProtocolTests: XCTestCase {
     func testMockClientSubmitScan() async throws {
         let result = try await mockClient.submitScan(qrCode: "TEST-CODE-1234")
         XCTAssertTrue(result.success)
-        XCTAssertGreaterThan(result.usdtEarned, 0)
+        XCTAssertGreaterThan(result.usdcEarned, 0)
         XCTAssertGreaterThan(result.tierMultiplier, 0)
     }
 

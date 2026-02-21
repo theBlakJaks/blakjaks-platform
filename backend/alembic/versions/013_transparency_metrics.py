@@ -25,11 +25,15 @@ def upgrade() -> None:
         sa.Column("metadata", postgresql.JSONB, nullable=True),
     )
 
-    # Try to create TimescaleDB hypertable; skip gracefully if extension absent
-    try:
-        op.execute("SELECT create_hypertable('transparency_metrics', 'timestamp', if_not_exists => TRUE)")
-    except Exception:
-        pass
+    # TimescaleDB hypertable — only on TimescaleDB instances (production/staging)
+    op.execute("""
+        DO $$
+        BEGIN
+            IF EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'timescaledb') THEN
+                PERFORM create_hypertable('transparency_metrics', 'timestamp', if_not_exists => TRUE);
+            END IF;
+        END $$;
+    """)
 
 
 def downgrade() -> None:

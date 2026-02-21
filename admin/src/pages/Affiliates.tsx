@@ -385,7 +385,7 @@ export default function Affiliates() {
       </Modal>
 
       <ConfirmDialog open={approveOpen} onClose={() => setApproveOpen(false)} onConfirm={handleApprove} title="Approve Pending Payouts" message={`Approve ${pendingBatches.length} pending batch(es) totaling ${formatCurrency(pendingBatches.reduce((s, b) => s + b.total_amount, 0))}?`} confirmLabel="Approve All" />
-      <ConfirmDialog open={executeOpen} onClose={() => setExecuteOpen(false)} onConfirm={handleExecute} title="Execute Approved Payouts" message={`Execute ${approvedBatches.length} approved batch(es) totaling ${formatCurrency(approvedBatches.reduce((s, b) => s + b.total_amount, 0))}? This will send USDT to affiliates.`} confirmLabel="Execute Payouts" variant="danger" />
+      <ConfirmDialog open={executeOpen} onClose={() => setExecuteOpen(false)} onConfirm={handleExecute} title="Execute Approved Payouts" message={`Execute ${approvedBatches.length} approved batch(es) totaling ${formatCurrency(approvedBatches.reduce((s, b) => s + b.total_amount, 0))}? This will send USDC to affiliates.`} confirmLabel="Execute Payouts" variant="danger" />
     </div>
   )
 }

@@ -47,7 +47,7 @@ export default function ProfilePage() {
       {/* Stats Grid */}
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <StatCard icon={QrCode} label="Total Scans" value={user.totalScans.toLocaleString()} />
-        <StatCard icon={DollarSign} label="Lifetime USDT" value={formatCurrency(user.lifetimeUSDT)} color="#22C55E" />
+        <StatCard icon={DollarSign} label="Lifetime USDC" value={formatCurrency(user.lifetimeUSDC)} color="#22C55E" />
         <StatCard icon={Award} label="Current Tier" value={getTierLabel(user.effectiveTier)} color="#D4AF37" />
         <StatCard icon={Gift} label="Comps Received" value={String(allComps.length)} color="#3B82F6" />
       </div>

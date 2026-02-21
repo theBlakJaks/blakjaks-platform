@@ -46,7 +46,7 @@ struct EmptyStateView: View {
         EmptyStateView(
             icon: "qrcode.viewfinder",
             title: "No Scans Yet",
-            subtitle: "Scan your first BlakJaks product QR code to start earning USDT rewards.",
+            subtitle: "Scan your first BlakJaks product QR code to start earning USDC rewards.",
             actionTitle: "Scan Now",
             action: {}
         )

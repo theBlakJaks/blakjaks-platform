@@ -1,4 +1,4 @@
-"""Stargate Finance bridge service — bridges USDT from Ethereum to Polygon.
+"""Stargate Finance bridge service — bridges USDC from Ethereum to Polygon.
 
 Admin-only operation. Uses Bus mode (batched) for gas efficiency.
 Transactions are signed via Cloud KMS and broadcast via the Polygon Web3 provider.
@@ -36,7 +36,7 @@ LAYERZERO_CHAIN_ID_POLYGON = 109
 LAYERZERO_CHAIN_ID_GOERLI = 10121
 LAYERZERO_CHAIN_ID_MUMBAI = 10109
 
-# Stargate pool IDs for USDT
+# Stargate pool IDs for USDC
 STARGATE_USDT_POOL_ID_ETHEREUM = 2
 STARGATE_USDT_POOL_ID_POLYGON = 2
 
@@ -104,16 +104,16 @@ def _get_destination_chain_id() -> int:
     return LAYERZERO_CHAIN_ID_GOERLI
 
 
-def get_bridge_quote(amount_usdt: Decimal) -> dict:
-    """Get a fee estimate for bridging USDT from Ethereum to Polygon.
+def get_bridge_quote(amount_usdc: Decimal) -> dict:
+    """Get a fee estimate for bridging USDC from Ethereum to Polygon.
 
     Uses Stargate's quoteLayerZeroFee() to estimate native gas fees.
 
     Args:
-        amount_usdt: Amount of USDT to bridge (human-readable).
+        amount_usdc: Amount of USDC to bridge (human-readable).
 
     Returns:
-        dict with keys: native_fee_wei, native_fee_eth, amount_usdt
+        dict with keys: native_fee_wei, native_fee_eth, amount_usdc
     """
     w3 = get_w3()
     router_addr = Web3.to_checksum_address(_get_router_address())
@@ -140,30 +140,30 @@ def get_bridge_quote(amount_usdt: Decimal) -> dict:
         return {
             "native_fee_wei": native_fee,
             "native_fee_eth": float(Web3.from_wei(native_fee, "ether")),
-            "amount_usdt": float(amount_usdt),
+            "amount_usdc": float(amount_usdc),
         }
     except Exception as exc:
         logger.error("Stargate fee quote failed: %s", exc)
         raise RuntimeError(f"Could not get Stargate bridge quote: {exc}") from exc
 
 
-def execute_bridge(amount_usdt: Decimal, destination_address: str) -> dict:
-    """Bridge USDT from Ethereum treasury to Polygon.
+def execute_bridge(amount_usdc: Decimal, destination_address: str) -> dict:
+    """Bridge USDC from Ethereum treasury to Polygon.
 
     Builds the Stargate swap() transaction, signs via Cloud KMS, broadcasts.
 
     Args:
-        amount_usdt: USDT amount to bridge.
+        amount_usdc: USDC amount to bridge.
         destination_address: Polygon recipient address.
 
     Returns:
-        dict with: tx_hash, layerzero_scan_url, amount_usdt
+        dict with: tx_hash, layerzero_scan_url, amount_usdc
     """
     w3 = get_w3()
     router_addr = Web3.to_checksum_address(_get_router_address())
     router = w3.eth.contract(address=router_addr, abi=STARGATE_ROUTER_ABI)
 
-    amount_ld = int(amount_usdt * Decimal("1000000"))  # USDT 6 decimals
+    amount_ld = int(amount_usdc * Decimal("1000000"))  # USDC 6 decimals
     min_amount_ld = int(amount_ld * Decimal("0.995"))  # 0.5% slippage tolerance
 
     destination_pool_address = get_consumer_pool_address()
@@ -213,13 +213,13 @@ def execute_bridge(amount_usdt: Decimal, destination_address: str) -> dict:
 
     logger.info(
         "Stargate bridge initiated: amount=%s dest=%s tx=%s",
-        amount_usdt, destination_address, tx_hash_hex,
+        amount_usdc, destination_address, tx_hash_hex,
     )
 
     return {
         "tx_hash": tx_hash_hex,
         "layerzero_scan_url": f"{LAYERZERO_SCAN_BASE}/{tx_hash_hex}",
-        "amount_usdt": float(amount_usdt),
+        "amount_usdc": float(amount_usdc),
     }
 
 

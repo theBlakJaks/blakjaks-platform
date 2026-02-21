@@ -14,7 +14,7 @@ interface ScanRecord {
   id: string
   date: string
   product_name: string
-  usdt_earned: number
+  usdc_earned: number
   tier_multiplier: number
   tier: string
 }
@@ -64,7 +64,7 @@ export default function ScansPage() {
       <div>
         <h1 className="text-2xl font-bold text-white">Scan History</h1>
         <p className="mt-1 text-sm text-[var(--color-text-dim)]">
-          Every QR code scan earns you USDT rewards
+          Every QR code scan earns you USDC rewards
         </p>
       </div>
 
@@ -78,7 +78,7 @@ export default function ScansPage() {
               </p>
               <p className="text-4xl font-bold text-[var(--color-gold)]">
                 {formatCurrency(data.lifetime_earnings)}
-                <span className="ml-2 text-base text-[var(--color-text-muted)]">USDT</span>
+                <span className="ml-2 text-base text-[var(--color-text-muted)]">USDC</span>
               </p>
             </div>
             <div className="text-right">
@@ -127,7 +127,7 @@ export default function ScansPage() {
         {!loading && !error && (!data || data.scans.length === 0) && (
           <EmptyState
             icon={QrCode}
-            message="No scans yet — scan a QR code to start earning USDT rewards!"
+            message="No scans yet — scan a QR code to start earning USDC rewards!"
           />
         )}
 
@@ -181,9 +181,9 @@ export default function ScansPage() {
                   )}
                 </div>
 
-                {/* USDT earned */}
+                {/* USDC earned */}
                 <span className="w-24 text-right text-sm font-semibold text-green-400">
-                  +{formatCurrency(scan.usdt_earned)}
+                  +{formatCurrency(scan.usdc_earned)}
                 </span>
               </div>
             ))}

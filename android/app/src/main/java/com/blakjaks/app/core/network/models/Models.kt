@@ -39,7 +39,7 @@ data class UserProfile(
     @SerializedName("wallet_balance") val walletBalance: Double,
     @SerializedName("pending_balance") val pendingBalance: Double,
     @SerializedName("gold_chips") val goldChips: Int,
-    @SerializedName("lifetime_usdt") val lifetimeUsdt: Double,
+    @SerializedName("lifetime_usdc") val lifetimeUsdc: Double,
     @SerializedName("scans_this_quarter") val scansThisQuarter: Int,
     @SerializedName("is_affiliate") val isAffiliate: Boolean,
     @SerializedName("created_at") val createdAt: String
@@ -231,7 +231,7 @@ data class ScanSubmitRequest(
 data class ScanResult(
     @SerializedName("success") val success: Boolean,
     @SerializedName("product_name") val productName: String,
-    @SerializedName("usdt_earned") val usdtEarned: Double,
+    @SerializedName("usdc_earned") val usdcEarned: Double,
     @SerializedName("tier_multiplier") val tierMultiplier: Double,
     @SerializedName("tier_progress") val tierProgress: TierProgress,
     @SerializedName("comp_earned") val compEarned: CompEarned?,
@@ -259,7 +259,7 @@ data class Scan(
     @SerializedName("qr_code") val qrCode: String,
     @SerializedName("product_name") val productName: String,
     @SerializedName("product_sku") val productSku: String,
-    @SerializedName("usdt_earned") val usdtEarned: Double,
+    @SerializedName("usdc_earned") val usdcEarned: Double,
     @SerializedName("tier_multiplier") val tierMultiplier: Double,
     @SerializedName("tier") val tier: String,
     @SerializedName("created_at") val createdAt: String

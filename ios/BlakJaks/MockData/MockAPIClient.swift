@@ -207,7 +207,7 @@ final class MockAPIClient: APIClientProtocol {
                 id: 1,
                 type: "comp_earned",
                 title: "Comp Earned!",
-                body: "You earned $100 USDT — milestone reached.",
+                body: "You earned $100 USDC — milestone reached.",
                 isRead: false,
                 createdAt: "2026-02-20T12:00:00Z",
                 data: ["amount": "100"]

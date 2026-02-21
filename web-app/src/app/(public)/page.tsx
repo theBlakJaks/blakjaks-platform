@@ -43,12 +43,12 @@ function useInView(threshold = 0.2) {
 
 /* ──────────────────────────── FAQ Data ──────────────────────────── */
 const faqs = [
-  { q: 'What is BlakJaks?', a: 'BlakJaks is a premium nicotine pouch brand with a built-in loyalty program that pays you real USDT cryptocurrency for every tin you scan.' },
-  { q: 'How do I earn USDT?', a: 'Simply purchase BlakJaks pouches, scan the unique POP (Proof of Purchase) code inside each tin, and USDT is automatically sent to your wallet on the Polygon blockchain.' },
+  { q: 'What is BlakJaks?', a: 'BlakJaks is a premium nicotine pouch brand with a built-in loyalty program that pays you real USDC cryptocurrency for every tin you scan.' },
+  { q: 'How do I earn USDC?', a: 'Simply purchase BlakJaks pouches, scan the unique POP (Proof of Purchase) code inside each tin, and USDC is automatically sent to your wallet on the Polygon blockchain.' },
   { q: 'What are the tier levels?', a: 'There are four tiers: Standard (0-6 quarterly scans), VIP (7-14), High Roller (15-29), and Whale (30+). Higher tiers earn larger comps and unlock exclusive perks.' },
   { q: 'What are comp prizes?', a: 'Members can win $100, $1,000, $10,000, or even a $200,000 luxury trip based on their scan milestones and tier status.' },
   { q: 'Is this really on the blockchain?', a: 'Yes. All treasury wallets are publicly verifiable on Polygon. Visit our Transparency Dashboard to see live balances, scan counts, and comp payouts in real time.' },
-  { q: 'How do I withdraw my earnings?', a: 'You can withdraw your USDT balance at any time to any Polygon-compatible wallet. Withdrawals typically process within minutes.' },
+  { q: 'How do I withdraw my earnings?', a: 'You can withdraw your USDC balance at any time to any Polygon-compatible wallet. Withdrawals typically process within minutes.' },
   { q: 'Is there an age requirement?', a: 'Yes, you must be 21 years or older to purchase BlakJaks products and participate in the loyalty program. Age verification is required at signup.' },
   { q: 'What makes BlakJaks different from other loyalty programs?', a: 'Full blockchain transparency, real cryptocurrency rewards (not points), community governance where members vote on decisions, and a tiered comp system with prizes up to $200K.' },
 ]
@@ -102,7 +102,7 @@ export default function LandingPage() {
   const { ref: statsRef, inView: statsInView } = useInView()
   const scanCount = useCountUp(847523, 2500, statsInView)
   const membersCount = useCountUp(24891, 2000, statsInView)
-  const usdtPaid = useCountUp(137395, 2500, statsInView)
+  const usdcPaid = useCountUp(137395, 2500, statsInView)
 
   const { ref: transparencyRef, inView: transparencyInView } = useInView()
   const liveScanCount = useCountUp(847523, 3000, transparencyInView)
@@ -167,7 +167,7 @@ export default function LandingPage() {
           </h1>
 
           <p className="animate-fade-up delay-200 max-w-2xl mx-auto text-lg sm:text-xl text-[var(--color-text-muted)] mb-10 leading-relaxed">
-            BlakJaks is the world&apos;s first nicotine pouch brand that pays you real USDT for every tin you scan. Transparent. Verifiable. On-chain.
+            BlakJaks is the world&apos;s first nicotine pouch brand that pays you real USDC for every tin you scan. Transparent. Verifiable. On-chain.
           </p>
 
           <div className="animate-fade-up delay-300 flex flex-col sm:flex-row items-center justify-center gap-4">
@@ -212,7 +212,7 @@ export default function LandingPage() {
             {[
               { step: 1, icon: Coins, title: 'Buy BlakJaks', desc: 'Purchase any BlakJaks nicotine pouch tin from an authorized retailer or online.' },
               { step: 2, icon: Scan, title: 'Scan POP Code', desc: 'Open the tin and scan the unique Proof of Purchase QR code with the BlakJaks app.' },
-              { step: 3, icon: TrendingUp, title: 'Earn USDT', desc: 'USDT is automatically sent to your wallet on the Polygon blockchain. Withdraw anytime.' },
+              { step: 3, icon: TrendingUp, title: 'Earn USDC', desc: 'USDC is automatically sent to your wallet on the Polygon blockchain. Withdraw anytime.' },
             ].map(({ step, icon: Icon, title, desc }) => (
               <div key={step} className="relative text-center">
                 <div className="inline-flex items-center justify-center w-32 h-32 rounded-full border-2 border-[#D4AF37]/30 bg-[#D4AF37]/5 mb-6 relative">
@@ -303,7 +303,7 @@ export default function LandingPage() {
             VERIFY ON THE <span className="gold-gradient-text">BLOCKCHAIN</span>
           </h2>
           <p className="text-lg text-[var(--color-text-muted)] max-w-2xl mx-auto mb-10">
-            Every USDT in our treasury is publicly verifiable on Polygon. No smoke and mirrors &mdash; just transparent, on-chain proof that your rewards are fully funded.
+            Every USDC in our treasury is publicly verifiable on Polygon. No smoke and mirrors &mdash; just transparent, on-chain proof that your rewards are fully funded.
           </p>
 
           <div className="inline-flex items-center gap-4 rounded-2xl border border-[var(--color-border)] bg-[var(--color-bg-card)] px-8 py-5 mb-10">
@@ -367,7 +367,7 @@ export default function LandingPage() {
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-8">
             {[
               { icon: Users, label: 'Active Members', value: membersCount, suffix: '+' },
-              { icon: Coins, label: 'USDT Paid Out', value: usdtPaid, prefix: '$', suffix: '' },
+              { icon: Coins, label: 'USDC Paid Out', value: usdcPaid, prefix: '$', suffix: '' },
               { icon: Scan, label: 'Scans Processed', value: scanCount, suffix: '+' },
             ].map(({ icon: Icon, label, value, prefix, suffix }) => (
               <div key={label} className="text-center">
@@ -411,7 +411,7 @@ export default function LandingPage() {
               READY TO <span className="gold-gradient-text">EARN</span>?
             </h2>
             <p className="text-lg text-[var(--color-text-muted)] max-w-xl mx-auto mb-10">
-              Join thousands of members already earning real USDT from every tin. Sign up takes less than a minute.
+              Join thousands of members already earning real USDC from every tin. Sign up takes less than a minute.
             </p>
             <Link href="/signup">
               <GoldButton size="lg" className="text-lg px-12 py-4">
