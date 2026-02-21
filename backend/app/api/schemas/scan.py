@@ -25,6 +25,9 @@ class CompEarned(BaseModel):
 class ScanResponse(BaseModel):
     success: bool
     product_name: str
+    chip_earned: bool
+    tier_name: str
+    quarterly_scan_count: int
     usdc_earned: float
     tier_multiplier: float
     tier_progress: TierProgress
