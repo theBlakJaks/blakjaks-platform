@@ -17,7 +17,7 @@ spec:
         - name: admin
           image: us-central1-docker.pkg.dev/blakjaks-production/blakjaks-repo/admin:latest
           ports:
-            - containerPort: 3000
+            - containerPort: 80
           envFrom:
             - configMapRef:
                 name: blakjaks-config
@@ -46,5 +46,5 @@ spec:
     app: admin
   ports:
     - port: 80
-      targetPort: 3000
+      targetPort: 80
   type: ClusterIP
