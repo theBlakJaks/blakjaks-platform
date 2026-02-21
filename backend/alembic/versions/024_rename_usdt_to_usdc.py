@@ -14,8 +14,22 @@ depends_on = None
 
 
 def upgrade():
-    op.alter_column('scans', 'usdt_earned', new_column_name='usdc_earned')
+    # Column was already named usdc_earned in the initial schema (001);
+    # this migration is a no-op on fresh databases.
+    conn = op.get_bind()
+    result = conn.execute(
+        "SELECT column_name FROM information_schema.columns "
+        "WHERE table_name='scans' AND column_name='usdt_earned'"
+    )
+    if result.fetchone():
+        op.alter_column('scans', 'usdt_earned', new_column_name='usdc_earned')
 
 
 def downgrade():
-    op.alter_column('scans', 'usdc_earned', new_column_name='usdt_earned')
+    conn = op.get_bind()
+    result = conn.execute(
+        "SELECT column_name FROM information_schema.columns "
+        "WHERE table_name='scans' AND column_name='usdc_earned'"
+    )
+    if result.fetchone():
+        op.alter_column('scans', 'usdc_earned', new_column_name='usdt_earned')
