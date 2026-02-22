@@ -488,22 +488,22 @@ def run_flow_5_social(smoke_token: str) -> None:
 def run_flow_6_notifications(smoke_token: str) -> None:
     flow("Flow 6 — Notifications")
 
-    # 6.1 List
+    # 6.1 List — PaginatedNotifications: {items, total, page, page_size}
     r, ms = req("GET", "/users/me/notifications", headers=auth_header(smoke_token))
     body = r.json() if r.status_code == 200 else {}
-    has_notifs = "notifications" in body
+    has_items = "items" in body
     has_total = isinstance(body.get("total"), int)
-    step("6.1 GET /notifications — 200 + notifications array + total int",
-         r.status_code == 200 and has_notifs and has_total,
-         ms, f"status={r.status_code} has_notifs={has_notifs} total={body.get('total')}", r)
+    step("6.1 GET /notifications — 200 + items array + total int",
+         r.status_code == 200 and has_items and has_total,
+         ms, f"status={r.status_code} has_items={has_items} total={body.get('total')}", r)
 
-    # 6.2 Unread count
+    # 6.2 Unread count — UnreadCountResponse: {unread_count}
     r, ms = req("GET", "/notifications/unread-count", headers=auth_header(smoke_token))
     body2 = r.json() if r.status_code == 200 else {}
-    count = body2.get("count")
-    step("6.2 GET /notifications/unread-count — 200 + count >= 0",
+    count = body2.get("unread_count")
+    step("6.2 GET /notifications/unread-count — 200 + unread_count >= 0",
          r.status_code == 200 and isinstance(count, int) and count >= 0,
-         ms, f"status={r.status_code} count={count}", r)
+         ms, f"status={r.status_code} unread_count={count}", r)
 
     # 6.3 No read-all endpoint — skip gracefully
     step("6.3 POST /notifications/read-all — skipped (no bulk-read endpoint)", True, 0, "n/a")
