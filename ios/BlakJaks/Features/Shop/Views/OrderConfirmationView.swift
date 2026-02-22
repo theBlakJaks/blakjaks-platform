@@ -19,7 +19,8 @@ struct OrderConfirmationView: View {
                 GoldAccentCard {
                     VStack(spacing: Spacing.sm) {
                         Text("Order #\(order.id)")
-                            .font(.title2.weight(.bold))
+                            .font(.system(.title2, design: .serif))
+                            .fontWeight(.bold)
                         Text("Placed \(formattedDate)")
                             .font(.caption)
                             .foregroundColor(.secondary)
@@ -27,7 +28,7 @@ struct OrderConfirmationView: View {
                     }
                     .frame(maxWidth: .infinity)
                 }
-                .padding(.horizontal, Layout.screenMargin)
+                .padding(.horizontal, Spacing.lg)
 
                 // Shipping address
                 BlakJaksCard {
@@ -57,7 +58,7 @@ struct OrderConfirmationView: View {
                                     .foregroundColor(.primary)
                             }
                         } else {
-                            HStack(spacing: 4) {
+                            HStack(spacing: Spacing.xs) {
                                 Image(systemName: "clock")
                                     .font(.caption)
                                     .foregroundColor(.secondary)
@@ -68,7 +69,7 @@ struct OrderConfirmationView: View {
                         }
                     }
                 }
-                .padding(.horizontal, Layout.screenMargin)
+                .padding(.horizontal, Spacing.lg)
 
                 // Items
                 BlakJaksCard {
@@ -89,7 +90,7 @@ struct OrderConfirmationView: View {
                         }
                     }
                 }
-                .padding(.horizontal, Layout.screenMargin)
+                .padding(.horizontal, Spacing.lg)
 
                 // Order totals
                 BlakJaksCard {
@@ -112,38 +113,22 @@ struct OrderConfirmationView: View {
                         totalRow("Total", order.total, isBold: true)
                     }
                 }
-                .padding(.horizontal, Layout.screenMargin)
+                .padding(.horizontal, Spacing.lg)
 
                 // CTA buttons
                 VStack(spacing: Spacing.sm) {
                     if order.trackingNumber != nil {
-                        Button {
+                        GoldButton("Track Order") {
                             // Track order — deep link in production polish pass
-                        } label: {
-                            Label("Track Order", systemImage: "location.circle.fill")
-                                .font(.headline)
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, Spacing.md)
-                                .background(Color.gold)
-                                .foregroundColor(.black)
-                                .cornerRadius(Layout.cardCornerRadius)
                         }
                     }
 
-                    Button {
+                    SecondaryButton("Continue Shopping") {
                         // Pop to shop root — parent NavigationStack handles this
                         dismiss()
-                    } label: {
-                        Text("Continue Shopping")
-                            .font(.headline)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, Spacing.md)
-                            .background(Color.backgroundSecondary)
-                            .foregroundColor(.primary)
-                            .cornerRadius(Layout.cardCornerRadius)
                     }
                 }
-                .padding(.horizontal, Layout.screenMargin)
+                .padding(.horizontal, Spacing.lg)
                 .padding(.bottom, Spacing.xxl)
             }
         }
@@ -153,7 +138,8 @@ struct OrderConfirmationView: View {
         .toolbar {
             ToolbarItem(placement: .principal) {
                 Text("Order Confirmed")
-                    .font(.headline)
+                    .font(.system(.title3, design: .serif))
+                    .fontWeight(.semibold)
             }
         }
     }
@@ -164,14 +150,17 @@ struct OrderConfirmationView: View {
         VStack(spacing: Spacing.md) {
             ZStack {
                 Circle()
-                    .fill(Color.success.opacity(0.12))
-                    .frame(width: 80, height: 80)
+                    .fill(Color.gold.opacity(0.12))
+                    .frame(width: 100, height: 100)
                 Image(systemName: "checkmark.circle.fill")
-                    .font(.system(size: 44))
-                    .foregroundColor(.success)
+                    .font(.system(.largeTitle, design: .default))
+                    .imageScale(.large)
+                    .scaleEffect(1.8)
+                    .foregroundColor(.gold)
             }
             Text("Order Confirmed!")
-                .font(.title2.weight(.bold))
+                .font(.system(.title, design: .serif))
+                .fontWeight(.bold)
             Text("Thank you for your order. You'll receive a confirmation email shortly.")
                 .font(.body)
                 .foregroundColor(.secondary)
@@ -193,15 +182,15 @@ struct OrderConfirmationView: View {
 
     private func statusCapsule(_ status: String) -> some View {
         Text(status.uppercased())
-            .font(.system(size: 9, weight: .bold))
+            .font(.caption2.weight(.bold))
             .foregroundColor(.warning)
-            .padding(.horizontal, 8)
-            .padding(.vertical, 3)
+            .padding(.horizontal, Spacing.sm)
+            .padding(.vertical, Spacing.xs)
             .background(Capsule().fill(Color.warning.opacity(0.15)))
     }
 
     private func rowHeader(_ title: String, icon: String) -> some View {
-        HStack(spacing: 6) {
+        HStack(spacing: Spacing.xs) {
             Image(systemName: icon)
                 .font(.caption)
                 .foregroundColor(.gold)

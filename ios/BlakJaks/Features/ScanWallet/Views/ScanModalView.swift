@@ -43,12 +43,12 @@ struct ScanModalView: View {
             if viewModel.scanResult == nil {
                 Button { isPresented = false } label: {
                     Image(systemName: "xmark")
-                        .font(.system(size: 18, weight: .semibold))
+                        .font(.body.weight(.semibold))
                         .foregroundColor(.white)
-                        .padding(12)
+                        .padding(Spacing.sm)
                         .background(Circle().fill(Color.white.opacity(0.15)))
                 }
-                .padding(.top, 56)
+                .padding(.top, Spacing.xxl + Spacing.sm)
                 .padding(.leading, Layout.screenMargin)
             }
         }
@@ -74,7 +74,7 @@ private struct CameraView: View {
 
             // Dark overlay outside scan frame
             GeometryReader { geo in
-                let frameSize: CGFloat = min(geo.size.width, geo.size.height) * 0.65
+                let frameSize: CGFloat = min(max(min(geo.size.width, geo.size.height) * 0.65, 240), 280)
                 let frameX = (geo.size.width - frameSize) / 2
                 let frameY = (geo.size.height - frameSize) / 2
 
@@ -99,9 +99,9 @@ private struct CameraView: View {
             VStack {
                 Spacer()
                 VStack(spacing: Spacing.md) {
-                    Text("Align QR code within frame")
-                        .font(.body.weight(.medium))
-                        .foregroundColor(.white.opacity(0.85))
+                    Text("Point at QR Code")
+                        .font(.callout)
+                        .foregroundColor(.secondary)
 
                     if viewModel.isLoading {
                         ProgressView().tint(.gold)
@@ -122,7 +122,7 @@ private struct CameraView: View {
                         }
                     }
                 }
-                .padding(.bottom, 60)
+                .padding(.bottom, Spacing.xxl)
             }
         }
     }
@@ -198,7 +198,8 @@ private struct ManualEntryView: View {
             Spacer()
 
             Image(systemName: "keyboard")
-                .font(.system(size: 52, weight: .light))
+                .font(.system(.largeTitle, design: .default).weight(.light))
+                .imageScale(.large)
                 .foregroundColor(.gold)
 
             VStack(spacing: Spacing.sm) {

@@ -23,9 +23,10 @@ extension Color {
 
     // MARK: - Semantic
     static let success = Color(UIColor.systemGreen)   // #32D74B dark
-    static let failure = Color(UIColor.systemRed)     // #FF453A dark
+    static let error   = Color(UIColor.systemRed)     // #FF453A dark
+    static let failure = Color(UIColor.systemRed)     // alias kept for back-compat
     static let warning = Color(UIColor.systemOrange)  // #FF9F0A dark
-    static let info = Color(UIColor.systemBlue)       // #0A84FF dark
+    static let info    = Color(UIColor.systemBlue)    // #0A84FF dark
 
     // MARK: - Transaction
     static let creditAmount = Color(UIColor.systemGreen)

@@ -20,7 +20,7 @@ struct LoginView: View {
                     // Header
                     VStack(spacing: Spacing.sm) {
                         Text("Welcome Back")
-                            .font(.title.weight(.bold))
+                            .font(.system(.title, design: .serif))
                             .foregroundColor(.primary)
                         Text("Sign in to your BlakJaks account")
                             .font(.subheadline)
@@ -41,9 +41,10 @@ struct LoginView: View {
                                 .autocapitalization(.none)
                                 .autocorrectionDisabled()
                                 .focused($focusedField, equals: .email)
-                                .padding()
-                                .background(Color.backgroundSecondary)
-                                .cornerRadius(Layout.buttonCornerRadius)
+                                .padding(.horizontal, Spacing.base)
+                                .frame(height: 50)
+                                .background(Color.backgroundTertiary)
+                                .cornerRadius(12)
                                 .submitLabel(.next)
                                 .onSubmit { focusedField = .password }
                         }
@@ -56,9 +57,10 @@ struct LoginView: View {
                             SecureField("••••••••", text: $viewModel.password)
                                 .textContentType(.password)
                                 .focused($focusedField, equals: .password)
-                                .padding()
-                                .background(Color.backgroundSecondary)
-                                .cornerRadius(Layout.buttonCornerRadius)
+                                .padding(.horizontal, Spacing.base)
+                                .frame(height: 50)
+                                .background(Color.backgroundTertiary)
+                                .cornerRadius(12)
                                 .submitLabel(.go)
                                 .onSubmit { Task { await attemptLogin() } }
                         }
@@ -110,8 +112,19 @@ struct LoginView: View {
                                 .stroke(Color.gold, lineWidth: 1.5)
                         )
                     }
+
+#if DEBUG
+                    Button("⚡ Dev Login") {
+                        viewModel.email    = DevBypass.email
+                        viewModel.password = DevBypass.password
+                        Task { await attemptLogin() }
+                    }
+                    .font(.footnote)
+                    .foregroundColor(.secondary)
+                    .padding(.top, Spacing.sm)
+#endif
                 }
-                .padding(.horizontal, Layout.screenMargin)
+                .padding(.horizontal, Spacing.lg)
                 .padding(.bottom, Spacing.xxl)
             }
         }
@@ -155,7 +168,8 @@ private struct ForgotPasswordView: View {
                 if sent {
                     VStack(spacing: Spacing.md) {
                         Image(systemName: "envelope.badge.checkmark")
-                            .font(.system(size: 56, weight: .light))
+                            .font(.largeTitle.weight(.light))
+                            .imageScale(.large)
                             .foregroundColor(.gold)
                         Text("Check your email")
                             .font(.title2.weight(.semibold))
@@ -164,9 +178,9 @@ private struct ForgotPasswordView: View {
                             .foregroundColor(.secondary)
                             .multilineTextAlignment(.center)
                     }
-                    .padding(.horizontal, Layout.screenMargin)
+                    .padding(.horizontal, Spacing.lg)
                     GoldButton("Done") { dismiss() }
-                        .padding(.horizontal, Layout.screenMargin)
+                        .padding(.horizontal, Spacing.lg)
                 } else {
                     VStack(alignment: .leading, spacing: Spacing.xs) {
                         Text("Reset Password")
@@ -175,21 +189,22 @@ private struct ForgotPasswordView: View {
                             .font(.body)
                             .foregroundColor(.secondary)
                     }
-                    .padding(.horizontal, Layout.screenMargin)
+                    .padding(.horizontal, Spacing.lg)
 
                     TextField("you@example.com", text: $email)
                         .keyboardType(.emailAddress)
                         .autocapitalization(.none)
-                        .padding()
-                        .background(Color.backgroundSecondary)
-                        .cornerRadius(Layout.buttonCornerRadius)
-                        .padding(.horizontal, Layout.screenMargin)
+                        .padding(.horizontal, Spacing.base)
+                        .frame(height: 50)
+                        .background(Color.backgroundTertiary)
+                        .cornerRadius(12)
+                        .padding(.horizontal, Spacing.lg)
 
                     GoldButton("Send Reset Link") {
                         // In production: call API. For now simulate success.
                         sent = true
                     }
-                    .padding(.horizontal, Layout.screenMargin)
+                    .padding(.horizontal, Spacing.lg)
                 }
                 Spacer()
             }

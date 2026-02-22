@@ -14,6 +14,7 @@ struct MemberCardView: View {
                 cardPlaceholder
             }
         }
+        .frame(maxWidth: .infinity)
         .padding(.horizontal, Layout.screenMargin)
     }
 
@@ -43,63 +44,70 @@ struct MemberCardView: View {
             }
             .cornerRadius(20)
 
-            // Card content
-            VStack(alignment: .leading, spacing: Spacing.md) {
-                // Header row
-                HStack {
-                    Text("BlakJaks")
-                        .font(.brandLargeTitle.size(18))
-                        .foregroundColor(.white.opacity(0.9))
-                    Spacer()
-                    tierSuitIcon(tier: card.tier)
-                        .font(.system(size: 28, weight: .bold))
-                        .foregroundColor(.white.opacity(0.6))
-                }
+            VStack(spacing: 0) {
+                // Gold accent line at top
+                Color.gold
+                    .frame(height: 3)
 
-                Spacer()
-
-                // Name + tier
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(card.fullName)
-                        .font(.title3.weight(.semibold))
-                        .foregroundColor(.white)
-                    HStack(spacing: Spacing.sm) {
-                        Text(card.memberId)
-                            .font(.system(.body, design: .monospaced))
-                            .foregroundColor(.white.opacity(0.8))
+                // Card content
+                VStack(alignment: .leading, spacing: Spacing.md) {
+                    // Header row
+                    HStack {
+                        Text("BlakJaks")
+                            .font(.brandTitle2)
+                            .foregroundColor(.white.opacity(0.9))
                         Spacer()
-                        tierBadge(tier: card.tier)
+                        tierSuitIcon(tier: card.tier)
+                            .font(.title2.weight(.bold))
+                            .foregroundColor(Color.gold)
                     }
-                }
 
-                // Tier progress bar (if not Whale)
-                if let progress = tierProgressInfo(card: card) {
-                    tierProgressBar(progress: progress)
-                }
-
-                // Balance
-                HStack {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Balance")
-                            .font(.caption)
-                            .foregroundColor(.white.opacity(0.6))
-                        Text("$\(card.walletBalance.formatted(.number.precision(.fractionLength(2))))")
-                            .font(.system(.title3, design: .monospaced).weight(.semibold))
-                            .foregroundColor(.white)
-                    }
                     Spacer()
-                    VStack(alignment: .trailing, spacing: 2) {
-                        Text("Member Since")
-                            .font(.caption)
-                            .foregroundColor(.white.opacity(0.6))
-                        Text(memberYear(from: card.joinDate))
-                            .font(.footnote.weight(.medium))
-                            .foregroundColor(.white.opacity(0.8))
+
+                    // Name + tier
+                    VStack(alignment: .leading, spacing: Spacing.xs) {
+                        Text(card.fullName)
+                            .font(.system(.title2, design: .serif))
+                            .foregroundColor(.white)
+                        HStack(spacing: Spacing.sm) {
+                            Text(card.memberId)
+                                .font(.system(.footnote, design: .monospaced))
+                                .foregroundColor(.white.opacity(0.8))
+                            Spacer()
+                            tierBadge(tier: card.tier)
+                        }
+                    }
+
+                    // Tier progress bar (if not Whale)
+                    if let progress = tierProgressInfo(card: card) {
+                        tierProgressBar(progress: progress)
+                    }
+
+                    // Balance
+                    HStack {
+                        VStack(alignment: .leading, spacing: Spacing.xs) {
+                            Text("Balance")
+                                .font(.caption)
+                                .foregroundColor(.white.opacity(0.6))
+                            Text("$\(card.walletBalance.formatted(.number.precision(.fractionLength(2))))")
+                                .font(.system(.body, design: .monospaced).weight(.semibold))
+                                .foregroundColor(.white)
+                        }
+                        Spacer()
+                        VStack(alignment: .trailing, spacing: Spacing.xs) {
+                            Text("Member Since")
+                                .font(.caption)
+                                .foregroundColor(.white.opacity(0.6))
+                            Text(memberYear(from: card.joinDate))
+                                .font(.footnote.weight(.medium))
+                                .foregroundColor(.white.opacity(0.8))
+                        }
                     }
                 }
+                .padding(Spacing.lg)
             }
-            .padding(Spacing.lg)
         }
+        .frame(maxWidth: .infinity)
         .frame(height: 220)
         .shadow(color: Color.black.opacity(0.3), radius: 16, y: 8)
     }
@@ -109,11 +117,12 @@ struct MemberCardView: View {
     private var cardPlaceholder: some View {
         RoundedRectangle(cornerRadius: 20)
             .fill(Color.backgroundSecondary)
+            .frame(maxWidth: .infinity)
             .frame(height: 220)
             .overlay(
                 VStack(spacing: Spacing.sm) {
                     Image(systemName: "creditcard.fill")
-                        .font(.system(size: 36, weight: .light))
+                        .font(.system(.largeTitle, design: .default).weight(.light))
                         .foregroundColor(.secondary)
                     Text("Loading member card...")
                         .font(.caption)
@@ -146,10 +155,10 @@ struct MemberCardView: View {
     private func tierBadge(tier: String) -> some View {
         Text(tier.capitalized)
             .font(.caption.weight(.bold))
-            .foregroundColor(.white)
-            .padding(.horizontal, 8)
-            .padding(.vertical, 3)
-            .background(Capsule().fill(Color.white.opacity(0.2)))
+            .foregroundColor(.gold)
+            .padding(.horizontal, Spacing.sm)
+            .padding(.vertical, Spacing.xs)
+            .background(Capsule().fill(Color.gold.opacity(0.15)))
     }
 
     private func tierProgressInfo(card: MemberCard) -> (current: Int, next: Int, label: String)? {
@@ -169,7 +178,7 @@ struct MemberCardView: View {
     }
 
     private func tierProgressBar(progress: (current: Int, next: Int, label: String)) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: Spacing.xs) {
             GeometryReader { geo in
                 ZStack(alignment: .leading) {
                     RoundedRectangle(cornerRadius: 3)

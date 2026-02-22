@@ -40,8 +40,15 @@ struct AffiliateDashboardView: View {
             .padding(.vertical, Spacing.md)
         }
         .background(Color.backgroundPrimary)
-        .navigationTitle("Affiliate Program")
-        .navigationBarTitleDisplayMode(.inline)
+        // "Affiliate" header in New York serif via toolbar principal
+        .navigationBarTitleDisplayMode(.large)
+        .toolbar {
+            ToolbarItem(placement: .principal) {
+                Text("Affiliate")
+                    .font(.system(.title, design: .serif))
+                    .foregroundColor(.primary)
+            }
+        }
         .task {
             await profileVM.loadProfile()
             await profileVM.loadAffiliateDashboard()
@@ -66,32 +73,22 @@ struct AffiliateDashboardView: View {
                     .foregroundColor(.secondary)
                     .frame(maxWidth: .infinity, alignment: .leading)
 
+                // Referral code: monospaced, gold, large — use monoTitle2 from Typography
                 Text(dashboard.referralCode)
-                    .font(.system(size: 36, weight: .bold, design: .monospaced))
+                    .font(.monoTitle2)
                     .foregroundColor(.gold)
                     .frame(maxWidth: .infinity, alignment: .leading)
 
-                // Referral URL caption
+                // Referral URL caption — monospaced pill background
                 Text("blakjaks.com/ref/\(dashboard.referralCode.lowercased())")
                     .font(.caption)
                     .foregroundColor(.secondary)
                     .frame(maxWidth: .infinity, alignment: .leading)
 
-                // Share button
-                Button {
+                // Copy button — GoldButton component
+                GoldButton("Copy Code") {
                     UIPasteboard.general.string = dashboard.referralCode
                     // TODO: UIActivityViewController share sheet in production polish pass
-                } label: {
-                    HStack(spacing: Spacing.sm) {
-                        Image(systemName: "doc.on.doc")
-                        Text("Copy Code")
-                    }
-                    .font(.body.weight(.semibold))
-                    .foregroundColor(.black)
-                    .frame(maxWidth: .infinity)
-                    .frame(height: Layout.buttonHeight)
-                    .background(Color.gold)
-                    .cornerRadius(Layout.buttonCornerRadius)
                 }
             }
         }
@@ -105,25 +102,27 @@ struct AffiliateDashboardView: View {
             statCard(value: "\(dashboard.activeDownline)", label: "Active Downline")
             statCard(
                 value: dashboard.weeklyPool.formatted(.currency(code: "USD").precision(.fractionLength(0))),
-                label: "Weekly Pool"
+                label: "Weekly Pool",
+                isGold: true
             )
             statCard(
                 value: dashboard.lifetimeEarnings.formatted(.currency(code: "USD").precision(.fractionLength(0))),
-                label: "Lifetime Earnings"
+                label: "Lifetime Earnings",
+                isGold: true
             )
         }
     }
 
-    private func statCard(value: String, label: String) -> some View {
+    private func statCard(value: String, label: String, isGold: Bool = false) -> some View {
         BlakJaksCard {
             VStack(spacing: Spacing.xs) {
                 Text(value)
-                    .font(.title3.weight(.bold))
-                    .foregroundColor(.primary)
+                    .font(.title2)
+                    .foregroundColor(isGold ? .gold : .primary)
                     .minimumScaleFactor(0.6)
                     .lineLimit(1)
                 Text(label)
-                    .font(.caption2)
+                    .font(.caption)
                     .foregroundColor(.secondary)
                     .multilineTextAlignment(.center)
             }
@@ -169,10 +168,10 @@ struct AffiliateDashboardView: View {
                 .foregroundColor(.secondary)
                 .frame(minWidth: 72, alignment: .leading)
 
-            // Amount
+            // Amount — monospaced gold
             Text(payout.amount.formatted(.currency(code: "USD")))
-                .font(.body.weight(.semibold))
-                .foregroundColor(.primary)
+                .font(.system(.body, design: .monospaced).weight(.semibold))
+                .foregroundColor(.gold)
 
             Spacer()
 

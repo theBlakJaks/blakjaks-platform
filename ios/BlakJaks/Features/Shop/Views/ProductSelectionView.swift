@@ -24,8 +24,14 @@ struct ProductSelectionView: View {
         .toolbar {
             ToolbarItem(placement: .principal) {
                 Text(product.name)
-                    .font(.headline)
+                    .font(.system(.headline, design: .serif))
             }
+        }
+        .safeAreaInset(edge: .bottom) {
+            addToCartSection
+                .padding(.horizontal, Spacing.lg)
+                .padding(.vertical, Spacing.md)
+                .background(Color.backgroundPrimary)
         }
         .overlay(alignment: .bottom) {
             addedToast
@@ -51,11 +57,10 @@ struct ProductSelectionView: View {
                     }
                     descriptionSection
                 }
-                .padding(.horizontal, Layout.screenMargin)
+                .padding(.horizontal, Spacing.lg)
 
-                addToCartSection
-                    .padding(.horizontal, Layout.screenMargin)
-                    .padding(.bottom, Spacing.xxl)
+                // Bottom padding to clear the fixed add-to-cart bar
+                Color.clear.frame(height: Layout.buttonHeight + Spacing.xxl)
             }
         }
         .background(Color.backgroundPrimary)
@@ -73,14 +78,16 @@ struct ProductSelectionView: View {
             .frame(height: 200)
             VStack(spacing: Spacing.sm) {
                 Text("♠")
-                    .font(.system(size: 72, weight: .bold))
+                    .font(.system(.largeTitle, design: .default))
+                    .fontWeight(.bold)
+                    .scaleEffect(2.0)
                     .foregroundColor(product.inStock ? .gold : Color.secondary.opacity(0.5))
                 if !product.inStock {
                     Text("OUT OF STOCK")
                         .font(.caption.weight(.bold))
                         .foregroundColor(.warning)
                         .padding(.horizontal, Spacing.sm)
-                        .padding(.vertical, 4)
+                        .padding(.vertical, Spacing.xs)
                         .background(Capsule().fill(Color.warning.opacity(0.15)))
                 }
             }
@@ -93,11 +100,12 @@ struct ProductSelectionView: View {
         BlakJaksCard {
             VStack(alignment: .leading, spacing: Spacing.sm) {
                 HStack(alignment: .top) {
-                    VStack(alignment: .leading, spacing: 4) {
+                    VStack(alignment: .leading, spacing: Spacing.xs) {
                         Text(product.name)
-                            .font(.title3.weight(.bold))
+                            .font(.system(.title2, design: .serif))
+                            .fontWeight(.bold)
                         if let flavor = product.flavor {
-                            HStack(spacing: 4) {
+                            HStack(spacing: Spacing.xs) {
                                 Image(systemName: "wind")
                                     .font(.caption)
                                     .foregroundColor(.gold)
@@ -109,7 +117,8 @@ struct ProductSelectionView: View {
                     }
                     Spacer()
                     Text("$\(product.price.formatted(.number.precision(.fractionLength(2))))")
-                        .font(.title2.weight(.bold))
+                        .font(.system(.title3, design: .monospaced))
+                        .fontWeight(.bold)
                         .foregroundColor(.gold)
                 }
                 Divider()
@@ -127,7 +136,7 @@ struct ProductSelectionView: View {
     private func metaLabel(_ label: String, _ value: String) -> some View {
         VStack(alignment: .leading, spacing: 2) {
             Text(label.uppercased())
-                .font(.system(size: 9, weight: .semibold))
+                .font(.caption2.weight(.semibold))
                 .foregroundColor(.secondary)
             Text(value)
                 .font(.footnote.weight(.medium))
@@ -149,7 +158,7 @@ struct ProductSelectionView: View {
                         .padding(.horizontal, Spacing.md)
                         .padding(.vertical, Spacing.sm)
                         .background(
-                            RoundedRectangle(cornerRadius: 8)
+                            RoundedRectangle(cornerRadius: Spacing.sm)
                                 .fill(isThis ? Color.gold : Color.backgroundTertiary)
                         )
                 }
@@ -171,7 +180,7 @@ struct ProductSelectionView: View {
         }
     }
 
-    // MARK: - Add to cart
+    // MARK: - Add to cart (fixed to bottom via safeAreaInset)
 
     private var addToCartSection: some View {
         VStack(spacing: Spacing.md) {
@@ -183,28 +192,15 @@ struct ProductSelectionView: View {
             }
 
             let lineTotal = product.price * Double(quantity)
-            Button {
-                Task { await addToCart() }
-            } label: {
-                HStack(spacing: Spacing.sm) {
-                    if cartVM.isLoading {
-                        ProgressView()
-                            .tint(.black)
-                    } else {
-                        Image(systemName: "bag.badge.plus")
-                        Text(product.inStock
-                             ? "Add to Cart — $\(lineTotal.formatted(.number.precision(.fractionLength(2))))"
-                             : "Out of Stock")
-                        .fontWeight(.semibold)
-                    }
-                }
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, Spacing.md)
-                .background(product.inStock ? Color.gold : Color.backgroundTertiary)
-                .foregroundColor(product.inStock ? .black : .secondary)
-                .cornerRadius(Layout.cardCornerRadius)
+            GoldButton(
+                product.inStock
+                    ? "Add to Cart — $\(lineTotal.formatted(.number.precision(.fractionLength(2))))"
+                    : "Out of Stock",
+                isLoading: cartVM.isLoading,
+                isDisabled: !product.inStock
+            ) {
+                await addToCart()
             }
-            .disabled(!product.inStock || cartVM.isLoading)
         }
     }
 
@@ -235,7 +231,7 @@ struct ProductSelectionView: View {
             }
             .disabled(quantity >= maxQuantity)
         }
-        .cornerRadius(8)
+        .cornerRadius(Spacing.md)
         .foregroundColor(.primary)
     }
 

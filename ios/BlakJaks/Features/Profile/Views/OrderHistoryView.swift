@@ -21,22 +21,32 @@ struct OrderHistoryView: View {
                 )
                 .background(Color.backgroundPrimary)
             } else {
-                List(profileVM.orders) { order in
-                    Button {
-                        selectedOrder = order
-                    } label: {
-                        orderRow(order: order)
+                ScrollView {
+                    LazyVStack(spacing: Spacing.md) {
+                        ForEach(profileVM.orders) { order in
+                            Button {
+                                selectedOrder = order
+                            } label: {
+                                orderRow(order: order)
+                            }
+                            .buttonStyle(.plain)
+                        }
                     }
-                    .listRowBackground(Color.backgroundSecondary)
-                    .listRowSeparatorTint(Color(.separator).opacity(0.4))
+                    .padding(.horizontal, Spacing.lg)
+                    .padding(.vertical, Spacing.md)
                 }
-                .listStyle(.insetGrouped)
-                .scrollContentBackground(.hidden)
                 .background(Color.backgroundPrimary)
             }
         }
-        .navigationTitle("Order History")
-        .navigationBarTitleDisplayMode(.inline)
+        // "Orders" header in New York serif via large display mode + toolbar title view
+        .navigationBarTitleDisplayMode(.large)
+        .toolbar {
+            ToolbarItem(placement: .principal) {
+                Text("Orders")
+                    .font(.system(.title, design: .serif))
+                    .foregroundColor(.primary)
+            }
+        }
         .task { await profileVM.loadOrders() }
         .sheet(item: $selectedOrder) { order in
             OrderDetailView(order: order)
@@ -46,42 +56,54 @@ struct OrderHistoryView: View {
     // MARK: - Order Row
 
     private func orderRow(order: Order) -> some View {
-        HStack(spacing: Spacing.md) {
-            // Order icon
-            Image(systemName: "shippingbox")
-                .font(.system(size: 22))
-                .foregroundColor(.gold)
-                .frame(width: 36)
+        BlakJaksCard {
+            VStack(alignment: .leading, spacing: Spacing.sm) {
+                HStack(alignment: .top) {
+                    VStack(alignment: .leading, spacing: Spacing.xs) {
+                        // Order number — footnote, secondary, monospaced
+                        Text("Order #\(order.id)")
+                            .font(.system(.footnote, design: .monospaced))
+                            .foregroundColor(.secondary)
 
-            // Order info
-            VStack(alignment: .leading, spacing: Spacing.xs) {
-                Text("Order #\(order.id)")
-                    .font(.headline)
-                    .foregroundColor(.primary)
+                        // Items summary — body, primary
+                        Text(order.items.map { $0.productName }.joined(separator: ", "))
+                            .font(.body)
+                            .foregroundColor(.primary)
+                            .lineLimit(2)
+                    }
 
-                Text(formatOrderDate(order.createdAt))
-                    .font(.caption)
-                    .foregroundColor(.secondary)
+                    Spacer()
 
-                orderStatusCapsule(status: order.status)
+                    // Total — headline, monospaced, gold
+                    Text(order.total.formatted(.currency(code: "USD")))
+                        .font(.system(.headline, design: .monospaced))
+                        .foregroundColor(.gold)
+                }
+
+                HStack(spacing: Spacing.sm) {
+                    // Date — caption, secondary
+                    Text(formatOrderDate(order.createdAt))
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+
+                    Spacer()
+
+                    // Status badge — colored pill
+                    orderStatusCapsule(status: order.status)
+                }
             }
-
-            Spacer()
-
-            // Total
-            Text(order.total.formatted(.currency(code: "USD")))
-                .font(.system(.body, design: .monospaced).weight(.bold))
-                .foregroundColor(.gold)
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .padding(.vertical, Spacing.xs)
     }
 
     private func orderStatusCapsule(status: String) -> some View {
         let (label, color): (String, Color) = {
             switch status.lowercased() {
+            case "pending":     return ("Pending", .warning)
             case "processing":  return ("Processing", .warning)
             case "shipped":     return ("Shipped", .info)
-            case "delivered":   return ("Delivered", .success)
+            case "delivered",
+                 "fulfilled":   return ("Fulfilled", .success)
             case "cancelled":   return ("Cancelled", .failure)
             default:            return (status.capitalized, .secondary)
             }
@@ -256,9 +278,11 @@ struct OrderDetailView: View {
     private func statusLabel(_ status: String) -> some View {
         let (label, color): (String, Color) = {
             switch status.lowercased() {
+            case "pending":     return ("Pending", .warning)
             case "processing":  return ("Processing", .warning)
             case "shipped":     return ("Shipped", .info)
-            case "delivered":   return ("Delivered", .success)
+            case "delivered",
+                 "fulfilled":   return ("Fulfilled", .success)
             case "cancelled":   return ("Cancelled", .failure)
             default:            return (status.capitalized, .secondary)
             }

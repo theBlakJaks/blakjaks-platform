@@ -14,14 +14,22 @@ struct InsightsMenuView: View {
                 Color.backgroundPrimary.ignoresSafeArea()
 
                 ScrollView {
-                    VStack(spacing: Spacing.lg) {
+                    VStack(alignment: .leading, spacing: Spacing.lg) {
+                        // Custom serif title
+                        Text("Insights")
+                            .font(.system(.largeTitle, design: .serif))
+                            .fontWeight(.bold)
+                            .foregroundColor(.primary)
+                            .padding(.horizontal, Layout.screenMargin)
+                            .padding(.top, Spacing.sm)
+
                         // Header stats strip
                         if let overview = viewModel.overview {
                             headerStatsView(overview: overview)
                         }
 
                         // 5 menu buttons
-                        VStack(spacing: Spacing.sm) {
+                        VStack(spacing: Spacing.lg) {
                             ForEach(InsightsTab.allCases) { tab in
                                 NavigationLink {
                                     destinationView(for: tab)
@@ -42,8 +50,8 @@ struct InsightsMenuView: View {
                     LoadingView()
                 }
             }
-            .navigationTitle("Insights")
-            .navigationBarTitleDisplayMode(.large)
+            .navigationBarTitleDisplayMode(.inline)
+            .navigationBarHidden(true)
             .task { await viewModel.loadOverview() }
             .alert("Error", isPresented: .constant(viewModel.error != nil)) {
                 Button("OK") { viewModel.clearError() }
@@ -98,34 +106,33 @@ struct InsightsMenuView: View {
     // MARK: - Menu button
 
     private func menuButton(tab: InsightsTab) -> some View {
-        HStack(spacing: Spacing.md) {
-            ZStack {
-                RoundedRectangle(cornerRadius: 12)
-                    .fill(Color.gold.opacity(0.15))
-                    .frame(width: 48, height: 48)
-                Image(systemName: tab.icon)
-                    .font(.system(size: 22, weight: .medium))
+        BlakJaksCard {
+            HStack(spacing: Spacing.md) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 12)
+                        .fill(Color.gold.opacity(0.15))
+                        .frame(width: 48, height: 48)
+                    Image(systemName: tab.icon)
+                        .font(.body.weight(.medium))
+                        .foregroundColor(.gold)
+                }
+
+                VStack(alignment: .leading, spacing: Spacing.xs) {
+                    Text(tab.rawValue)
+                        .font(.headline)
+                        .foregroundColor(.primary)
+                    Text(menuSubtitle(for: tab))
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+
+                Spacer()
+
+                Image(systemName: "chevron.right")
+                    .font(.caption.weight(.semibold))
                     .foregroundColor(.gold)
             }
-
-            VStack(alignment: .leading, spacing: 2) {
-                Text(tab.rawValue)
-                    .font(.body.weight(.semibold))
-                    .foregroundColor(.primary)
-                Text(menuSubtitle(for: tab))
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-            }
-
-            Spacer()
-
-            Image(systemName: "chevron.right")
-                .font(.caption.weight(.semibold))
-                .foregroundColor(.secondary)
         }
-        .padding(Spacing.md)
-        .background(Color.backgroundSecondary)
-        .cornerRadius(Layout.cardCornerRadius)
     }
 
     private func menuSubtitle(for tab: InsightsTab) -> String {

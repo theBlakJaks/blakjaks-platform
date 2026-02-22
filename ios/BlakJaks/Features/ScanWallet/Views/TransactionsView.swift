@@ -12,7 +12,8 @@ struct TransactionsView: View {
             // Section header + filter
             HStack {
                 Text("Transactions")
-                    .font(.title3.weight(.bold))
+                    .font(.system(.title2, design: .serif))
+                    .foregroundColor(.gold)
                 Spacer()
             }
             .padding(.horizontal, Layout.screenMargin)
@@ -58,11 +59,11 @@ struct TransactionsView: View {
         } label: {
             Text(filter.rawValue)
                 .font(.footnote.weight(.semibold))
-                .foregroundColor(viewModel.txFilter == filter ? .black : .secondary)
-                .padding(.vertical, 6)
+                .foregroundColor(viewModel.txFilter == filter ? Color.backgroundPrimary : .secondary)
+                .padding(.vertical, Spacing.sm)
                 .frame(maxWidth: .infinity)
                 .background(
-                    RoundedRectangle(cornerRadius: 8)
+                    RoundedRectangle(cornerRadius: Spacing.sm)
                         .fill(viewModel.txFilter == filter ? Color.gold : Color.clear)
                 )
         }
@@ -79,12 +80,12 @@ struct TransactionsView: View {
                     .fill(txIconBackground(tx))
                     .frame(width: 40, height: 40)
                 Image(systemName: txIcon(tx))
-                    .font(.system(size: 16, weight: .medium))
+                    .font(.callout.weight(.medium))
                     .foregroundColor(txIconColor(tx))
             }
 
             // Description + date
-            VStack(alignment: .leading, spacing: 2) {
+            VStack(alignment: .leading, spacing: Spacing.xs) {
                 Text(tx.description)
                     .font(.footnote.weight(.medium))
                     .foregroundColor(.primary)
@@ -97,7 +98,7 @@ struct TransactionsView: View {
             Spacer()
 
             // Amount + status
-            VStack(alignment: .trailing, spacing: 2) {
+            VStack(alignment: .trailing, spacing: Spacing.xs) {
                 Text(formattedAmount(tx))
                     .font(.system(.footnote, design: .monospaced).weight(.bold))
                     .foregroundColor(amountColor(tx))
@@ -115,7 +116,7 @@ struct TransactionsView: View {
                         .foregroundColor(.secondary)
                 }
                 .padding(.trailing, Layout.screenMargin)
-                .padding(.bottom, 4)
+                .padding(.bottom, Spacing.xs)
             }
         }
     }
@@ -161,14 +162,14 @@ struct TransactionsView: View {
     private func statusBadge(_ tx: Transaction) -> some View {
         if tx.status == "pending" {
             Text("PENDING")
-                .font(.system(size: 8, weight: .bold))
+                .font(.caption2.weight(.bold))
                 .foregroundColor(.warning)
-                .padding(.horizontal, 5)
-                .padding(.vertical, 2)
+                .padding(.horizontal, Spacing.xs)
+                .padding(.vertical, Spacing.xs)
                 .background(Capsule().fill(Color.warning.opacity(0.15)))
         } else {
             Text("")
-                .font(.system(size: 8))
+                .font(.caption2)
                 .foregroundColor(.clear)
         }
     }

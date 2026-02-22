@@ -9,7 +9,8 @@ struct ScanHistoryView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: Spacing.md) {
             Text("Scan History")
-                .font(.title3.weight(.bold))
+                .font(.system(.title2, design: .serif))
+                .foregroundColor(.gold)
                 .padding(.horizontal, Layout.screenMargin)
 
             if scans.isEmpty {
@@ -42,23 +43,26 @@ struct ScanHistoryView: View {
                     .fill(Color.success.opacity(0.12))
                     .frame(width: 40, height: 40)
                 Image(systemName: "checkmark.circle.fill")
-                    .font(.system(size: 18))
+                    .font(.callout)
                     .foregroundColor(.success)
             }
 
-            VStack(alignment: .leading, spacing: 2) {
-                Text(scan.productName)
-                    .font(.footnote.weight(.medium))
-                    .foregroundColor(.primary)
+            VStack(alignment: .leading, spacing: Spacing.xs) {
+                HStack(spacing: Spacing.sm) {
+                    Text(scan.productName)
+                        .font(.footnote.weight(.medium))
+                        .foregroundColor(.primary)
+                    TierBadge(tier: scan.tier)
+                }
                 HStack(spacing: Spacing.xs) {
                     Text(scan.createdAt.relativeTimeString)
-                        .font(.caption2)
+                        .font(.caption)
                         .foregroundColor(.secondary)
                     Text("·")
-                        .font(.caption2)
+                        .font(.caption)
                         .foregroundColor(.secondary)
                     Text("\(scan.tierMultiplier, specifier: "%.1f")x multiplier")
-                        .font(.caption2)
+                        .font(.caption)
                         .foregroundColor(.secondary)
                 }
             }

@@ -54,14 +54,14 @@ struct SocialHubView: View {
                         }
                     } label: {
                         Image(systemName: "line.3.horizontal")
-                            .font(.system(size: 17, weight: .medium))
+                            .font(.body.weight(.medium))
                     }
                 }
 
-                // Center — title
+                // Center — title (New York serif per design spec)
                 ToolbarItem(placement: .principal) {
                     Text(socialVM.selectedChannel.map { "#\($0.name)" } ?? "Social")
-                        .font(.headline)
+                        .font(.system(.headline, design: .serif))
                 }
 
                 // Right — bell with unread badge
@@ -69,12 +69,12 @@ struct SocialHubView: View {
                     Button { showNotifications = true } label: {
                         ZStack(alignment: .topTrailing) {
                             Image(systemName: "bell")
-                                .font(.system(size: 17, weight: .medium))
+                                .font(.body.weight(.medium))
                             if notifVM.unreadCount > 0 {
                                 Text("\(min(notifVM.unreadCount, 99))")
-                                    .font(.system(size: 9, weight: .bold))
+                                    .font(.caption2.weight(.bold))
                                     .foregroundColor(.white)
-                                    .padding(.horizontal, 4)
+                                    .padding(.horizontal, Spacing.xs)
                                     .padding(.vertical, 2)
                                     .background(Color.info)
                                     .clipShape(Capsule())
@@ -137,24 +137,36 @@ struct SocialHubView: View {
 
     private var liveBanner: some View {
         HStack(spacing: Spacing.sm) {
-            Circle()
-                .fill(Color.failure)
-                .frame(width: 8, height: 8)
-            Text("LIVE — tap to watch")
-                .font(.system(size: 13, weight: .bold))
-                .foregroundColor(.black)
+            // "LIVE" badge in Color.error per spec
+            Text("LIVE")
+                .font(.caption.weight(.bold))
+                .foregroundColor(.white)
+                .padding(.horizontal, Spacing.sm)
+                .padding(.vertical, Spacing.xs)
+                .background(Color.error)
+                .clipShape(Capsule())
+
+            Text("Tap to watch")
+                .font(.callout.weight(.semibold))
+                .foregroundColor(.primary)
             Spacer()
             Image(systemName: "chevron.right")
-                .font(.system(size: 11, weight: .bold))
-                .foregroundColor(.black.opacity(0.6))
+                .font(.caption.weight(.bold))
+                .foregroundColor(.secondary)
         }
         .padding(.horizontal, Layout.screenMargin)
         .padding(.vertical, Spacing.sm)
-        .background(Color.gold)
-        .clipShape(Capsule())
+        .background(
+            RoundedRectangle(cornerRadius: Layout.cardCornerRadius)
+                .fill(Color.backgroundSecondary)
+                .overlay(
+                    RoundedRectangle(cornerRadius: Layout.cardCornerRadius)
+                        .strokeBorder(Color.gold, lineWidth: 2)
+                )
+        )
         .padding(.horizontal, Layout.screenMargin)
         .padding(.bottom, Spacing.sm)
-        .shadow(color: Color.gold.opacity(0.4), radius: 8, x: 0, y: 4)
+        .shadow(color: Color.gold.opacity(0.3), radius: 8, x: 0, y: 4)
     }
 }
 

@@ -37,7 +37,7 @@ struct NotificationCenterView: View {
                             .listRowBackground(
                                 notification.isRead
                                     ? Color.backgroundPrimary
-                                    : Color.gold.opacity(0.06)
+                                    : Color.gold.opacity(0.15)
                             )
                             .listRowSeparatorTint(Color.backgroundSecondary)
                             .onTapGesture {
@@ -52,15 +52,21 @@ struct NotificationCenterView: View {
                 }
             }
         }
-        .navigationTitle("Notifications")
-        .navigationBarTitleDisplayMode(.inline)
+        // "Notifications" header in New York serif via toolbar principal
+        .navigationBarTitleDisplayMode(.large)
         .toolbar {
+            ToolbarItem(placement: .principal) {
+                Text("Notifications")
+                    .font(.system(.title, design: .serif))
+                    .foregroundColor(.primary)
+            }
+
             ToolbarItem(placement: .navigationBarTrailing) {
                 if notifVM.unreadCount > 0 {
                     Button("Mark All Read") {
                         Task { await notifVM.markAllRead() }
                     }
-                    .font(.system(size: 14))
+                    .font(.subheadline)
                     .foregroundColor(.gold)
                 }
             }
@@ -82,11 +88,11 @@ struct NotificationCenterView: View {
 
     private func notificationRow(_ notification: AppNotification) -> some View {
         HStack(alignment: .top, spacing: Spacing.sm) {
-            // Icon
+            // Icon — SF Symbol matching type, gold tinted
             notifIcon(notification.type)
 
             // Content
-            VStack(alignment: .leading, spacing: 3) {
+            VStack(alignment: .leading, spacing: Spacing.xs) {
                 Text(notification.title)
                     .font(.footnote.weight(notification.isRead ? .regular : .semibold))
                     .foregroundColor(.primary)
@@ -100,14 +106,14 @@ struct NotificationCenterView: View {
             Spacer(minLength: 0)
 
             // Time + unread dot
-            VStack(alignment: .trailing, spacing: 4) {
+            VStack(alignment: .trailing, spacing: Spacing.xs) {
                 Text(relativeTime(notification.createdAt))
-                    .font(.system(size: 10))
+                    .font(.caption)
                     .foregroundColor(.secondary)
 
                 if !notification.isRead {
                     Image(systemName: "circle.fill")
-                        .font(.system(size: 8))
+                        .font(.caption2)
                         .foregroundColor(.gold)
                 }
             }
@@ -118,19 +124,19 @@ struct NotificationCenterView: View {
     // MARK: - Icon Helper
 
     private func notifIcon(_ type: String) -> some View {
-        let (icon, color): (String, Color) = {
+        let icon: String = {
             switch type {
-            case "comp_earned": return ("dollarsign.circle.fill", .success)
-            case "tier_upgrade": return ("star.fill", .gold)
-            case "mention": return ("at.circle.fill", .info)
-            case "reply": return ("bubble.left.fill", .info)
-            case "pin": return ("pin.fill", .warning)
-            default: return ("bell.fill", .secondary)
+            case "comp_earned":  return "dollarsign.circle.fill"
+            case "tier_upgrade": return "star.fill"
+            case "mention":      return "at.circle.fill"
+            case "reply":        return "bubble.left.fill"
+            case "pin":          return "pin.fill"
+            default:             return "bell.fill"
             }
         }()
         return Image(systemName: icon)
             .font(.title3)
-            .foregroundColor(color)
+            .foregroundColor(.gold)
             .frame(width: 36, height: 36)
     }
 

@@ -90,9 +90,13 @@ struct CustomTabBar: View {
                 }
             }
             .frame(height: 60)
-            .background(Color.backgroundSecondary.ignoresSafeArea(edges: .bottom))
+            .background(
+                Color.backgroundPrimary
+                    .background(.ultraThinMaterial)
+                    .ignoresSafeArea(edges: .bottom)
+            )
             .overlay(
-                Divider().frame(height: 0.5).foregroundColor(Color.gray.opacity(0.3)),
+                Divider(),
                 alignment: .top
             )
 
@@ -107,11 +111,11 @@ struct CustomTabBar: View {
                         .shadow(color: Color.black.opacity(0.3), radius: 8, y: 4)
 
                     Image(systemName: "suit.spade.fill")
-                        .font(.system(size: 26, weight: .semibold))
+                        .font(.title2.weight(.semibold))
                         .foregroundColor(selectedTab == 2 ? .black : .secondary)
                 }
             }
-            .offset(y: -(Layout.tabBarCenterBubbleSize / 2 - 10))
+            .offset(y: -(Layout.tabBarCenterBubbleSize / 2 + Spacing.sm))
         }
     }
 
@@ -121,17 +125,18 @@ struct CustomTabBar: View {
         Button {
             selectedTab = index
         } label: {
-            VStack(spacing: 4) {
+            VStack(spacing: Spacing.xs) {
                 Image(systemName: tab.icon)
-                    .font(.system(size: 22))
-                    .foregroundColor(selectedTab == index ? .gold : .secondary)
+                    .font(.body)
+                    .foregroundColor(selectedTab == index ? .gold : Color(UIColor.secondaryLabel))
                 if !tab.label.isEmpty {
                     Text(tab.label)
                         .font(.caption2)
-                        .foregroundColor(selectedTab == index ? .gold : .secondary)
+                        .foregroundColor(selectedTab == index ? .gold : Color(UIColor.secondaryLabel))
                 }
             }
             .frame(maxWidth: .infinity)
+            .frame(minHeight: 44)
         }
     }
 }

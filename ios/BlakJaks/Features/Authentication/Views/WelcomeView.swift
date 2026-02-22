@@ -29,19 +29,23 @@ struct WelcomeView: View {
 
     var body: some View {
         ZStack {
-            Color.black.ignoresSafeArea()
+            Color.backgroundPrimary.ignoresSafeArea()
 
             VStack(spacing: 0) {
                 // Brand header
                 VStack(spacing: Spacing.sm) {
                     Text("BlakJaks")
-                        .font(.brandLargeTitle)
+                        .font(.system(.largeTitle, design: .serif))
                         .foregroundColor(.gold)
+                    // Gold accent rule beneath wordmark
+                    Rectangle()
+                        .fill(Color.gold)
+                        .frame(width: 48, height: 2)
                     Text("Premium Nicotine Products")
                         .font(.subheadline)
                         .foregroundColor(.secondary)
                 }
-                .padding(.top, Spacing.xxl * 1.5)
+                .padding(.top, Spacing.xxxl)
 
                 // Onboarding cards
                 TabView(selection: $currentPage) {
@@ -70,11 +74,11 @@ struct WelcomeView: View {
 
                 // CTA buttons
                 VStack(spacing: Spacing.sm) {
-                    GoldButton("Create Account") {
+                    GoldButton("Sign Up") {
                         showSignup = true
                     }
 
-                    SecondaryButton("Sign In") {
+                    SecondaryButton("Log In") {
                         showLogin = true
                     }
 
@@ -84,8 +88,8 @@ struct WelcomeView: View {
                         .multilineTextAlignment(.center)
                         .padding(.top, Spacing.xs)
                 }
-                .padding(.horizontal, Layout.screenMargin)
-                .padding(.bottom, Spacing.xxl)
+                .padding(.horizontal, Spacing.lg)
+                .padding(.bottom, Spacing.xxxl)
             }
         }
         .navigationDestination(isPresented: $showLogin) {
@@ -103,14 +107,14 @@ struct WelcomeView: View {
                     .fill(Color.gold.opacity(0.15))
                     .frame(width: 96, height: 96)
                 Image(systemName: card.icon)
-                    .font(.system(size: 40, weight: .light))
+                    .font(.largeTitle.weight(.light))
                     .foregroundColor(.gold)
             }
 
             VStack(spacing: Spacing.sm) {
                 Text(card.title)
                     .font(.title2.weight(.bold))
-                    .foregroundColor(.white)
+                    .foregroundColor(.primary)
 
                 Text(card.subtitle)
                     .font(.body)
@@ -119,7 +123,7 @@ struct WelcomeView: View {
                     .padding(.horizontal, Spacing.xl)
             }
         }
-        .padding(.horizontal, Layout.screenMargin)
+        .padding(.horizontal, Spacing.lg)
     }
 }
 

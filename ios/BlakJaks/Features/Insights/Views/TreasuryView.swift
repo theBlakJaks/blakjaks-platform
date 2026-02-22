@@ -23,7 +23,7 @@ struct TreasuryView: View {
             }
         }
         .navigationTitle("Treasury")
-        .navigationBarTitleDisplayMode(.inline)
+        .navigationBarTitleDisplayMode(.large)
         .task { await viewModel.loadTreasury() }
         .refreshable { await viewModel.refresh() }
         .alert("Error", isPresented: .constant(viewModel.error != nil)) {
@@ -84,8 +84,8 @@ struct TreasuryView: View {
                                     .font(.caption)
                                     .foregroundColor(.secondary)
                                 Text("$\(treasury.dwollaPlatformBalance.available.formatted(.number.precision(.fractionLength(2))))")
-                                    .font(.title3.weight(.semibold))
-                                    .foregroundColor(.primary)
+                                    .font(.system(.title3, design: .monospaced).weight(.semibold))
+                                    .foregroundColor(.gold)
                             }
                             Spacer()
                             VStack(alignment: .trailing, spacing: 2) {
@@ -93,7 +93,7 @@ struct TreasuryView: View {
                                     .font(.caption)
                                     .foregroundColor(.secondary)
                                 Text("$\(treasury.dwollaPlatformBalance.total.formatted(.number.precision(.fractionLength(2))))")
-                                    .font(.title3.weight(.semibold))
+                                    .font(.system(.title3, design: .monospaced).weight(.semibold))
                                     .foregroundColor(.secondary)
                             }
                         }
@@ -146,9 +146,14 @@ struct TreasuryView: View {
                     .truncationMode(.middle)
             }
             Spacer()
-            Text("$\(pool.balance.formatted(.number.precision(.fractionLength(2))))")
-                .font(.system(.body, design: .monospaced).weight(.semibold))
-                .foregroundColor(.gold)
+            VStack(alignment: .trailing, spacing: 2) {
+                Text("$\(pool.balance.formatted(.number.precision(.fractionLength(2))))")
+                    .font(.system(.body, design: .monospaced).weight(.semibold))
+                    .foregroundColor(.gold)
+                Text("USDC")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
         }
     }
 

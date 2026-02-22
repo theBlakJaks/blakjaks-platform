@@ -1,18 +1,17 @@
 import SwiftUI
 
-// MARK: - BlakJaks 8-Point Spacing Grid
-// All spacing is a multiple of 8pt (with 4pt for fine adjustments).
-// This creates visual rhythm and consistency across all screens.
+// MARK: - BlakJaks Spacing Scale
+// Screen edge margin: lg (20pt) | Section gap: xxl (32pt) | Card padding: base (16pt)
 
 enum Spacing {
-    static let xs: CGFloat = 4      // Fine adjustment — icon padding, badge offset
-    static let sm: CGFloat = 8      // Minimum spacing — between related elements
-    static let md: CGFloat = 16     // Standard spacing — between components, horizontal margins
-    static let lg: CGFloat = 24     // Generous spacing — between card sections
-    static let xl: CGFloat = 32     // Section separation
-    static let xxl: CGFloat = 48    // Major section separation
-    static let tight: CGFloat = 12  // Tight spacing — label to value, row vertical padding
-    static let comfortable: CGFloat = 20  // Comfortable spacing — premium feel, section padding
+    static let xs: CGFloat   = 4
+    static let sm: CGFloat   = 8
+    static let md: CGFloat   = 12
+    static let base: CGFloat = 16
+    static let lg: CGFloat   = 20   // Standard screen margin
+    static let xl: CGFloat   = 24
+    static let xxl: CGFloat  = 32   // Section separation
+    static let xxxl: CGFloat = 40   // Major section separation
 }
 
 // MARK: - Standard Layout Constants

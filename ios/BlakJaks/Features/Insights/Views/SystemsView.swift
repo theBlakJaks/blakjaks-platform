@@ -22,7 +22,7 @@ struct SystemsView: View {
             }
         }
         .navigationTitle("Systems")
-        .navigationBarTitleDisplayMode(.inline)
+        .navigationBarTitleDisplayMode(.large)
         .task { await viewModel.loadSystems() }
         .refreshable { await viewModel.refresh() }
         .alert("Error", isPresented: .constant(viewModel.error != nil)) {
@@ -71,7 +71,8 @@ struct SystemsView: View {
                             Image(systemName: "arrow.triangle.2.circlepath")
                                 .font(.title3).foregroundColor(.info)
                             Text("\(systems.payoutPipelineSuccessRate.formatted(.number.precision(.fractionLength(1))))%")
-                                .font(.title3.weight(.bold))
+                                .font(.system(.title3, design: .monospaced).weight(.bold))
+                                .foregroundColor(.gold)
                             Text("Pipeline Success")
                                 .font(.caption2).foregroundColor(.secondary)
                                 .multilineTextAlignment(.center)
@@ -86,7 +87,8 @@ struct SystemsView: View {
                             Image(systemName: "qrcode.viewfinder")
                                 .font(.title3).foregroundColor(.gold)
                             Text("\(systems.scanVelocity.perMinute.formatted(.number.precision(.fractionLength(1))))/min")
-                                .font(.title3.weight(.bold))
+                                .font(.system(.title3, design: .monospaced).weight(.bold))
+                                .foregroundColor(.gold)
                             Text("Scan Velocity")
                                 .font(.caption2).foregroundColor(.secondary)
                             Text("\(systems.scanVelocity.perHour.formatted(.number.precision(.fractionLength(0))))/hr")
@@ -152,6 +154,11 @@ struct SystemsView: View {
 
     private func systemRow(label: String, value: String, status: String?, ok: Bool) -> some View {
         HStack {
+            if status != nil {
+                Circle()
+                    .fill(ok ? Color.success : Color.failure)
+                    .frame(width: 8, height: 8)
+            }
             Text(label).font(.footnote).foregroundColor(.secondary)
             Spacer()
             if let status {

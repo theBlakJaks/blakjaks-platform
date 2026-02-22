@@ -21,7 +21,7 @@ struct SignupView: View {
                     // Header
                     VStack(spacing: Spacing.sm) {
                         Text("Create Account")
-                            .font(.title.weight(.bold))
+                            .font(.system(.title, design: .serif))
                             .foregroundColor(.primary)
                         Text("Join the BlakJaks community")
                             .font(.subheadline)
@@ -80,10 +80,11 @@ struct SignupView: View {
                             .datePickerStyle(.compact)
                             .labelsHidden()
                             .tint(.gold)
-                            .padding()
+                            .padding(.horizontal, Spacing.base)
+                            .frame(height: 50)
                             .frame(maxWidth: .infinity, alignment: .leading)
-                            .background(Color.backgroundSecondary)
-                            .cornerRadius(Layout.buttonCornerRadius)
+                            .background(Color.backgroundTertiary)
+                            .cornerRadius(12)
 
                             if !viewModel.isOldEnough && viewModel.dateOfBirth != Calendar.current.date(byAdding: .year, value: -21, to: Date())! {
                                 InlineErrorView(message: "You must be 21 or older.")
@@ -125,7 +126,7 @@ struct SignupView: View {
                     .disabled(!canSubmit)
                     .opacity(canSubmit ? 1 : 0.6)
                 }
-                .padding(.horizontal, Layout.screenMargin)
+                .padding(.horizontal, Spacing.lg)
                 .padding(.bottom, Spacing.xxl)
             }
         }
@@ -160,9 +161,11 @@ struct SignupView: View {
                 .font(.footnote.weight(.medium))
                 .foregroundColor(.secondary)
             content()
-                .padding()
-                .background(Color.backgroundSecondary)
-                .cornerRadius(Layout.buttonCornerRadius)
+                .padding(.horizontal, Spacing.base)
+                .frame(height: 50)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(Color.backgroundTertiary)
+                .cornerRadius(12)
         }
     }
 }

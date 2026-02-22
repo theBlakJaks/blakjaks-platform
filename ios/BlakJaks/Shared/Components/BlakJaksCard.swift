@@ -13,9 +13,9 @@ struct BlakJaksCard<Content: View>: View {
 
     var body: some View {
         content
-            .padding(Layout.cardPadding)
+            .padding(Spacing.base)
             .background(Color.backgroundSecondary)
-            .cornerRadius(Layout.cardCornerRadius)
+            .cornerRadius(16)
     }
 }
 
@@ -34,10 +34,10 @@ struct GoldAccentCard<Content: View>: View {
                 .fill(Color.gold)
                 .frame(height: 3)
             content
-                .padding(Layout.cardPadding)
+                .padding(Spacing.base)
         }
         .background(Color.backgroundSecondary)
-        .cornerRadius(Layout.cardCornerRadius)
+        .cornerRadius(16)
     }
 }
 

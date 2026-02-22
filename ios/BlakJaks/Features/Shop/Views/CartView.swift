@@ -20,7 +20,8 @@ struct CartView: View {
             .toolbar {
                 ToolbarItem(placement: .principal) {
                     Text("Cart")
-                        .font(.headline)
+                        .font(.system(.title3, design: .serif))
+                        .fontWeight(.semibold)
                 }
                 ToolbarItem(placement: .navigationBarLeading) {
                     Button("Close") { dismiss() }
@@ -62,12 +63,18 @@ struct CartView: View {
             VStack(spacing: Spacing.md) {
                 itemsList(cart: cart)
                 pricingSummary
-                checkoutButton
-                    .padding(.bottom, Spacing.xxl)
             }
             .padding(.top, Spacing.md)
+            // Bottom padding to clear the fixed checkout button
+            .padding(.bottom, Layout.buttonHeight + Spacing.xxl)
         }
         .background(Color.backgroundPrimary)
+        .safeAreaInset(edge: .bottom) {
+            checkoutButton
+                .padding(.horizontal, Spacing.lg)
+                .padding(.vertical, Spacing.md)
+                .background(Color.backgroundPrimary)
+        }
     }
 
     // MARK: - Items list
@@ -77,24 +84,24 @@ struct CartView: View {
             ForEach(cart.items) { item in
                 cartItemRow(item)
                 if item.id != cart.items.last?.id {
-                    Divider().padding(.horizontal, Layout.screenMargin)
+                    Divider().padding(.horizontal, Spacing.lg)
                 }
             }
         }
         .background(Color.backgroundSecondary)
         .cornerRadius(Layout.cardCornerRadius)
-        .padding(.horizontal, Layout.screenMargin)
+        .padding(.horizontal, Spacing.lg)
     }
 
     private func cartItemRow(_ item: CartItem) -> some View {
         HStack(spacing: Spacing.md) {
             // Product icon
             ZStack {
-                RoundedRectangle(cornerRadius: 8)
+                RoundedRectangle(cornerRadius: Spacing.sm)
                     .fill(Color.gold.opacity(0.12))
                     .frame(width: 48, height: 48)
                 Text("♠")
-                    .font(.system(size: 22, weight: .bold))
+                    .font(.title3.weight(.bold))
                     .foregroundColor(.gold)
             }
 
@@ -111,7 +118,7 @@ struct CartView: View {
             Spacer()
 
             // Line total + quantity controls
-            VStack(alignment: .trailing, spacing: 4) {
+            VStack(alignment: .trailing, spacing: Spacing.xs) {
                 Text("$\(item.lineTotal.formatted(.number.precision(.fractionLength(2))))")
                     .font(.system(.footnote, design: .monospaced).weight(.semibold))
 
@@ -126,7 +133,7 @@ struct CartView: View {
                         }
                     } label: {
                         Image(systemName: item.quantity > 1 ? "minus" : "trash")
-                            .font(.system(size: 10))
+                            .font(.caption.weight(.semibold))
                             .frame(width: 28, height: 28)
                             .background(Color.backgroundTertiary)
                     }
@@ -140,16 +147,16 @@ struct CartView: View {
                         Task { await cartVM.updateItem(productId: item.productId, quantity: item.quantity + 1) }
                     } label: {
                         Image(systemName: "plus")
-                            .font(.system(size: 10))
+                            .font(.caption.weight(.semibold))
                             .frame(width: 28, height: 28)
                             .background(Color.backgroundTertiary)
                     }
                 }
-                .cornerRadius(6)
+                .cornerRadius(Spacing.xs)
                 .foregroundColor(.primary)
             }
         }
-        .padding(.horizontal, Layout.screenMargin)
+        .padding(.horizontal, Spacing.lg)
         .padding(.vertical, Spacing.md)
     }
 
@@ -175,7 +182,7 @@ struct CartView: View {
                 priceRow("Total", cartVM.orderTotal, isBold: true, goldValue: true)
             }
         }
-        .padding(.horizontal, Layout.screenMargin)
+        .padding(.horizontal, Spacing.lg)
     }
 
     private func priceRow(
@@ -203,19 +210,10 @@ struct CartView: View {
     // MARK: - Checkout button
 
     private var checkoutButton: some View {
-        Button {
+        GoldButton("Proceed to Checkout") {
             cartVM.resetCheckout()
             showCheckout = true
-        } label: {
-            Text("Proceed to Checkout")
-                .font(.headline)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, Spacing.md)
-                .background(Color.gold)
-                .foregroundColor(.black)
-                .cornerRadius(Layout.cardCornerRadius)
         }
-        .padding(.horizontal, Layout.screenMargin)
     }
 
     // MARK: - Empty state
@@ -226,7 +224,7 @@ struct CartView: View {
             title: "Your Cart is Empty",
             subtitle: "Browse the shop and add BlakJaks products to get started."
         )
-        .padding(.horizontal, Layout.screenMargin)
+        .padding(.horizontal, Spacing.lg)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }

@@ -10,6 +10,7 @@ struct EmotePickerView: View {
     @Environment(\.dismiss) private var dismiss
 
     @State private var search = ""
+    @State private var highlightedEmote: String? = nil
 
     private let emotes = [
         "KEKW", "PogChamp", "Pog", "OMEGALUL", "pepeD",
@@ -23,7 +24,7 @@ struct EmotePickerView: View {
         return emotes.filter { $0.localizedCaseInsensitiveContains(search) }
     }
 
-    private let columns = Array(repeating: GridItem(.flexible(), spacing: 8), count: 5)
+    private let columns = Array(repeating: GridItem(.flexible(), spacing: Spacing.sm), count: 5)
 
     var body: some View {
         VStack(spacing: 0) {
@@ -53,9 +54,11 @@ struct EmotePickerView: View {
                 Spacer()
             } else {
                 ScrollView {
-                    LazyVGrid(columns: columns, spacing: 8) {
+                    LazyVGrid(columns: columns, spacing: Spacing.sm) {
                         ForEach(filteredEmotes, id: \.self) { emote in
+                            let isSelected = highlightedEmote == emote
                             Button {
+                                highlightedEmote = emote
                                 selectedEmote = emote
                                 dismiss()
                             } label: {
@@ -64,10 +67,22 @@ struct EmotePickerView: View {
                                     .lineLimit(2)
                                     .multilineTextAlignment(.center)
                                     .minimumScaleFactor(0.6)
-                                    .frame(width: 56, height: 40)
-                                    .background(Color.backgroundSecondary)
-                                    .cornerRadius(8)
+                                    // Minimum 44x44pt touch target
+                                    .frame(minWidth: 44, minHeight: 44)
+                                    .padding(Spacing.xs)
+                                    .background(
+                                        RoundedRectangle(cornerRadius: 8)
+                                            .fill(isSelected ? Color.gold.opacity(0.15) : Color.backgroundSecondary)
+                                    )
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 8)
+                                            .strokeBorder(
+                                                isSelected ? Color.gold : Color.clear,
+                                                lineWidth: 2
+                                            )
+                                    )
                             }
+                            .contentShape(Rectangle())
                         }
                     }
                     .padding(.horizontal, Spacing.md)
@@ -81,7 +96,7 @@ struct EmotePickerView: View {
                 .multilineTextAlignment(.center)
                 .padding(Spacing.md)
         }
-        .background(Color.backgroundPrimary)
+        .background(Color.backgroundSecondary)
         .navigationTitle("Emotes")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {

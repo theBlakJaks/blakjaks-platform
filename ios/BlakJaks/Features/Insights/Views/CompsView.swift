@@ -22,7 +22,7 @@ struct CompsView: View {
             }
         }
         .navigationTitle("Comps")
-        .navigationBarTitleDisplayMode(.inline)
+        .navigationBarTitleDisplayMode(.large)
         .task { await viewModel.loadComps() }
         .refreshable { await viewModel.refresh() }
         .alert("Error", isPresented: .constant(viewModel.error != nil)) {
@@ -146,7 +146,9 @@ struct CompsView: View {
 
     private func statItem(label: String, value: String) -> some View {
         VStack(alignment: .leading, spacing: 2) {
-            Text(value).font(.footnote.weight(.semibold)).foregroundColor(.primary)
+            Text(value)
+                .font(.system(.footnote, design: .monospaced).weight(.semibold))
+                .foregroundColor(.gold)
             Text(label).font(.caption2).foregroundColor(.secondary)
         }
     }

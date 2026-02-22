@@ -16,7 +16,8 @@ struct ErrorView: View {
     var body: some View {
         VStack(spacing: Spacing.lg) {
             Image(systemName: "exclamationmark.triangle")
-                .font(.system(size: 48, weight: .light))
+                .font(.largeTitle.weight(.light))
+                .imageScale(.large)
                 .foregroundColor(.warning)
 
             VStack(spacing: Spacing.sm) {

@@ -20,7 +20,8 @@ struct ShopView: View {
             .toolbar {
                 ToolbarItem(placement: .principal) {
                     Text("Shop")
-                        .font(.headline)
+                        .font(.system(.title3, design: .serif))
+                        .fontWeight(.semibold)
                 }
                 ToolbarItem(placement: .navigationBarTrailing) {
                     cartBadgeButton
@@ -52,14 +53,14 @@ struct ShopView: View {
                     ErrorView(error: error) {
                         await shopVM.loadProducts()
                     }
-                    .padding(.horizontal, Layout.screenMargin)
+                    .padding(.horizontal, Spacing.lg)
                 } else if shopVM.filteredProducts.isEmpty {
                     EmptyStateView(
                         icon: "bag",
                         title: "No Products",
                         subtitle: "Check back soon for new BlakJaks products."
                     )
-                    .padding(.horizontal, Layout.screenMargin)
+                    .padding(.horizontal, Spacing.lg)
                 } else {
                     productGrid
                 }
@@ -67,6 +68,9 @@ struct ShopView: View {
             .padding(.bottom, Spacing.xxl)
         }
         .background(Color.backgroundPrimary)
+        .safeAreaInset(edge: .bottom) {
+            Color.clear.frame(height: Spacing.xxl)
+        }
     }
 
     // MARK: - Search bar
@@ -88,8 +92,8 @@ struct ShopView: View {
         }
         .padding(Spacing.sm)
         .background(Color.backgroundSecondary)
-        .cornerRadius(10)
-        .padding(.horizontal, Layout.screenMargin)
+        .cornerRadius(Layout.cardCornerRadius)
+        .padding(.horizontal, Spacing.lg)
     }
 
     // MARK: - Product grid (2-column)
@@ -97,10 +101,10 @@ struct ShopView: View {
     private var productGrid: some View {
         LazyVGrid(
             columns: [
-                GridItem(.flexible(), spacing: Spacing.sm),
-                GridItem(.flexible(), spacing: Spacing.sm)
+                GridItem(.flexible(), spacing: Layout.gridGutter),
+                GridItem(.flexible(), spacing: Layout.gridGutter)
             ],
-            spacing: Spacing.md
+            spacing: Layout.gridGutter
         ) {
             ForEach(shopVM.filteredProducts) { product in
                 NavigationLink {
@@ -111,7 +115,7 @@ struct ShopView: View {
                 .buttonStyle(.plain)
             }
         }
-        .padding(.horizontal, Layout.screenMargin)
+        .padding(.horizontal, Spacing.lg)
     }
 
     // MARK: - Cart badge button
@@ -122,13 +126,13 @@ struct ShopView: View {
         } label: {
             ZStack(alignment: .topTrailing) {
                 Image(systemName: "bag")
-                    .font(.system(size: 20))
+                    .font(.body)
                     .foregroundColor(.primary)
                 if cartVM.itemCount > 0 {
                     Text("\(cartVM.itemCount)")
-                        .font(.system(size: 9, weight: .bold))
+                        .font(.caption2.weight(.bold))
                         .foregroundColor(.black)
-                        .padding(3)
+                        .padding(Spacing.xs)
                         .background(Circle().fill(Color.gold))
                         .offset(x: 8, y: -8)
                 }
@@ -143,69 +147,71 @@ struct ProductFlavorCard: View {
     let product: Product
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            // Image placeholder
-            ZStack {
-                RoundedRectangle(cornerRadius: 10)
-                    .fill(
-                        product.inStock
-                        ? LinearGradient(
-                            colors: [Color.gold.opacity(0.25), Color.backgroundTertiary],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                          )
-                        : LinearGradient(
-                            colors: [Color.backgroundTertiary, Color.backgroundTertiary],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                          )
-                    )
-                    .frame(height: 110)
-                VStack(spacing: 4) {
-                    Text("♠")
-                        .font(.system(size: 34, weight: .bold))
-                        .foregroundColor(product.inStock ? .gold : .secondary)
-                    if !product.inStock {
-                        Text("OUT OF STOCK")
-                            .font(.system(size: 8, weight: .bold))
-                            .foregroundColor(.secondary)
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 2)
-                            .background(Capsule().fill(Color.backgroundTertiary))
+        BlakJaksCard {
+            VStack(alignment: .leading, spacing: 0) {
+                // Image placeholder — 1:1 aspect ratio
+                ZStack {
+                    RoundedRectangle(cornerRadius: Spacing.md)
+                        .fill(
+                            product.inStock
+                            ? LinearGradient(
+                                colors: [Color.gold.opacity(0.25), Color.backgroundTertiary],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                              )
+                            : LinearGradient(
+                                colors: [Color.backgroundTertiary, Color.backgroundTertiary],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                              )
+                        )
+                        .aspectRatio(1, contentMode: .fit)
+                    VStack(spacing: Spacing.xs) {
+                        Text("♠")
+                            .font(.system(.largeTitle, design: .default))
+                            .fontWeight(.bold)
+                            .foregroundColor(product.inStock ? .gold : .secondary)
+                        if !product.inStock {
+                            Text("OUT OF STOCK")
+                                .font(.caption2.weight(.bold))
+                                .foregroundColor(.secondary)
+                                .padding(.horizontal, Spacing.xs)
+                                .padding(.vertical, 2)
+                                .background(Capsule().fill(Color.backgroundTertiary))
+                        }
                     }
                 }
-            }
 
-            VStack(alignment: .leading, spacing: 3) {
-                Text(product.name)
-                    .font(.footnote.weight(.semibold))
-                    .foregroundColor(.primary)
-                    .lineLimit(1)
-                if let flavor = product.flavor {
-                    Text(flavor)
-                        .font(.caption2)
-                        .foregroundColor(.secondary)
+                VStack(alignment: .leading, spacing: Spacing.xs) {
+                    Text(product.name)
+                        .font(.headline)
+                        .foregroundColor(.primary)
                         .lineLimit(1)
-                }
-                HStack {
-                    Text("$\(product.price.formatted(.number.precision(.fractionLength(2))))")
-                        .font(.system(.footnote, design: .monospaced).weight(.bold))
-                        .foregroundColor(.gold)
-                    Spacer()
-                    if let strength = product.nicotineStrength {
-                        Text(strength)
-                            .font(.system(size: 9, weight: .semibold))
+                    if let flavor = product.flavor {
+                        Text(flavor)
+                            .font(.caption)
                             .foregroundColor(.secondary)
-                            .padding(.horizontal, 5)
-                            .padding(.vertical, 2)
-                            .background(Capsule().fill(Color.backgroundTertiary))
+                            .lineLimit(1)
+                    }
+                    HStack {
+                        Text("$\(product.price.formatted(.number.precision(.fractionLength(2))))")
+                            .font(.system(.subheadline, design: .monospaced))
+                            .fontWeight(.bold)
+                            .foregroundColor(.gold)
+                        Spacer()
+                        if let strength = product.nicotineStrength {
+                            Text(strength)
+                                .font(.caption2.weight(.semibold))
+                                .foregroundColor(.secondary)
+                                .padding(.horizontal, Spacing.xs)
+                                .padding(.vertical, 2)
+                                .background(Capsule().fill(Color.backgroundTertiary))
+                        }
                     }
                 }
+                .padding(.top, Spacing.sm)
             }
-            .padding(Spacing.sm)
         }
-        .background(Color.backgroundSecondary)
-        .cornerRadius(Layout.cardCornerRadius)
         .opacity(product.inStock ? 1.0 : 0.55)
     }
 }

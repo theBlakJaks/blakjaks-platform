@@ -26,7 +26,7 @@ struct OverviewView: View {
             }
         }
         .navigationTitle("Overview")
-        .navigationBarTitleDisplayMode(.inline)
+        .navigationBarTitleDisplayMode(.large)
         .task { await viewModel.loadOverview() }
         .refreshable { await viewModel.refresh() }
         .alert("Error", isPresented: .constant(viewModel.error != nil)) {
@@ -130,8 +130,8 @@ struct OverviewView: View {
             VStack(spacing: Spacing.xs) {
                 Image(systemName: icon).font(.title3).foregroundColor(color)
                 Text(value)
-                    .font(.title3.weight(.bold))
-                    .foregroundColor(.primary)
+                    .font(.system(.title3, design: .monospaced).weight(.bold))
+                    .foregroundColor(.gold)
                     .minimumScaleFactor(0.8)
                     .lineLimit(1)
                 Text(label).font(.caption).foregroundColor(.secondary)

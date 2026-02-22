@@ -22,7 +22,7 @@ struct PartnersView: View {
             }
         }
         .navigationTitle("Partners")
-        .navigationBarTitleDisplayMode(.inline)
+        .navigationBarTitleDisplayMode(.large)
         .task { await viewModel.loadPartners() }
         .refreshable { await viewModel.refresh() }
         .alert("Error", isPresented: .constant(viewModel.error != nil)) {
@@ -110,8 +110,8 @@ struct PartnersView: View {
     private func statBlock(label: String, value: String) -> some View {
         VStack(alignment: .leading, spacing: 2) {
             Text(value)
-                .font(.title3.weight(.semibold))
-                .foregroundColor(.primary)
+                .font(.system(.title3, design: .monospaced).weight(.semibold))
+                .foregroundColor(.gold)
             Text(label)
                 .font(.caption2)
                 .foregroundColor(.secondary)

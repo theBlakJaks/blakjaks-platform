@@ -37,7 +37,7 @@ struct ChatView: View {
                 messageList
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
 
-                // Composer
+                // Composer pinned above keyboard/tab bar
                 composerBar
             }
 
@@ -49,6 +49,10 @@ struct ChatView: View {
             }
         }
         .background(Color.backgroundPrimary)
+        // Keeps composer above keyboard and tab bar
+        .safeAreaInset(edge: .bottom) {
+            Color.clear.frame(height: 0)
+        }
         .sheet(isPresented: $showEmotePicker) {
             NavigationStack {
                 EmotePickerView(selectedEmote: Binding(
@@ -149,28 +153,41 @@ struct ChatView: View {
         let isOwn = message.userId == socialVM.currentUserId
         let translated = translatedMessages[message.id]
 
-        return VStack(alignment: .leading, spacing: 0) {
+        return VStack(alignment: isOwn ? .trailing : .leading, spacing: 0) {
             HStack(alignment: .top, spacing: Spacing.sm) {
-                if !isGrouped {
-                    avatarCircle(message)
+                // Avatar only for incoming, ungrouped messages
+                if !isOwn {
+                    if !isGrouped {
+                        avatarCircle(message)
+                    } else {
+                        Color.clear.frame(width: 32, height: 1)
+                    }
                 } else {
-                    // Placeholder to preserve alignment
-                    Color.clear.frame(width: 32, height: 1)
+                    Spacer(minLength: 60)
                 }
 
-                VStack(alignment: .leading, spacing: 3) {
+                VStack(alignment: isOwn ? .trailing : .leading, spacing: 3) {
                     // Header: name + tier + time (only shown for first in group)
                     if !isGrouped {
                         HStack(alignment: .firstTextBaseline, spacing: 6) {
-                            Text(message.userFullName)
-                                .font(.system(size: 13, weight: .semibold))
-                                .foregroundColor(tierColor(message.userTier))
+                            if isOwn {
+                                // Timestamp left of name for own messages
+                                Text(shortTime(message.createdAt))
+                                    .font(.footnote)
+                                    .foregroundColor(.secondary)
+                            } else {
+                                // Username: Color.gold for high-tier users, .secondary otherwise
+                                Text(message.userFullName)
+                                    .font(.caption.weight(.semibold))
+                                    .foregroundColor(isHighTierUser(message.userTier) ? Color.gold : .secondary)
 
-                            tierPill(message.userTier)
+                                // Tier badge inline with username
+                                tierPill(message.userTier)
 
-                            Text(shortTime(message.createdAt))
-                                .font(.system(size: 10))
-                                .foregroundColor(.secondary)
+                                Text(shortTime(message.createdAt))
+                                    .font(.footnote)
+                                    .foregroundColor(.secondary)
+                            }
                         }
                     }
 
@@ -179,7 +196,7 @@ struct ChatView: View {
                         replyQuoteBlock(content: message.content)
                     }
 
-                    // Message content
+                    // Message content — bubble styled per sender
                     let displayContent: String = {
                         var c = message.content
                         if c.hasPrefix("[REPLY]"), let range = c.range(of: "]") {
@@ -189,14 +206,25 @@ struct ChatView: View {
                     }()
 
                     Text(displayContent)
-                        .font(.system(size: 14))
+                        .font(.body)
                         .foregroundColor(.primary)
                         .fixedSize(horizontal: false, vertical: true)
+                        .padding(.horizontal, Spacing.md)
+                        .padding(.vertical, Spacing.sm)
+                        .background(
+                            isOwn
+                                ? Color.gold.opacity(0.2)
+                                : Color.backgroundSecondary
+                        )
+                        // 16pt corner radius; flat corner on sender side (standard chat style)
+                        .clipShape(
+                            ChatBubbleShape(isOwn: isOwn)
+                        )
 
                     // Translation indicator
                     if translated != nil {
                         Text("Translated")
-                            .font(.system(size: 10))
+                            .font(.caption2)
                             .foregroundColor(.info)
                             .italic()
                     }
@@ -212,7 +240,18 @@ struct ChatView: View {
                             .transition(.scale.combined(with: .opacity))
                     }
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
+                .frame(maxWidth: .infinity, alignment: isOwn ? .trailing : .leading)
+
+                // Spacer on the left for own messages to push right
+                if isOwn {
+                    if !isGrouped {
+                        avatarCircle(message)
+                    } else {
+                        Color.clear.frame(width: 32, height: 1)
+                    }
+                } else {
+                    Spacer(minLength: 60)
+                }
             }
             .padding(.horizontal, Spacing.md)
             .padding(.vertical, isGrouped ? 2 : Spacing.sm)
@@ -262,11 +301,11 @@ struct ChatView: View {
                 .fill(Color.gold)
                 .frame(width: 3)
             Text(inner)
-                .font(.system(size: 12))
+                .font(.caption)
                 .foregroundColor(.secondary)
                 .lineLimit(2)
                 .padding(.horizontal, Spacing.sm)
-                .padding(.vertical, 4)
+                .padding(.vertical, Spacing.xs)
         }
         .background(Color.backgroundSecondary)
         .cornerRadius(4)
@@ -285,9 +324,9 @@ struct ChatView: View {
                     }
                 } label: {
                     Text("\(emoji) \(count)")
-                        .font(.system(size: 12))
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 4)
+                        .font(.caption)
+                        .padding(.horizontal, Spacing.sm)
+                        .padding(.vertical, Spacing.xs)
                         .background(Color.backgroundSecondary)
                         .cornerRadius(12)
                         .overlay(
@@ -315,6 +354,9 @@ struct ChatView: View {
                     Text(emoji)
                         .font(.title3)
                         .padding(Spacing.xs)
+                        // 44pt touch target
+                        .frame(minWidth: 44, minHeight: 44)
+                        .contentShape(Rectangle())
                 }
             }
         }
@@ -330,15 +372,15 @@ struct ChatView: View {
         return HStack {
             Spacer()
             Text(text)
-                .font(.system(size: 11, weight: .medium))
+                .font(.caption.weight(.medium))
                 .foregroundColor(.secondary)
                 .padding(.horizontal, Spacing.md)
-                .padding(.vertical, 5)
+                .padding(.vertical, Spacing.xs)
                 .background(Color.backgroundSecondary)
                 .clipShape(Capsule())
             Spacer()
         }
-        .padding(.vertical, 6)
+        .padding(.vertical, Spacing.sm)
     }
 
     // MARK: - Date Separator Pill
@@ -347,7 +389,7 @@ struct ChatView: View {
         HStack {
             Rectangle().fill(Color.backgroundSecondary).frame(height: 1)
             Text(formattedDate(message.createdAt))
-                .font(.system(size: 10, weight: .semibold))
+                .font(.caption2.weight(.semibold))
                 .foregroundColor(.secondary)
                 .padding(.horizontal, Spacing.sm)
             Rectangle().fill(Color.backgroundSecondary).frame(height: 1)
@@ -365,16 +407,16 @@ struct ChatView: View {
                 .frame(width: 3)
             VStack(alignment: .leading, spacing: 2) {
                 Text("Pinned Message")
-                    .font(.system(size: 10, weight: .bold))
+                    .font(.caption.weight(.bold))
                     .foregroundColor(.gold)
                 Text(message.content)
-                    .font(.system(size: 12))
+                    .font(.caption)
                     .foregroundColor(.primary)
                     .lineLimit(2)
             }
             Spacer()
             Image(systemName: "pin.fill")
-                .font(.system(size: 11))
+                .font(.caption)
                 .foregroundColor(.gold)
         }
         .padding(.horizontal, Spacing.md)
@@ -386,8 +428,8 @@ struct ChatView: View {
 
     private var newMessagesPill: some View {
         Text("↓ \(socialVM.newMessageCount) new message\(socialVM.newMessageCount == 1 ? "" : "s")")
-            .font(.system(size: 12, weight: .semibold))
-            .foregroundColor(.black)
+            .font(.caption.weight(.semibold))
+            .foregroundColor(.primary)
             .padding(.horizontal, Spacing.md)
             .padding(.vertical, Spacing.sm)
             .background(Color.gold)
@@ -414,8 +456,11 @@ struct ChatView: View {
                     Spacer()
                     Button { replyTo = nil } label: {
                         Image(systemName: "xmark")
-                            .font(.system(size: 11, weight: .bold))
+                            .font(.caption.weight(.bold))
                             .foregroundColor(.secondary)
+                            // 44pt touch target
+                            .frame(width: 44, height: 44)
+                            .contentShape(Rectangle())
                     }
                 }
                 .padding(.horizontal, Spacing.md)
@@ -425,45 +470,50 @@ struct ChatView: View {
 
             // Composer HStack
             HStack(alignment: .bottom, spacing: Spacing.sm) {
-                // Emote button
+                // Emote button — 44pt touch target
                 Button { showEmotePicker = true } label: {
                     Image(systemName: "face.smiling")
-                        .font(.system(size: 20))
+                        .font(.title3)
                         .foregroundColor(.secondary)
+                        .frame(width: 44, height: 44)
+                        .contentShape(Rectangle())
                 }
 
-                // GIF button
+                // GIF button — 44pt touch target
                 Button { showGiphyPicker = true } label: {
                     Text("GIF")
-                        .font(.system(size: 12, weight: .bold))
+                        .font(.caption.weight(.bold))
                         .foregroundColor(.secondary)
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 3)
+                        .padding(.horizontal, Spacing.sm)
+                        .padding(.vertical, Spacing.xs)
                         .overlay(
                             RoundedRectangle(cornerRadius: 4)
                                 .stroke(Color.secondary.opacity(0.4), lineWidth: 1)
                         )
+                        .frame(minWidth: 44, minHeight: 44)
+                        .contentShape(Rectangle())
                 }
 
-                // Text field + character counter
+                // Text field (44pt height) + character counter
                 VStack(alignment: .trailing, spacing: 2) {
                     TextField("Message #\(channel.name)", text: $socialVM.draftMessage, axis: .vertical)
-                        .font(.system(size: 14))
+                        .font(.body)
                         .lineLimit(1...5)
                         .focused($composerFocused)
-                        .padding(.horizontal, Spacing.sm)
-                        .padding(.vertical, 8)
+                        .padding(.horizontal, Spacing.md)
+                        .padding(.vertical, Spacing.sm)
+                        .frame(minHeight: 44)
                         .background(Color.backgroundSecondary)
-                        .cornerRadius(20)
+                        .cornerRadius(Spacing.md)
 
                     if socialVM.draftMessage.count > 400 {
                         Text("\(socialVM.draftMessage.count)/500")
-                            .font(.system(size: 10))
+                            .font(.caption2)
                             .foregroundColor(socialVM.draftMessage.count >= 500 ? .failure : .secondary)
                     }
                 }
 
-                // Send button
+                // Send button — Color.gold, SF Symbol paperplane.fill, 44pt minimum touch target
                 Button {
                     let generator = UIImpactFeedbackGenerator(style: .light)
                     generator.impactOccurred()
@@ -472,16 +522,16 @@ struct ChatView: View {
                     ZStack {
                         Circle()
                             .fill(sendButtonDisabled ? Color.backgroundTertiary : Color.gold)
-                            .frame(width: 36, height: 36)
+                            .frame(width: 44, height: 44)
 
                         if socialVM.isRateLimited {
                             Text("\(socialVM.rateLimitRemainingSeconds)")
-                                .font(.system(size: 13, weight: .bold))
-                                .foregroundColor(.black)
+                                .font(.callout.weight(.bold))
+                                .foregroundColor(.primary)
                         } else {
-                            Image(systemName: "arrow.up")
-                                .font(.system(size: 15, weight: .bold))
-                                .foregroundColor(sendButtonDisabled ? .secondary : .black)
+                            Image(systemName: "paperplane.fill")
+                                .font(.callout.weight(.semibold))
+                                .foregroundColor(sendButtonDisabled ? .secondary : .primary)
                         }
                     }
                 }
@@ -490,7 +540,7 @@ struct ChatView: View {
             }
             .padding(.horizontal, Spacing.md)
             .padding(.vertical, Spacing.sm)
-            .background(Color.backgroundPrimary)
+            .background(Color.backgroundSecondary)
         }
     }
 
@@ -551,6 +601,14 @@ struct ChatView: View {
         }
     }
 
+    /// High-tier users get Color.gold username label per spec
+    private func isHighTierUser(_ tier: String) -> Bool {
+        switch tier.lowercased() {
+        case "vip", "highroller", "whale": return true
+        default: return false
+        }
+    }
+
     private func avatarCircle(_ message: ChatMessage) -> some View {
         Circle()
             .fill(tierColor(message.userTier).opacity(0.2))
@@ -564,12 +622,51 @@ struct ChatView: View {
 
     private func tierPill(_ tier: String) -> some View {
         Text(tier.uppercased())
-            .font(.system(size: 8, weight: .bold))
+            .font(.caption2.weight(.bold))
             .foregroundColor(tierColor(tier))
-            .padding(.horizontal, 5)
+            .padding(.horizontal, Spacing.xs)
             .padding(.vertical, 2)
             .background(tierColor(tier).opacity(0.15))
             .cornerRadius(4)
+    }
+}
+
+// MARK: - ChatBubbleShape
+// 16pt corners everywhere; flat bottom-right for outgoing, flat bottom-left for incoming.
+
+private struct ChatBubbleShape: Shape {
+    let isOwn: Bool
+    let radius: CGFloat = 16
+
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        let w = rect.width
+        let h = rect.height
+        let r = min(radius, h / 2, w / 2)
+
+        if isOwn {
+            // Outgoing: flat bottom-right corner
+            path.move(to: CGPoint(x: r, y: 0))
+            path.addLine(to: CGPoint(x: w - r, y: 0))
+            path.addArc(center: CGPoint(x: w - r, y: r), radius: r, startAngle: .degrees(-90), endAngle: .degrees(0), clockwise: false)
+            path.addLine(to: CGPoint(x: w, y: h))          // flat bottom-right
+            path.addLine(to: CGPoint(x: r, y: h))
+            path.addArc(center: CGPoint(x: r, y: h - r), radius: r, startAngle: .degrees(90), endAngle: .degrees(180), clockwise: false)
+            path.addLine(to: CGPoint(x: 0, y: r))
+            path.addArc(center: CGPoint(x: r, y: r), radius: r, startAngle: .degrees(180), endAngle: .degrees(270), clockwise: false)
+        } else {
+            // Incoming: flat bottom-left corner
+            path.move(to: CGPoint(x: r, y: 0))
+            path.addLine(to: CGPoint(x: w - r, y: 0))
+            path.addArc(center: CGPoint(x: w - r, y: r), radius: r, startAngle: .degrees(-90), endAngle: .degrees(0), clockwise: false)
+            path.addLine(to: CGPoint(x: w, y: h - r))
+            path.addArc(center: CGPoint(x: w - r, y: h - r), radius: r, startAngle: .degrees(0), endAngle: .degrees(90), clockwise: false)
+            path.addLine(to: CGPoint(x: 0, y: h))           // flat bottom-left
+            path.addLine(to: CGPoint(x: 0, y: r))
+            path.addArc(center: CGPoint(x: r, y: r), radius: r, startAngle: .degrees(180), endAngle: .degrees(270), clockwise: false)
+        }
+        path.closeSubpath()
+        return path
     }
 }
 

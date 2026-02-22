@@ -54,7 +54,6 @@ struct WalletSectionView: View {
                     Text("BlakJaks Virtual Balance")
                         .font(.caption2.weight(.medium))
                         .foregroundColor(.secondary.opacity(0.7))
-                        .padding(.top, 2)
 
                     // Action buttons
                     HStack(spacing: Spacing.sm) {
@@ -78,13 +77,15 @@ struct WalletSectionView: View {
 
             // Wallet address
             HStack {
-                VStack(alignment: .leading, spacing: 2) {
+                VStack(alignment: .leading, spacing: Spacing.xs) {
                     Text("Wallet Address")
                         .font(.caption)
                         .foregroundColor(.secondary)
                     Text(truncatedAddress(viewModel.wallet?.address ?? ""))
-                        .font(.system(.body, design: .monospaced))
-                        .foregroundColor(.primary)
+                        .font(.system(.caption, design: .monospaced))
+                        .foregroundColor(.secondary)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
                 }
                 Spacer()
                 Button {
@@ -116,7 +117,7 @@ struct WalletSectionView: View {
         HStack {
             Image(systemName: "building.2.fill")
                 .foregroundColor(.success)
-            VStack(alignment: .leading, spacing: 2) {
+            VStack(alignment: .leading, spacing: Spacing.xs) {
                 Text(bank.name)
                     .font(.footnote.weight(.medium))
                 if let last4 = bank.lastFour {
@@ -255,12 +256,13 @@ struct WalletSectionView: View {
 
                 // QR code placeholder (real QR generation in polish pass)
                 ZStack {
-                    RoundedRectangle(cornerRadius: 12)
-                        .fill(Color.white)
+                    RoundedRectangle(cornerRadius: Layout.cardCornerRadius)
+                        .fill(Color.backgroundSecondary)
                         .frame(width: 200, height: 200)
                     Image(systemName: "qrcode")
-                        .font(.system(size: 140))
-                        .foregroundColor(.black)
+                        .font(.system(.largeTitle, design: .default))
+                        .imageScale(.large)
+                        .foregroundColor(.primary)
                 }
 
                 Text(viewModel.wallet?.address ?? "")
@@ -298,7 +300,7 @@ struct WalletSectionView: View {
 
     private func actionButton(icon: String, label: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
-            VStack(spacing: 4) {
+            VStack(spacing: Spacing.xs) {
                 Image(systemName: icon).font(.title2).foregroundColor(.gold)
                 Text(label).font(.caption2).foregroundColor(.secondary)
             }
@@ -313,7 +315,7 @@ struct WalletSectionView: View {
 
     private func sectionHeader(_ title: String) -> some View {
         Text(title)
-            .font(.title3.weight(.bold))
-            .foregroundColor(.primary)
+            .font(.system(.title2, design: .serif))
+            .foregroundColor(.gold)
     }
 }

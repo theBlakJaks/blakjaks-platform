@@ -17,7 +17,8 @@ struct CompVaultView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: Spacing.md) {
             Text("Comp Vault")
-                .font(.title3.weight(.bold))
+                .font(.system(.title2, design: .serif))
+                .foregroundColor(.gold)
                 .padding(.horizontal, Layout.screenMargin)
 
             if let vault = compVault {
@@ -50,7 +51,7 @@ struct CompVaultView: View {
                             .font(.caption2)
                             .foregroundColor(.secondary)
                         Spacer()
-                        HStack(spacing: 4) {
+                        HStack(spacing: Spacing.xs) {
                             Text("♠")
                                 .font(.caption.weight(.bold))
                                 .foregroundColor(.gold)
@@ -88,11 +89,11 @@ struct CompVaultView: View {
                     } label: {
                         Text(f.rawValue)
                             .font(.caption.weight(.semibold))
-                            .foregroundColor(filter == f ? .black : .secondary)
-                            .padding(.vertical, 6)
+                            .foregroundColor(filter == f ? Color.backgroundPrimary : .secondary)
+                            .padding(.vertical, Spacing.sm)
                             .frame(maxWidth: .infinity)
                             .background(
-                                RoundedRectangle(cornerRadius: 8)
+                                RoundedRectangle(cornerRadius: Spacing.sm)
                                     .fill(filter == f ? Color.gold : Color.clear)
                             )
                     }
@@ -133,7 +134,7 @@ struct CompVaultView: View {
                         .foregroundColor(.secondary)
                 }
             }
-            VStack(alignment: .leading, spacing: 2) {
+            VStack(alignment: .leading, spacing: Spacing.xs) {
                 Text(milestone.label)
                     .font(.footnote.weight(.medium))
                     .foregroundColor(milestone.achieved ? .primary : .secondary)
@@ -163,10 +164,10 @@ struct CompVaultView: View {
                     .fill(Color.gold.opacity(0.12))
                     .frame(width: 40, height: 40)
                 Text("♠")
-                    .font(.system(size: 18, weight: .bold))
+                    .font(.body.weight(.bold))
                     .foregroundColor(.gold)
             }
-            VStack(alignment: .leading, spacing: 2) {
+            VStack(alignment: .leading, spacing: Spacing.xs) {
                 Text("Guaranteed Comp — \(comp.month)")
                     .font(.footnote.weight(.medium))
                 if let paidAt = comp.paidAt {
@@ -176,7 +177,7 @@ struct CompVaultView: View {
                 }
             }
             Spacer()
-            VStack(alignment: .trailing, spacing: 2) {
+            VStack(alignment: .trailing, spacing: Spacing.xs) {
                 Text("+$\(comp.amount.formatted(.number.precision(.fractionLength(2))))")
                     .font(.system(.footnote, design: .monospaced).weight(.bold))
                     .foregroundColor(.success)
@@ -189,10 +190,10 @@ struct CompVaultView: View {
 
     private func statusCapsule(_ status: String) -> some View {
         Text(status.uppercased())
-            .font(.system(size: 8, weight: .bold))
+            .font(.caption2.weight(.bold))
             .foregroundColor(status == "paid" ? .success : .warning)
-            .padding(.horizontal, 5)
-            .padding(.vertical, 2)
+            .padding(.horizontal, Spacing.xs)
+            .padding(.vertical, Spacing.xs)
             .background(
                 Capsule().fill((status == "paid" ? Color.success : Color.warning).opacity(0.15))
             )

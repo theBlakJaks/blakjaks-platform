@@ -29,7 +29,7 @@ struct SettingsView: View {
 
             // MARK: Language
 
-            Section("Language") {
+            Section {
                 Picker("Language", selection: $selectedLanguage) {
                     Text("English").tag("en")
                     Text("Español").tag("es")
@@ -39,41 +39,60 @@ struct SettingsView: View {
                     Text("中文").tag("zh")
                 }
                 .pickerStyle(.navigationLink)
+                .font(.body)
+                .foregroundColor(.primary)
+            } header: {
+                sectionHeader("Language")
             }
 
             // MARK: Notifications
 
-            Section("Notifications") {
+            Section {
                 Toggle("Comp Earned", isOn: $notifCompEarned)
+                    .font(.body)
+                    .foregroundColor(.primary)
                     .tint(.gold)
                 Toggle("Tier Upgrades", isOn: $notifTierUpgrade)
+                    .font(.body)
+                    .foregroundColor(.primary)
                     .tint(.gold)
                 Toggle("Mentions", isOn: $notifMentions)
+                    .font(.body)
+                    .foregroundColor(.primary)
                     .tint(.gold)
                 Toggle("Replies", isOn: $notifReplies)
+                    .font(.body)
+                    .foregroundColor(.primary)
                     .tint(.gold)
+            } header: {
+                sectionHeader("Notifications")
             }
 
             // MARK: Security
 
             Section {
                 Toggle("Face ID / Touch ID", isOn: $biometricEnabled)
+                    .font(.body)
+                    .foregroundColor(.primary)
                     .tint(.gold)
 
                 Text("Biometric unlock for app and transactions")
                     .font(.caption)
                     .foregroundColor(.secondary)
             } header: {
-                Text("Security")
+                sectionHeader("Security")
             }
 
             // MARK: About
 
-            Section("About") {
+            Section {
                 HStack {
                     Text("Version")
+                        .font(.body)
+                        .foregroundColor(.primary)
                     Spacer()
                     Text("1.0.0 (1)")
+                        .font(.body)
                         .foregroundColor(.secondary)
                 }
 
@@ -82,11 +101,12 @@ struct SettingsView: View {
                 } label: {
                     HStack {
                         Text("Terms of Service")
+                            .font(.body)
                             .foregroundColor(.primary)
                         Spacer()
                         Image(systemName: "chevron.right")
                             .font(.caption.weight(.semibold))
-                            .foregroundColor(Color(.tertiaryLabel))
+                            .foregroundColor(.secondary)
                     }
                 }
 
@@ -95,18 +115,32 @@ struct SettingsView: View {
                 } label: {
                     HStack {
                         Text("Privacy Policy")
+                            .font(.body)
                             .foregroundColor(.primary)
                         Spacer()
                         Image(systemName: "chevron.right")
                             .font(.caption.weight(.semibold))
-                            .foregroundColor(Color(.tertiaryLabel))
+                            .foregroundColor(.secondary)
                     }
                 }
+            } header: {
+                sectionHeader("About")
             }
         }
         .listStyle(.insetGrouped)
+        .scrollContentBackground(.hidden)
+        .background(Color.backgroundSecondary)
         .navigationTitle("Settings")
         .navigationBarTitleDisplayMode(.inline)
+    }
+
+    // MARK: - Section Header
+
+    private func sectionHeader(_ title: String) -> some View {
+        Text(title)
+            .font(.system(.caption, design: .serif))
+            .textCase(.uppercase)
+            .foregroundColor(.gold)
     }
 }
 

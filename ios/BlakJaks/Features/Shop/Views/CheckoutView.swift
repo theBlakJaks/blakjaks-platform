@@ -25,7 +25,8 @@ struct CheckoutView: View {
         .toolbar {
             ToolbarItem(placement: .principal) {
                 Text("Checkout")
-                    .font(.headline)
+                    .font(.system(.title3, design: .serif))
+                    .fontWeight(.semibold)
             }
         }
         .navigationDestination(isPresented: $showOrderConfirmation) {
@@ -51,23 +52,23 @@ struct CheckoutView: View {
                 let isActive = step == cartVM.checkoutStep
                 let isDone = step.rawValue < cartVM.checkoutStep.rawValue
 
-                VStack(spacing: 4) {
+                VStack(spacing: Spacing.xs) {
                     ZStack {
                         Circle()
                             .fill(isDone ? Color.gold : (isActive ? Color.gold.opacity(0.2) : Color.backgroundTertiary))
                             .frame(width: 28, height: 28)
                         if isDone {
                             Image(systemName: "checkmark")
-                                .font(.system(size: 11, weight: .bold))
+                                .font(.caption2.weight(.bold))
                                 .foregroundColor(.black)
                         } else {
                             Text("\(step.rawValue + 1)")
-                                .font(.system(size: 11, weight: .bold))
+                                .font(.caption2.weight(.bold))
                                 .foregroundColor(isActive ? .gold : .secondary)
                         }
                     }
                     Text(step.title)
-                        .font(.system(size: 9, weight: isActive ? .bold : .regular))
+                        .font(isActive ? .caption2.weight(.bold) : .caption2)
                         .foregroundColor(isActive ? .primary : .secondary)
                 }
                 .frame(maxWidth: .infinity)
@@ -77,11 +78,11 @@ struct CheckoutView: View {
                         .fill(isDone ? Color.gold : Color.backgroundTertiary)
                         .frame(height: 1)
                         .frame(maxWidth: .infinity)
-                        .padding(.bottom, 16)
+                        .padding(.bottom, Spacing.base)
                 }
             }
         }
-        .padding(.horizontal, Layout.screenMargin)
+        .padding(.horizontal, Spacing.lg)
         .padding(.vertical, Spacing.md)
         .background(Color.backgroundSecondary)
     }
@@ -117,7 +118,7 @@ private struct ShippingStep: View {
         ScrollView {
             VStack(alignment: .leading, spacing: Spacing.md) {
                 Text("Shipping Address")
-                    .font(.title3.weight(.bold))
+                    .font(.system(.headline, design: .serif))
 
                 // Name row
                 HStack(spacing: Spacing.sm) {
@@ -138,29 +139,31 @@ private struct ShippingStep: View {
                         .keyboardType(.numberPad)
                 }
 
-                continueButton(
-                    title: cartVM.isLoading ? "Calculating Tax..." : "Continue",
-                    disabled: !cartVM.isShippingValid || cartVM.isLoading
+                GoldButton(
+                    cartVM.isLoading ? "Calculating Tax..." : "Continue",
+                    isLoading: cartVM.isLoading,
+                    isDisabled: !cartVM.isShippingValid
                 ) {
-                    Task { await cartVM.proceedFromShipping() }
+                    await cartVM.proceedFromShipping()
                 }
             }
-            .padding(Layout.screenMargin)
+            .padding(Spacing.lg)
             .padding(.bottom, Spacing.xxl)
         }
         .background(Color.backgroundPrimary)
     }
 
     private func fieldInput(_ placeholder: String, text: Binding<String>, focus: ShippingField) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: Spacing.xs) {
             Text(placeholder)
-                .font(.system(size: 10, weight: .semibold))
+                .font(.caption2.weight(.semibold))
                 .foregroundColor(.secondary)
             TextField(placeholder, text: text)
                 .font(.body)
-                .padding(Spacing.sm)
+                .padding(.horizontal, Spacing.md)
+                .frame(height: 50)
                 .background(Color.backgroundSecondary)
-                .cornerRadius(8)
+                .cornerRadius(Spacing.md)
                 .focused($focusedField, equals: focus)
         }
     }
@@ -181,18 +184,19 @@ private struct AgeVerificationStep: View {
                         .fill(Color.gold.opacity(0.12))
                         .frame(width: 80, height: 80)
                     Image(systemName: "person.badge.shield.checkmark")
-                        .font(.system(size: 36))
+                        .font(.system(.largeTitle, design: .default))
                         .foregroundColor(.gold)
                 }
 
                 Text("Age Verification Required")
-                    .font(.title3.weight(.bold))
+                    .font(.system(.title3, design: .serif))
+                    .fontWeight(.bold)
 
                 Text("Federal law requires age verification before purchasing nicotine products. You must be 21 or older.")
                     .font(.body)
                     .foregroundColor(.secondary)
                     .multilineTextAlignment(.center)
-                    .padding(.horizontal, Layout.screenMargin)
+                    .padding(.horizontal, Spacing.lg)
 
                 // AgeChecker.net WebView — wired in production polish pass
                 // Stub: tap to confirm you are 21+
@@ -213,18 +217,15 @@ private struct AgeVerificationStep: View {
                         .tint(.gold)
                     }
                 }
-                .padding(.horizontal, Layout.screenMargin)
+                .padding(.horizontal, Spacing.lg)
             }
 
             Spacer()
 
-            continueButton(
-                title: "Continue",
-                disabled: !cartVM.ageVerified
-            ) {
+            GoldButton("Continue", isDisabled: !cartVM.ageVerified) {
                 cartVM.proceedFromAgeVerification()
             }
-            .padding(.horizontal, Layout.screenMargin)
+            .padding(.horizontal, Spacing.lg)
             .padding(.bottom, Spacing.xxl)
         }
         .background(Color.backgroundPrimary)
@@ -240,7 +241,7 @@ private struct PaymentStep: View {
         ScrollView {
             VStack(alignment: .leading, spacing: Spacing.md) {
                 Text("Payment")
-                    .font(.title3.weight(.bold))
+                    .font(.system(.headline, design: .serif))
 
                 BlakJaksCard {
                     VStack(alignment: .leading, spacing: Spacing.sm) {
@@ -257,15 +258,16 @@ private struct PaymentStep: View {
                         Divider()
                         // Braintree Drop-in UI wired in production polish pass.
                         // Stub: enter a test token.
-                        VStack(alignment: .leading, spacing: 4) {
+                        VStack(alignment: .leading, spacing: Spacing.xs) {
                             Text("Payment Token (stub)")
-                                .font(.system(size: 10, weight: .semibold))
+                                .font(.caption2.weight(.semibold))
                                 .foregroundColor(.secondary)
                             TextField("Enter payment token...", text: $cartVM.paymentToken)
                                 .font(.system(.body, design: .monospaced))
-                                .padding(Spacing.sm)
+                                .padding(.horizontal, Spacing.md)
+                                .frame(height: 50)
                                 .background(Color.backgroundTertiary)
-                                .cornerRadius(8)
+                                .cornerRadius(Spacing.md)
                         }
                         Text("Braintree Drop-in UI replaces this field in production.")
                             .font(.caption2)
@@ -276,7 +278,7 @@ private struct PaymentStep: View {
                 // Order summary
                 VStack(alignment: .leading, spacing: Spacing.sm) {
                     Text("Order Summary")
-                        .font(.headline)
+                        .font(.system(.headline, design: .serif))
                     orderSummaryRow("Subtotal", cartVM.subtotal)
                     orderSummaryRow(cartVM.isFreeShipping ? "Shipping (FREE)" : "Shipping", cartVM.shippingCost, isFree: cartVM.isFreeShipping)
                     if let tax = cartVM.taxEstimate {
@@ -286,14 +288,14 @@ private struct PaymentStep: View {
                     orderSummaryRow("Total", cartVM.orderTotal, isBold: true)
                 }
 
-                continueButton(
-                    title: "Review Order",
-                    disabled: cartVM.paymentToken.trimmingCharacters(in: .whitespaces).isEmpty
+                GoldButton(
+                    "Review Order",
+                    isDisabled: cartVM.paymentToken.trimmingCharacters(in: .whitespaces).isEmpty
                 ) {
                     cartVM.proceedFromPayment()
                 }
             }
-            .padding(Layout.screenMargin)
+            .padding(Spacing.lg)
             .padding(.bottom, Spacing.xxl)
         }
         .background(Color.backgroundPrimary)
@@ -328,7 +330,7 @@ private struct ReviewStep: View {
         ScrollView {
             VStack(alignment: .leading, spacing: Spacing.md) {
                 Text("Review Your Order")
-                    .font(.title3.weight(.bold))
+                    .font(.system(.headline, design: .serif))
 
                 // Shipping address summary
                 BlakJaksCard {
@@ -410,37 +412,19 @@ private struct ReviewStep: View {
                 }
 
                 // Place order button
-                Button {
-                    Task {
-                        let success = await cartVM.placeOrder()
-                        if success { showOrderConfirmation = true }
-                    }
-                } label: {
-                    HStack(spacing: Spacing.sm) {
-                        if cartVM.isPlacingOrder {
-                            ProgressView().tint(.black)
-                        } else {
-                            Image(systemName: "checkmark.seal.fill")
-                            Text("Place Order")
-                                .fontWeight(.bold)
-                        }
-                    }
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, Spacing.md)
-                    .background(Color.gold)
-                    .foregroundColor(.black)
-                    .cornerRadius(Layout.cardCornerRadius)
+                GoldButton("Place Order", isLoading: cartVM.isPlacingOrder) {
+                    let success = await cartVM.placeOrder()
+                    if success { showOrderConfirmation = true }
                 }
-                .disabled(cartVM.isPlacingOrder)
                 .padding(.bottom, Spacing.xxl)
             }
-            .padding(Layout.screenMargin)
+            .padding(Spacing.lg)
         }
         .background(Color.backgroundPrimary)
     }
 
     private func sectionHeader(_ title: String, icon: String) -> some View {
-        HStack(spacing: 6) {
+        HStack(spacing: Spacing.xs) {
             Image(systemName: icon)
                 .font(.caption)
                 .foregroundColor(.gold)
@@ -467,25 +451,6 @@ private struct ReviewStep: View {
             }
         }
     }
-}
-
-// MARK: - Shared continue button helper
-
-private func continueButton(
-    title: String,
-    disabled: Bool = false,
-    action: @escaping () -> Void
-) -> some View {
-    Button(action: action) {
-        Text(title)
-            .font(.headline)
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, Spacing.md)
-            .background(disabled ? Color.backgroundTertiary : Color.gold)
-            .foregroundColor(disabled ? .secondary : .black)
-            .cornerRadius(Layout.cardCornerRadius)
-    }
-    .disabled(disabled)
 }
 
 // MARK: - Preview

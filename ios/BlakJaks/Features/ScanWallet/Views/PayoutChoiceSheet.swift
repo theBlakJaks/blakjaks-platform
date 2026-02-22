@@ -20,11 +20,11 @@ struct PayoutChoiceSheet: View {
                             .fill(Color.gold.opacity(0.15))
                             .frame(width: 72, height: 72)
                         Image(systemName: "dollarsign.circle.fill")
-                            .font(.system(size: 40))
+                            .font(.system(.largeTitle, design: .default))
                             .foregroundColor(.gold)
                     }
                     Text("+$\(comp.amount.formatted(.number.precision(.fractionLength(2))))")
-                        .font(.system(size: 36, weight: .bold, design: .rounded))
+                        .font(.system(.largeTitle, design: .monospaced).weight(.bold))
                         .foregroundColor(.gold)
                     Text("Comp Earned!")
                         .font(.title3.weight(.semibold))
@@ -72,7 +72,7 @@ struct PayoutChoiceSheet: View {
             .toolbar {
                 ToolbarItem(placement: .principal) {
                     Text("How do you want your comp?")
-                        .font(.headline)
+                        .font(.system(.headline, design: .serif))
                 }
             }
         }
@@ -85,11 +85,15 @@ struct PayoutChoiceSheet: View {
             onChoice(method)
         } label: {
             HStack(spacing: Spacing.md) {
-                Image(systemName: icon)
-                    .font(.title2)
-                    .foregroundColor(color)
-                    .frame(width: 36)
-                VStack(alignment: .leading, spacing: 2) {
+                ZStack {
+                    Circle()
+                        .fill(color.opacity(0.12))
+                        .frame(width: 44, height: 44)
+                    Image(systemName: icon)
+                        .font(.title3)
+                        .foregroundColor(color)
+                }
+                VStack(alignment: .leading, spacing: Spacing.xs) {
                     Text(title)
                         .font(.body.weight(.semibold))
                         .foregroundColor(.primary)
@@ -103,6 +107,7 @@ struct PayoutChoiceSheet: View {
                     .foregroundColor(.secondary)
             }
             .padding(Spacing.md)
+            .frame(minHeight: Layout.buttonHeight)
             .background(Color.backgroundSecondary)
             .cornerRadius(Layout.cardCornerRadius)
         }

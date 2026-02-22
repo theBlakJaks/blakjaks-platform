@@ -37,6 +37,13 @@ final class AuthViewModel: ObservableObject {
     // MARK: - Login
 
     func login() async -> Bool {
+#if DEBUG
+        if DevBypass.enabled &&
+           email == DevBypass.email &&
+           password == DevBypass.password {
+            return true
+        }
+#endif
         guard validate(for: .login) else { return false }
         isLoading = true
         defer { isLoading = false }

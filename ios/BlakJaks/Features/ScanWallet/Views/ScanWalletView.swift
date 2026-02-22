@@ -18,22 +18,30 @@ struct ScanWalletView: View {
                     LoadingView()
                 } else {
                     ScrollView {
-                        VStack(spacing: Spacing.xl) {
+                        VStack(spacing: 0) {
                             MemberCardView(memberCard: viewModel.memberCard)
+                                .padding(.bottom, Spacing.xxl)
 
                             scanCircleButton
+                                .padding(.bottom, Spacing.xxl)
 
                             WalletSectionView(viewModel: viewModel)
+                                .padding(.bottom, Spacing.xl)
 
                             TransactionsView(viewModel: viewModel)
+                                .padding(.bottom, Spacing.xl)
 
                             ScanHistoryView(scans: viewModel.scans)
+                                .padding(.bottom, Spacing.xl)
 
                             CompVaultView(compVault: viewModel.compVault)
                         }
-                        .padding(.vertical, Spacing.lg)
+                        .padding(.top, Spacing.lg)
                     }
                     .refreshable { await viewModel.refresh() }
+                    .safeAreaInset(edge: .bottom) {
+                        Color.clear.frame(height: Spacing.xl)
+                    }
                 }
             }
             .navigationTitle("Scan & Wallet")
@@ -68,13 +76,13 @@ struct ScanWalletView: View {
                         .shadow(color: Color.gold.opacity(0.15), radius: 20)
 
                     Image(systemName: "suit.spade.fill")
-                        .font(.system(size: 44, weight: .medium))
+                        .font(.system(.largeTitle, design: .default).weight(.medium))
                         .foregroundColor(.gold)
                 }
             }
             .buttonStyle(ScaleButtonStyle())
 
-            VStack(spacing: 2) {
+            VStack(spacing: Spacing.xs) {
                 Text("Tap to Scan")
                     .font(.headline)
                     .foregroundColor(.primary)
@@ -83,7 +91,6 @@ struct ScanWalletView: View {
                     .foregroundColor(.secondary)
             }
         }
-        .padding(.vertical, Spacing.xs)
     }
 }
 

@@ -18,3 +18,24 @@ enum MockUser {
         createdAt: "2024-01-15T10:00:00Z"
     )
 }
+
+// MARK: - MockData namespace
+
+enum MockData {
+    static let adminUser = UserProfile(
+        id: 0,
+        email: "admin@blakjaks.dev",
+        fullName: "Dev Admin",
+        memberId: "BJ-0000-DEV",
+        tier: "Whale",
+        avatarUrl: nil,
+        bio: "Local development admin account.",
+        walletBalance: 99999.99,
+        pendingBalance: 0.00,
+        goldChips: 999,
+        lifetimeUsdt: 99999.99,
+        scansThisQuarter: 999,
+        isAffiliate: true,
+        createdAt: "2024-01-01T00:00:00Z"
+    )
+}

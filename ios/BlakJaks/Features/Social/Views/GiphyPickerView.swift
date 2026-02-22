@@ -42,7 +42,7 @@ struct GiphyPickerView: View {
             // Section header
             HStack {
                 Text(search.isEmpty ? "TRENDING" : "SEARCH RESULTS (STUB)")
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(.caption2.weight(.semibold))
                     .foregroundColor(.secondary)
                 Spacer()
             }

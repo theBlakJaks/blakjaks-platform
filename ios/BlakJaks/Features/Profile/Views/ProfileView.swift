@@ -65,7 +65,11 @@ struct ProfileView: View {
         ScrollView {
             VStack(spacing: Spacing.lg) {
                 headerCard(profile: profile)
+
+                // Required Spacing.xxl gap between avatar area and stats
                 statsStrip(profile: profile)
+                    .padding(.top, Spacing.xxl - Spacing.lg) // net extra space above stats
+
                 navRows(profile: profile)
                 logoutButton
             }
@@ -81,31 +85,30 @@ struct ProfileView: View {
     private func headerCard(profile: UserProfile) -> some View {
         GoldAccentCard {
             VStack(spacing: Spacing.md) {
-                // Avatar circle with gold ring
+                // Avatar: 80pt circular, 3pt gold border ring
                 ZStack {
                     Circle()
                         .fill(Color.backgroundTertiary)
                         .frame(width: 80, height: 80)
+                        .overlay(
+                            Circle()
+                                .stroke(Color.gold, lineWidth: 3)
+                        )
 
                     Text(String(profile.fullName.prefix(1)).uppercased())
-                        .font(.system(size: 34, weight: .bold))
+                        .font(.system(.title, design: .serif))
                         .foregroundColor(.gold)
                 }
-                .overlay(
-                    Circle()
-                        .stroke(Color.gold, lineWidth: 2.5)
-                        .frame(width: 84, height: 84)
-                )
                 .padding(.top, Spacing.sm)
 
-                // Full name
+                // Full name — serif title2
                 Text(profile.fullName)
-                    .font(.title2.weight(.bold))
+                    .font(.system(.title2, design: .serif))
                     .foregroundColor(.primary)
 
-                // Member ID — monospaced caption
-                Text(profile.memberId)
-                    .font(.caption.monospaced())
+                // Username — subheadline, secondary, @username format
+                Text("@\(profile.memberId)")
+                    .font(.subheadline)
                     .foregroundColor(.secondary)
 
                 // Tier badge
@@ -127,42 +130,44 @@ struct ProfileView: View {
     // MARK: - Stats Strip
 
     private func statsStrip(profile: UserProfile) -> some View {
-        HStack(spacing: Spacing.sm) {
-            statCell(
-                icon: "qrcode.viewfinder",
-                value: "\(profile.scansThisQuarter)",
-                label: "Scans"
-            )
-            statCell(
-                icon: "chart.line.uptrend.xyaxis",
-                value: formatCurrency(profile.lifetimeUsdt),
-                label: "Lifetime"
-            )
-            statCell(
-                icon: "wallet.pass",
-                value: formatCurrency(profile.walletBalance),
-                label: "Balance"
-            )
+        BlakJaksCard {
+            HStack(spacing: 0) {
+                statCell(
+                    icon: "qrcode.viewfinder",
+                    value: "\(profile.scansThisQuarter)",
+                    label: "Scans"
+                )
+                Divider().frame(maxHeight: 48)
+                statCell(
+                    icon: "chart.line.uptrend.xyaxis",
+                    value: formatCurrency(profile.lifetimeUsdt),
+                    label: "Lifetime"
+                )
+                Divider().frame(maxHeight: 48)
+                statCell(
+                    icon: "wallet.pass",
+                    value: formatCurrency(profile.walletBalance),
+                    label: "Balance"
+                )
+            }
         }
     }
 
     private func statCell(icon: String, value: String, label: String) -> some View {
-        BlakJaksCard {
-            VStack(spacing: Spacing.xs) {
-                Image(systemName: icon)
-                    .font(.system(size: 18))
-                    .foregroundColor(.gold)
-                Text(value)
-                    .font(.title3.weight(.bold))
-                    .foregroundColor(.primary)
-                    .minimumScaleFactor(0.55)
-                    .lineLimit(1)
-                Text(label)
-                    .font(.caption2)
-                    .foregroundColor(.secondary)
-            }
-            .frame(maxWidth: .infinity)
+        VStack(spacing: Spacing.xs) {
+            Image(systemName: icon)
+                .font(.body)
+                .foregroundColor(.gold)
+            Text(value)
+                .font(.title2)
+                .foregroundColor(.primary)
+                .minimumScaleFactor(0.55)
+                .lineLimit(1)
+            Text(label)
+                .font(.caption)
+                .foregroundColor(.secondary)
         }
+        .frame(maxWidth: .infinity)
     }
 
     // MARK: - Nav Rows
@@ -204,7 +209,7 @@ struct ProfileView: View {
         Button(action: action) {
             HStack(spacing: Spacing.md) {
                 Image(systemName: icon)
-                    .font(.system(size: 18))
+                    .font(.body)
                     .foregroundColor(.gold)
                     .frame(width: 28)
 
@@ -216,7 +221,7 @@ struct ProfileView: View {
 
                 Image(systemName: "chevron.right")
                     .font(.caption.weight(.semibold))
-                    .foregroundColor(Color(.tertiaryLabel))
+                    .foregroundColor(.secondary)
             }
             .padding(.vertical, Layout.listRowVerticalPadding)
         }
@@ -230,8 +235,9 @@ struct ProfileView: View {
         } label: {
             Text("Sign Out")
                 .font(.body.weight(.semibold))
-                .foregroundColor(.red)
+                .foregroundColor(Color.error)
                 .frame(maxWidth: .infinity)
+                .frame(minHeight: 50)
                 .padding(.vertical, Spacing.md)
         }
     }

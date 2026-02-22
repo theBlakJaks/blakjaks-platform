@@ -28,13 +28,14 @@ struct LiveStreamView: View {
     var body: some View {
         VStack(spacing: 0) {
             // MARK: Video Player Area
-            ZStack(alignment: .topLeading) {
+            ZStack(alignment: .top) {
                 videoArea
 
-                // Overlaid badges (top-left)
+                // Top HUD — LIVE badge top-left, viewer count top-right
                 if stream.isLive {
-                    HStack(spacing: Spacing.sm) {
+                    HStack {
                         liveBadge
+                        Spacer()
                         viewerCountBadge
                     }
                     .padding(Spacing.sm)
@@ -51,16 +52,20 @@ struct LiveStreamView: View {
                             }
                         } label: {
                             Image(systemName: showChat ? "chevron.down.circle.fill" : "chevron.up.circle.fill")
-                                .font(.system(size: 22))
-                                .foregroundColor(.white.opacity(0.85))
+                                .font(.title3)
+                                .foregroundColor(.secondary)
                                 .shadow(color: .black.opacity(0.5), radius: 3)
                         }
+                        .frame(width: 44, height: 44)
+                        .contentShape(Rectangle())
                         .padding(Spacing.sm)
                     }
                 }
             }
             .aspectRatio(16 / 9, contentMode: .fit)
-            .background(Color.black)
+            .background(Color(UIColor.systemBackground).opacity(0))
+            // Dark container for video area — use a system color that reads as near-black in dark mode
+            .background(Color(UIColor.label).opacity(0.95))
             .animation(.spring(response: 0.35, dampingFraction: 0.85), value: showChat)
 
             // MARK: Chat area
@@ -100,18 +105,18 @@ struct LiveStreamView: View {
         if stream.isLive, let _ = stream.hlsUrl, let player {
             VideoPlayer(player: player)
         } else {
-            // Offline placeholder
+            // Offline placeholder — dark background is intentional for video container
             ZStack {
-                Color.black
+                Color(UIColor.label).opacity(0.95)
 
                 VStack(spacing: Spacing.md) {
                     Image(systemName: "video.slash.fill")
-                        .font(.system(size: 48, weight: .light))
+                        .font(.largeTitle.weight(.light))
                         .foregroundColor(.secondary)
 
                     Text("Stream Offline")
                         .font(.title3.weight(.semibold))
-                        .foregroundColor(.white)
+                        .foregroundColor(.primary)
 
                     Text("Check back soon")
                         .font(.callout)
@@ -122,30 +127,32 @@ struct LiveStreamView: View {
     }
 
     // MARK: - Live Badge
+    // Color.error background, white text, .caption font, top-left per spec
 
     private var liveBadge: some View {
-        Text("● LIVE")
-            .font(.system(size: 10, weight: .bold))
+        Text("LIVE")
+            .font(.caption.weight(.bold))
             .foregroundColor(.white)
-            .padding(.horizontal, 8)
-            .padding(.vertical, 4)
-            .background(Color.failure)
+            .padding(.horizontal, Spacing.sm)
+            .padding(.vertical, Spacing.xs)
+            .background(Color.error)
             .clipShape(Capsule())
     }
 
     // MARK: - Viewer Count Badge
+    // Color.backgroundSecondary.opacity(0.8) pill, SF Symbol person.2.fill, top-right per spec
 
     private var viewerCountBadge: some View {
-        HStack(spacing: 4) {
-            Image(systemName: "eye.fill")
-                .font(.system(size: 10))
+        HStack(spacing: Spacing.xs) {
+            Image(systemName: "person.2.fill")
+                .font(.caption)
             Text("\(stream.viewerCount)")
-                .font(.system(size: 10, weight: .semibold))
+                .font(.caption.weight(.semibold))
         }
-        .foregroundColor(.white)
-        .padding(.horizontal, 8)
-        .padding(.vertical, 4)
-        .background(Color.black.opacity(0.55))
+        .foregroundColor(.primary)
+        .padding(.horizontal, Spacing.sm)
+        .padding(.vertical, Spacing.xs)
+        .background(Color.backgroundSecondary.opacity(0.8))
         .clipShape(Capsule())
     }
 }

@@ -22,24 +22,28 @@ struct ChannelListDrawerView: View {
             // MARK: Header
             HStack {
                 Text("BlakJaks")
-                    .font(.headline)
+                    .font(.system(.headline, design: .serif))
                 Spacer()
                 Button { isPresented = false } label: {
                     Image(systemName: "xmark")
                         .font(.caption.weight(.bold))
                         .foregroundColor(.secondary)
+                        // 44pt minimum touch target
+                        .frame(width: 44, height: 44)
+                        .contentShape(Rectangle())
                 }
             }
-            .padding(Spacing.md)
+            .padding(.horizontal, Spacing.md)
+            .padding(.vertical, Spacing.sm)
             .background(Color.backgroundSecondary)
 
             // MARK: Channel list
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 0) {
                     ForEach(sortedCategories, id: \.self) { category in
-                        // Category header
+                        // Category header — .caption weight .semibold, system design (not a section title but a sub-label)
                         Text(category.uppercased())
-                            .font(.system(size: 11, weight: .semibold))
+                            .font(.caption.weight(.semibold))
                             .foregroundColor(.secondary)
                             .padding(.horizontal, Spacing.md)
                             .padding(.top, Spacing.md)
@@ -47,6 +51,8 @@ struct ChannelListDrawerView: View {
 
                         ForEach(grouped[category] ?? []) { channel in
                             channelRow(channel)
+                            Divider()
+                                .padding(.leading, Spacing.md)
                         }
                     }
                 }
@@ -76,23 +82,27 @@ struct ChannelListDrawerView: View {
                 let isRestricted = channel.category == "tier"
                 if isRestricted {
                     Image(systemName: "lock.fill")
-                        .font(.system(size: 10))
+                        .font(.caption2)
                         .foregroundColor(.secondary)
                 }
 
                 Text("#\(channel.name)")
-                    .font(.system(size: 14, weight: isActive ? .semibold : .regular))
+                    .font(.body)
+                    .fontWeight(isActive ? .semibold : .regular)
                     .foregroundColor(isActive ? .primary : .secondary)
 
                 Spacer()
 
-                // Member count badge
+                // Member count — .caption, .secondary
                 Text("\(channel.memberCount)")
-                    .font(.system(size: 10))
+                    .font(.caption)
                     .foregroundColor(.secondary)
             }
-            .padding(.vertical, Spacing.sm)
-            .background(isActive ? Color.gold.opacity(0.08) : Color.clear)
+            // Minimum 52pt row height per spec, 44pt touch target
+            .frame(minHeight: 52)
+            .padding(.horizontal, Spacing.sm)
+            .background(isActive ? Color.gold.opacity(0.08) : Color.backgroundSecondary)
+            .contentShape(Rectangle())
         }
         .animation(.spring(response: 0.3, dampingFraction: 0.8), value: isActive)
     }

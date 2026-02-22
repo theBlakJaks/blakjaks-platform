@@ -48,14 +48,15 @@ struct FaceIDPromptView: View {
                         .fill(Color.gold.opacity(0.12))
                         .frame(width: 120, height: 120)
                     Image(systemName: biometricIcon)
-                        .font(.system(size: 52, weight: .light))
+                        .font(.largeTitle.weight(.light))
+                        .imageScale(.large)
                         .foregroundColor(.gold)
                 }
 
                 // Copy
                 VStack(spacing: Spacing.md) {
                     Text("Enable \(biometricLabel)")
-                        .font(.title2.weight(.bold))
+                        .font(.system(.title2, design: .serif))
                         .foregroundColor(.primary)
 
                     Text("Sign in faster with \(biometricLabel). Your biometric data never leaves your device.")
@@ -79,7 +80,7 @@ struct FaceIDPromptView: View {
 
                 if let errorMessage {
                     InlineErrorView(message: errorMessage)
-                        .padding(.horizontal, Layout.screenMargin)
+                        .padding(.horizontal, Spacing.lg)
                 }
 
                 Spacer()
@@ -102,7 +103,7 @@ struct FaceIDPromptView: View {
                     .font(.body)
                     .foregroundColor(.secondary)
                 }
-                .padding(.horizontal, Layout.screenMargin)
+                .padding(.horizontal, Spacing.lg)
                 .padding(.bottom, Spacing.xxl)
             }
         }

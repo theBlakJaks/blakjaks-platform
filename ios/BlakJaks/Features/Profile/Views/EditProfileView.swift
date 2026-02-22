@@ -24,26 +24,28 @@ struct EditProfileView: View {
                     // Full Name field
                     VStack(alignment: .leading, spacing: Spacing.xs) {
                         Text("Full Name")
-                            .font(.caption.weight(.semibold))
+                            .font(.caption)
                             .foregroundColor(.secondary)
 
                         TextField("Full name", text: $fullName)
                             .textContentType(.name)
-                            .padding(Spacing.md)
+                            .font(.body)
+                            .padding(.horizontal, Spacing.md)
+                            .frame(height: 50)
                             .background(Color.backgroundSecondary)
-                            .cornerRadius(Layout.cardCornerRadius)
+                            .cornerRadius(Spacing.md)
                     }
 
                     // Bio field
                     VStack(alignment: .leading, spacing: Spacing.xs) {
                         HStack {
                             Text("Bio")
-                                .font(.caption.weight(.semibold))
+                                .font(.caption)
                                 .foregroundColor(.secondary)
                             Spacer()
                             Text("\(bio.count) / \(bioMaxLength)")
                                 .font(.caption2)
-                                .foregroundColor(bio.count >= bioMaxLength ? .red : .secondary)
+                                .foregroundColor(bio.count >= bioMaxLength ? Color.error : .secondary)
                         }
 
                         ZStack(alignment: .topLeading) {
@@ -68,8 +70,17 @@ struct EditProfileView: View {
                         .cornerRadius(Layout.cardCornerRadius)
                     }
 
-                    // Save button
-                    saveButton
+                    // Save button — GoldButton component, full-width
+                    GoldButton(
+                        "Save Changes",
+                        isLoading: profileVM.isUpdatingProfile,
+                        isDisabled: fullName.trimmingCharacters(in: .whitespaces).isEmpty
+                    ) {
+                        await profileVM.updateProfile(fullName: fullName, bio: bio)
+                        if profileVM.error == nil {
+                            dismiss()
+                        }
+                    }
 
                     // Cancel button
                     Button("Cancel") {
@@ -118,65 +129,45 @@ struct EditProfileView: View {
     private var avatarSection: some View {
         VStack(spacing: Spacing.sm) {
             ZStack {
+                // Avatar: 80pt circular, 3pt gold border ring
                 Circle()
                     .fill(Color.backgroundTertiary)
-                    .frame(width: 88, height: 88)
+                    .frame(width: 80, height: 80)
                     .overlay(
                         Circle()
-                            .stroke(Color.gold, lineWidth: 2.5)
+                            .stroke(Color.gold, lineWidth: 3)
                     )
 
                 Text(String((profileVM.profile?.fullName.prefix(1) ?? "?").uppercased()))
-                    .font(.system(size: 36, weight: .bold))
+                    .font(.system(.title, design: .serif))
                     .foregroundColor(.gold)
-            }
 
-            // Stub: PhotosUI avatar picker wired in production polish pass
-            Button {
-                // TODO: present PHPickerViewController
-            } label: {
-                Label("Change Photo", systemImage: "camera.circle")
-                    .font(.caption.weight(.semibold))
-                    .foregroundColor(.gold)
+                // Gold circle overlay for avatar change — bottom-trailing
+                VStack {
+                    Spacer()
+                    HStack {
+                        Spacer()
+                        // Stub: PhotosUI avatar picker wired in production polish pass
+                        Button {
+                            // TODO: present PHPickerViewController
+                        } label: {
+                            ZStack {
+                                Circle()
+                                    .fill(Color.gold)
+                                    .frame(width: 26, height: 26)
+                                Image(systemName: "camera.fill")
+                                    .font(.caption2)
+                                    .foregroundColor(.black)
+                            }
+                        }
+                        .offset(x: 4, y: 4)
+                    }
+                }
+                .frame(width: 80, height: 80)
             }
         }
         .frame(maxWidth: .infinity)
         .padding(.top, Spacing.md)
-    }
-
-    // MARK: - Save Button
-
-    private var saveButton: some View {
-        Button {
-            Task {
-                await profileVM.updateProfile(fullName: fullName, bio: bio)
-                if profileVM.error == nil {
-                    dismiss()
-                }
-            }
-        } label: {
-            Group {
-                if profileVM.isUpdatingProfile {
-                    HStack(spacing: Spacing.sm) {
-                        ProgressView()
-                            .progressViewStyle(.circular)
-                            .tint(.black)
-                        Text("Saving…")
-                            .font(.body.weight(.semibold))
-                            .foregroundColor(.black)
-                    }
-                } else {
-                    Text("Save Changes")
-                        .font(.body.weight(.semibold))
-                        .foregroundColor(.black)
-                }
-            }
-            .frame(maxWidth: .infinity)
-            .frame(height: Layout.buttonHeight)
-            .background(fullName.trimmingCharacters(in: .whitespaces).isEmpty ? Color.gold.opacity(0.4) : Color.gold)
-            .cornerRadius(Layout.buttonCornerRadius)
-        }
-        .disabled(profileVM.isUpdatingProfile || fullName.trimmingCharacters(in: .whitespaces).isEmpty)
     }
 }
 
