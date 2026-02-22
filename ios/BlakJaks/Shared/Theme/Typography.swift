@@ -20,8 +20,10 @@ extension Font {
     static let monoTitle2 = Font.system(.title2, design: .monospaced).weight(.semibold)
 
     // MARK: - USDC / Balance amounts (large monospaced)
-    static let walletBalance = Font.system(size: 44, weight: .semibold, design: .monospaced)
-    static let walletBalanceSmall = Font.system(size: 28, weight: .medium, design: .monospaced)
+    // Use .largeTitle for the primary wallet balance display (≈34pt, scales with Dynamic Type)
+    static let walletBalance = Font.system(.largeTitle, design: .monospaced).weight(.semibold)
+    // Use .title2 for secondary/compact balance displays
+    static let walletBalanceSmall = Font.system(.title2, design: .monospaced).weight(.medium)
 }
 
 // MARK: - View modifier for consistent text styles
