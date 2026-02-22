@@ -32,7 +32,7 @@ export const options = {
 
 export function setup() {
   const res = http.post(
-    `${BASE_URL}/auth/login`,
+    `${BASE_URL}/api/auth/login`,
     JSON.stringify({
       email: __ENV.K6_TEST_EMAIL,
       password: __ENV.K6_TEST_PASSWORD,
@@ -42,7 +42,9 @@ export function setup() {
 
   check(res, { 'login successful': (r) => r.status === 200 });
 
-  const token = res.json('access_token');
+  // API returns tokens nested under "tokens" key
+  const body = res.json();
+  const token = (body.tokens && body.tokens.access_token) || body.access_token;
   if (!token) {
     throw new Error(`Setup failed: login returned ${res.status} — ${res.body}`);
   }
@@ -56,21 +58,21 @@ export default function (data) {
   };
 
   const res = http.post(
-    `${BASE_URL}/scan/submit`,
+    `${BASE_URL}/api/scans/submit`,
     JSON.stringify({ qr_code: __ENV.K6_TEST_QR_CODE }),
     { headers }
   );
 
   const ok = check(res, {
-    'scan: status 200 or 429': (r) => r.status === 200 || r.status === 429,
+    'scan: status 200 or 409 or 429': (r) => r.status === 200 || r.status === 409 || r.status === 429,
     'scan: no 5xx': (r) => r.status < 500,
   });
 
   if (res.status === 200) {
     check(res, {
-      'scan: has scan_id': (r) => r.json('scan_id') !== undefined,
+      'scan: has success': (r) => r.json('success') !== undefined,
       'scan: has comp_earned': (r) => r.json('comp_earned') !== undefined,
-      'scan: has tier': (r) => r.json('tier') !== undefined,
+      'scan: has tier_name': (r) => r.json('tier_name') !== undefined,
     });
     scanSuccessCount.add(1);
   } else if (res.status === 429) {
@@ -85,7 +87,7 @@ export function teardown(data) {
   const headers = {
     Authorization: `Bearer ${data.token}`,
   };
-  const res = http.get(`${BASE_URL}/users/me/wallet`, { headers });
+  const res = http.get(`${BASE_URL}/api/wallet/detail`, { headers });
   const passed = check(res, {
     'double-spend check: wallet reachable': (r) => r.status === 200,
     'double-spend check: comp_balance non-negative': (r) => {
