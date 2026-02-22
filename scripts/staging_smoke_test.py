@@ -589,7 +589,7 @@ def run_flow_9_push(smoke_token: str) -> None:
     for platform, token_val in [("ios", "smoke-test-token-ios-0000"), ("android", "smoke-test-token-android-0000")]:
         r, ms = req("POST", "/notifications/device-token",
                     headers=json_header(smoke_token),
-                    json_body={"device_token": token_val, "platform": platform})
+                    json_body={"token": token_val, "platform": platform})
         step(f"9.{'1' if platform == 'ios' else '2'} POST /notifications/device-token platform={platform} — 201",
              r.status_code in (200, 201), ms, f"got {r.status_code}", r)
 
