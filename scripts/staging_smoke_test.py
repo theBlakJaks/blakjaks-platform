@@ -729,7 +729,8 @@ def main():
             console.print(f"  [red]✗ Could not login as {SMOKE_EMAIL} — check credentials[/red]")
 
     # Run all flows
-    run_flow_1_auth()
+    # flow 1 returns a fresh non-admin token for auth guard testing in flow 8
+    fresh_user_token = run_flow_1_auth()
     if smoke_token:
         run_flow_2_scan(smoke_token)
         run_flow_3_wallet(smoke_token)
@@ -737,7 +738,8 @@ def main():
         run_flow_5_social(smoke_token)
         run_flow_6_notifications(smoke_token)
         run_flow_7_insights(smoke_token)
-        run_flow_8_admin(smoke_token)
+        # Pass fresh non-admin token to verify auth guard rejects normal users
+        run_flow_8_admin(fresh_user_token or smoke_token)
         run_flow_9_push(smoke_token)
         run_flow_10_stream(smoke_token)
         run_flow_11_affiliate(smoke_token)
