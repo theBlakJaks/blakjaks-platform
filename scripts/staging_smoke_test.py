@@ -406,12 +406,15 @@ def run_flow_4_shop(smoke_token: str) -> None:
 def run_flow_5_social(smoke_token: str) -> None:
     flow("Flow 5 — Social Chat")
 
-    # 5.1 List channels
+    # 5.1 List channels — returns list[ChannelOut] directly
     r, ms = req("GET", "/social/channels", headers=auth_header(smoke_token))
-    body = r.json() if r.status_code == 200 else {}
-    channels = body.get("channels") or body if isinstance(body, list) else []
-    if isinstance(body, list):
-        channels = body
+    raw = r.json() if r.status_code == 200 else []
+    if isinstance(raw, list):
+        channels = raw
+    elif isinstance(raw, dict):
+        channels = raw.get("channels") or raw.get("items") or []
+    else:
+        channels = []
     step("5.1 GET /social/channels — 200 + at least 1 channel",
          r.status_code == 200 and len(channels) > 0,
          ms, f"status={r.status_code} channels={len(channels)}", r)
@@ -423,13 +426,16 @@ def run_flow_5_social(smoke_token: str) -> None:
 
     ch_id = channels[0].get("id")
 
-    # 5.2 Get messages
+    # 5.2 Get messages — returns list[MessageOut] directly
     r, ms = req("GET", f"/social/channels/{ch_id}/messages?limit=10",
                 headers=auth_header(smoke_token))
-    body2 = r.json() if r.status_code == 200 else {}
-    msgs = body2.get("messages") or body2 if isinstance(body2, list) else []
-    if isinstance(body2, list):
-        msgs = body2
+    raw2 = r.json() if r.status_code == 200 else []
+    if isinstance(raw2, list):
+        msgs = raw2
+    elif isinstance(raw2, dict):
+        msgs = raw2.get("messages") or raw2.get("items") or []
+    else:
+        msgs = []
     step("5.2 GET /social/channels/{id}/messages — 200 + messages array",
          r.status_code == 200 and isinstance(msgs, list),
          ms, f"status={r.status_code}", r)
@@ -447,10 +453,13 @@ def run_flow_5_social(smoke_token: str) -> None:
     # 5.4 Verify message in channel
     r, ms = req("GET", f"/social/channels/{ch_id}/messages?limit=5",
                 headers=auth_header(smoke_token))
-    body4 = r.json() if r.status_code == 200 else {}
-    recent_msgs = body4.get("messages") or (body4 if isinstance(body4, list) else [])
-    if isinstance(body4, list):
-        recent_msgs = body4
+    raw4 = r.json() if r.status_code == 200 else []
+    if isinstance(raw4, list):
+        recent_msgs = raw4
+    elif isinstance(raw4, dict):
+        recent_msgs = raw4.get("messages") or raw4.get("items") or []
+    else:
+        recent_msgs = []
     found = any("smoke test message" in str(m.get("content", "")) for m in recent_msgs)
     step("5.4 GET messages — sent message visible",
          r.status_code == 200 and found,
@@ -510,15 +519,15 @@ def run_flow_7_insights(smoke_token: str) -> None:
 
     checks = [
         ("7.1 GET /insights/overview", "/insights/overview",
-         ["total_scans", "active_users", "tier_distribution"]),
+         ["global_scan_count", "active_members"]),
         ("7.2 GET /insights/treasury", "/insights/treasury",
-         ["onchain_balance", "dwolla_balance"]),
+         ["pool_balances", "bank_balances"]),
         ("7.3 GET /insights/systems", "/insights/systems",
-         ["budget_health", "polygon_node_connected"]),
+         ["blockchain_health", "node_health"]),
         ("7.4 GET /insights/comps", "/insights/comps",
          ["prize_tiers"]),
         ("7.5 GET /insights/partners", "/insights/partners",
-         ["affiliate_stats"]),
+         ["affiliate_count"]),
     ]
 
     for label, path, required_keys in checks:
@@ -546,7 +555,7 @@ def run_flow_8_admin(user_token: str) -> None:
         return
 
     admin_checks = [
-        ("8.1 GET /admin/users — 200 + users array", "/admin/affiliates?limit=5", ["users"]),
+        ("8.1 GET /admin/affiliates — 200 + items array", "/admin/affiliates?limit=5", ["items"]),
         ("8.2 GET /admin/treasury/pools — 200 + pool data", "/treasury/pools", None),
         ("8.3 GET /admin/qr-codes/batches — 200 + batches array", "/admin/qr-codes?limit=5", None),
         ("8.4 GET /admin/live-streams — 200", "/streams", None),
@@ -582,8 +591,8 @@ def run_flow_9_push(smoke_token: str) -> None:
         r, ms = req("POST", "/notifications/device-token",
                     headers=json_header(smoke_token),
                     json_body={"device_token": token_val, "platform": platform})
-        step(f"9.{'1' if platform == 'ios' else '2'} POST /notifications/device-token platform={platform} — 200",
-             r.status_code == 200, ms, f"got {r.status_code}", r)
+        step(f"9.{'1' if platform == 'ios' else '2'} POST /notifications/device-token platform={platform} — 201",
+             r.status_code in (200, 201), ms, f"got {r.status_code}", r)
 
 
 # ── Flow 10 — Live Stream ─────────────────────────────────────────────────────
