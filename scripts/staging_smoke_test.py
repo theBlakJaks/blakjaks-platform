@@ -523,7 +523,7 @@ def run_flow_7_insights(smoke_token: str) -> None:
         ("7.2 GET /insights/treasury", "/insights/treasury",
          ["pool_balances", "bank_balances"]),
         ("7.3 GET /insights/systems", "/insights/systems",
-         ["blockchain_health", "node_health"]),
+         ["node_health", "tier_distribution"]),
         ("7.4 GET /insights/comps", "/insights/comps",
          ["prize_tiers"]),
         ("7.5 GET /insights/partners", "/insights/partners",
