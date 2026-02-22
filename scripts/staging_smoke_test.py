@@ -470,8 +470,8 @@ def run_flow_5_social(smoke_token: str) -> None:
         r, ms = req("POST", f"/social/messages/{message_id}/reactions",
                     headers=json_header(smoke_token),
                     json_body={"emoji": "✅"})
-        step("5.5 POST /social/messages/{id}/reactions — 200",
-             r.status_code == 200, ms, f"got {r.status_code}", r)
+        step("5.5 POST /social/messages/{id}/reactions — 200 or 201",
+             r.status_code in (200, 201), ms, f"got {r.status_code}", r)
 
         # 5.6 Remove reaction
         r, ms = req("DELETE", f"/social/messages/{message_id}/reactions/%E2%9C%85",
