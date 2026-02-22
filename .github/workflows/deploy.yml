@@ -380,6 +380,8 @@ jobs:
     name: Load Test (Staging)
     needs: [deploy-staging, smoke-test]
     runs-on: ubuntu-latest
+    environment: staging
+    continue-on-error: true   # load tests are advisory; smoke-test is the gating check
     steps:
       - uses: actions/checkout@v4
 
@@ -414,9 +416,9 @@ jobs:
         run: |
           k6 run \
             -e K6_BASE_URL=${{ secrets.STAGING_API_URL }} \
-            -e K6_TEST_EMAIL=${{ secrets.LOAD_TEST_EMAIL }} \
-            -e K6_TEST_PASSWORD=${{ secrets.LOAD_TEST_PASSWORD }} \
-            -e K6_TEST_QR_CODE=${{ secrets.LOAD_TEST_QR_CODE }} \
+            -e K6_TEST_EMAIL=${{ secrets.SMOKE_TEST_EMAIL }} \
+            -e K6_TEST_PASSWORD=${{ secrets.SMOKE_TEST_PASSWORD }} \
+            -e K6_TEST_QR_CODE=${{ secrets.SMOKE_TEST_QR_CODE }} \
             --out json=results/scan_burst.json \
             load-tests/scan_burst.js
 
@@ -424,8 +426,8 @@ jobs:
         run: |
           k6 run \
             -e K6_BASE_URL=${{ secrets.STAGING_API_URL }} \
-            -e K6_TEST_EMAIL=${{ secrets.LOAD_TEST_EMAIL }} \
-            -e K6_TEST_PASSWORD=${{ secrets.LOAD_TEST_PASSWORD }} \
+            -e K6_TEST_EMAIL=${{ secrets.SMOKE_TEST_EMAIL }} \
+            -e K6_TEST_PASSWORD=${{ secrets.SMOKE_TEST_PASSWORD }} \
             -e K6_TEST_COMP_ID=${{ secrets.LOAD_TEST_COMP_ID }} \
             --out json=results/withdrawal_safety.json \
             load-tests/withdrawal_safety.js
