@@ -164,7 +164,7 @@ struct SystemsView: View {
             if let status {
                 Text(status)
                     .font(.caption.weight(.bold))
-                    .foregroundColor(ok ? .success : .failure)
+                    .foregroundColor(ok ? .success : .error)
             }
             Text(value)
                 .font(.system(.footnote, design: .monospaced).weight(.medium))
@@ -197,7 +197,7 @@ struct SystemsView: View {
     private func budgetColor(pct: Double) -> Color {
         if pct < 50 { return .success }
         if pct < 75 { return .warning }
-        return .failure
+        return .error
     }
 }
 

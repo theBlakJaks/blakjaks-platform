@@ -54,10 +54,10 @@ struct InlineErrorView: View {
     var body: some View {
         HStack(spacing: Spacing.sm) {
             Image(systemName: "exclamationmark.circle.fill")
-                .foregroundColor(.failure)
+                .foregroundColor(.error)
             Text(message)
                 .font(.footnote)
-                .foregroundColor(.failure)
+                .foregroundColor(.error)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }

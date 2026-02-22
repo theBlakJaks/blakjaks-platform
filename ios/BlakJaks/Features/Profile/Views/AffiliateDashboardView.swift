@@ -191,7 +191,7 @@ struct AffiliateDashboardView: View {
             switch status.lowercased() {
             case "processed": return ("Paid", .success)
             case "pending":   return ("Pending", .warning)
-            case "failed":    return ("Failed", .failure)
+            case "failed":    return ("Failed", .error)
             default:          return (status.capitalized, .secondary)
             }
         }()

@@ -509,7 +509,7 @@ struct ChatView: View {
                     if socialVM.draftMessage.count > 400 {
                         Text("\(socialVM.draftMessage.count)/500")
                             .font(.caption2)
-                            .foregroundColor(socialVM.draftMessage.count >= 500 ? .failure : .secondary)
+                            .foregroundColor(socialVM.draftMessage.count >= 500 ? .error : .secondary)
                     }
                 }
 

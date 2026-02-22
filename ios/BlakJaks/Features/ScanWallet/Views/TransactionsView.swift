@@ -143,13 +143,13 @@ struct TransactionsView: View {
         switch tx.type {
         case "comp_earned", "guaranteed_comp": return .gold
         case "scan_earn":                      return .success
-        default: return tx.amount >= 0 ? .success : .failure
+        default: return tx.amount >= 0 ? .success : .error
         }
     }
 
     private func amountColor(_ tx: Transaction) -> Color {
         if tx.status == "pending" { return .secondary }
-        return tx.amount >= 0 ? .success : .failure
+        return tx.amount >= 0 ? .success : .error
     }
 
     private func formattedAmount(_ tx: Transaction) -> String {

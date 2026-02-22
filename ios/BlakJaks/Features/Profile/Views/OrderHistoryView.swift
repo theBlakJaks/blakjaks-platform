@@ -104,7 +104,7 @@ struct OrderHistoryView: View {
             case "shipped":     return ("Shipped", .info)
             case "delivered",
                  "fulfilled":   return ("Fulfilled", .success)
-            case "cancelled":   return ("Cancelled", .failure)
+            case "cancelled":   return ("Cancelled", .error)
             default:            return (status.capitalized, .secondary)
             }
         }()
@@ -283,7 +283,7 @@ struct OrderDetailView: View {
             case "shipped":     return ("Shipped", .info)
             case "delivered",
                  "fulfilled":   return ("Fulfilled", .success)
-            case "cancelled":   return ("Cancelled", .failure)
+            case "cancelled":   return ("Cancelled", .error)
             default:            return (status.capitalized, .secondary)
             }
         }()
