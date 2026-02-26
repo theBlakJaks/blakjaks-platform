@@ -8,6 +8,8 @@ struct ChannelListDrawerView: View {
     @ObservedObject var socialVM: SocialViewModel
     @Binding var isPresented: Bool
 
+    @State private var showLiveStream = false
+
     // Group channels by category
     private var grouped: [String: [Channel]] {
         Dictionary(grouping: socialVM.channels, by: \.category)
@@ -21,8 +23,13 @@ struct ChannelListDrawerView: View {
         VStack(alignment: .leading, spacing: 0) {
             // MARK: Header
             HStack {
-                Text("BlakJaks")
-                    .font(.system(.headline, design: .serif))
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("BlakJaks")
+                        .font(.system(.headline, design: .serif))
+                    Text("Community Channels")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                }
                 Spacer()
                 Button { isPresented = false } label: {
                     Image(systemName: "xmark")
@@ -36,6 +43,36 @@ struct ChannelListDrawerView: View {
             .padding(.horizontal, Spacing.md)
             .padding(.vertical, Spacing.sm)
             .background(Color.backgroundSecondary)
+
+            // MARK: LIVE button row
+            Button {
+                isPresented = false
+                showLiveStream = true
+            } label: {
+                HStack(spacing: Spacing.sm) {
+                    Image(systemName: "dot.radiowaves.left.and.right")
+                        .font(.caption.weight(.bold))
+                        .foregroundColor(.red)
+                    Text("Live Stream")
+                        .font(.caption.weight(.semibold))
+                        .foregroundColor(.primary)
+                    Spacer()
+                    Circle()
+                        .fill(Color.red)
+                        .frame(width: 8, height: 8)
+                        .opacity(0.8)
+                }
+                .padding(.horizontal, Spacing.md)
+                .padding(.vertical, Spacing.sm)
+                .background(Color.red.opacity(0.08))
+                .cornerRadius(8)
+                .padding(.horizontal, Spacing.sm)
+                .padding(.vertical, Spacing.xs)
+            }
+            .buttonStyle(.plain)
+            .sheet(isPresented: $showLiveStream) {
+                LiveStreamView(stream: socialVM.currentLiveStream, socialVM: socialVM)
+            }
 
             // MARK: Channel list
             ScrollView {
@@ -92,11 +129,6 @@ struct ChannelListDrawerView: View {
                     .foregroundColor(isActive ? .primary : .secondary)
 
                 Spacer()
-
-                // Member count — .caption, .secondary
-                Text("\(channel.memberCount)")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
             }
             // Minimum 52pt row height per spec, 44pt touch target
             .frame(minHeight: 52)

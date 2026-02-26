@@ -28,21 +28,25 @@ struct SocialHubView: View {
                 }
 
                 // MARK: Channel drawer overlay
-                if showChannelDrawer {
-                    Color.black.opacity(0.45)
-                        .ignoresSafeArea()
-                        .onTapGesture { withAnimation(.spring(response: 0.3, dampingFraction: 0.85)) { showChannelDrawer = false } }
-
-                    HStack(spacing: 0) {
-                        ChannelListDrawerView(socialVM: socialVM, isPresented: $showChannelDrawer)
-                            .frame(width: 280)
-                            .offset(x: showChannelDrawer ? 0 : -280)
-                            .animation(.spring(response: 0.3, dampingFraction: 0.85), value: showChannelDrawer)
-                        Spacer()
-                    }
+                // Dim — invisible when closed, blocks taps only when open
+                Color.black.opacity(showChannelDrawer ? 0.45 : 0)
                     .ignoresSafeArea()
-                    .transition(.opacity)
+                    .allowsHitTesting(showChannelDrawer)
+                    .onTapGesture {
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.85)) {
+                            showChannelDrawer = false
+                        }
+                    }
+                    .animation(.easeInOut(duration: 0.25), value: showChannelDrawer)
+
+                // Drawer panel — always in hierarchy, slides in/out via offset
+                HStack(spacing: 0) {
+                    ChannelListDrawerView(socialVM: socialVM, isPresented: $showChannelDrawer)
+                        .frame(width: 280)
+                    Spacer()
                 }
+                .offset(x: showChannelDrawer ? 0 : -280)
+                .animation(.spring(response: 0.3, dampingFraction: 0.85), value: showChannelDrawer)
             }
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -60,8 +64,20 @@ struct SocialHubView: View {
 
                 // Center — title (New York serif per design spec)
                 ToolbarItem(placement: .principal) {
-                    Text(socialVM.selectedChannel.map { "#\($0.name)" } ?? "Social")
-                        .font(.system(.headline, design: .serif))
+                    VStack(spacing: 1) {
+                        Text(socialVM.selectedChannel.map { "#\($0.name)" } ?? "Social Hub")
+                            .font(.system(.headline, design: .serif))
+                        if socialVM.selectedChannel != nil {
+                            HStack(spacing: 4) {
+                                Circle()
+                                    .fill(Color.green)
+                                    .frame(width: 6, height: 6)
+                                Text("\(socialVM.selectedChannel?.memberCount ?? 0) online")
+                                    .font(.caption2)
+                                    .foregroundColor(.secondary)
+                            }
+                        }
+                    }
                 }
 
                 // Right — bell with unread badge

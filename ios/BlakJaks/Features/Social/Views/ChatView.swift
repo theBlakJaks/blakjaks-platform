@@ -3,6 +3,7 @@ import UIKit
 
 // MARK: - ChatView
 // Full-featured chat view with message grouping, reactions, translation, and a composer.
+// Layout: Discord-style flat rows — avatar left, no bubbles, no side-alignment.
 
 struct ChatView: View {
 
@@ -59,7 +60,9 @@ struct ChatView: View {
                     get: { nil },
                     set: { emote in
                         if let emote {
-                            socialVM.draftMessage += ":\(emote): "
+                            // Insert emote name as plain token (no colons) so
+                            // EmoteParsedMessageView can match it by name
+                            socialVM.draftMessage += "\(emote) "
                         }
                     }
                 ))
@@ -97,7 +100,7 @@ struct ChatView: View {
                         if message.content.hasPrefix("[SYSTEM]") {
                             systemEventPill(message: message)
                         } else {
-                            messageBubble(message: message, isGrouped: isGrouped, index: index)
+                            messageRow(message: message, isGrouped: isGrouped, index: index)
                         }
                     }
 
@@ -147,115 +150,105 @@ struct ChatView: View {
         }
     }
 
-    // MARK: - Message Bubble
+    // MARK: - Message Row (Discord-style flat layout)
+    // All messages: avatar on left, no bubbles, no side-alignment.
 
-    private func messageBubble(message: ChatMessage, isGrouped: Bool, index: Int) -> some View {
-        let isOwn = message.userId == socialVM.currentUserId
+    private func messageRow(message: ChatMessage, isGrouped: Bool, index: Int) -> some View {
         let translated = translatedMessages[message.id]
 
-        return VStack(alignment: isOwn ? .trailing : .leading, spacing: 0) {
-            HStack(alignment: .top, spacing: Spacing.sm) {
-                // Avatar only for incoming, ungrouped messages
-                if !isOwn {
-                    if !isGrouped {
-                        avatarCircle(message)
-                    } else {
-                        Color.clear.frame(width: 32, height: 1)
+        // Strip [REPLY] prefix to get the actual display content
+        let displayContent: String = {
+            var c = message.content
+            if c.hasPrefix("[REPLY]"), let range = c.range(of: "]") {
+                c = String(c[c.index(after: range.upperBound)...]).trimmingCharacters(in: .whitespaces)
+            }
+            return translated ?? c
+        }()
+
+        return HStack(alignment: .top, spacing: Spacing.sm) {
+            // Avatar (ungrouped) or transparent spacer (grouped)
+            if !isGrouped {
+                avatarCircle(message)
+            } else {
+                Color.clear.frame(width: 32, height: 1)
+            }
+
+            VStack(alignment: .leading, spacing: 2) {
+                // Header: username + tier pill + timestamp — only for ungrouped messages
+                if !isGrouped {
+                    HStack(alignment: .firstTextBaseline, spacing: Spacing.xs) {
+                        Text(message.userFullName)
+                            .font(.caption.weight(.semibold))
+                            .foregroundColor(tierColor(message.userTier))
+                        tierPill(message.userTier)
+                        Text(shortTime(message.createdAt))
+                            .font(.caption2)
+                            .foregroundColor(.secondary)
                     }
-                } else {
-                    Spacer(minLength: 60)
                 }
 
-                VStack(alignment: isOwn ? .trailing : .leading, spacing: 3) {
-                    // Header: name + tier + time (only shown for first in group)
-                    if !isGrouped {
-                        HStack(alignment: .firstTextBaseline, spacing: 6) {
-                            if isOwn {
-                                // Timestamp left of name for own messages
-                                Text(shortTime(message.createdAt))
-                                    .font(.footnote)
-                                    .foregroundColor(.secondary)
-                            } else {
-                                // Username: Color.gold for high-tier users, .secondary otherwise
-                                Text(message.userFullName)
-                                    .font(.caption.weight(.semibold))
-                                    .foregroundColor(isHighTierUser(message.userTier) ? Color.gold : .secondary)
+                // Reply quote block (when message is a reply)
+                if message.content.hasPrefix("[REPLY]") {
+                    replyQuoteBlock(content: message.content)
+                }
 
-                                // Tier badge inline with username
-                                tierPill(message.userTier)
-
-                                Text(shortTime(message.createdAt))
-                                    .font(.footnote)
-                                    .foregroundColor(.secondary)
+                // Message body — flat, no bubble background
+                if isGifMessage(displayContent) {
+                    let trimmed = displayContent.trimmingCharacters(in: .whitespaces)
+                    if let url = URL(string: trimmed) {
+                        if trimmed.hasSuffix(".mp4") {
+                            // Animated via AVPlayer (mp4 from Giphy)
+                            LoopingVideoPlayer(url: url)
+                                .frame(width: 240, height: 160)
+                                .cornerRadius(8)
+                                .clipped()
+                        } else {
+                            // Legacy .gif fallback — still static but keeps old messages working
+                            AsyncImage(url: url) { phase in
+                                switch phase {
+                                case .success(let image):
+                                    image.resizable().scaledToFit()
+                                        .frame(maxWidth: 240).cornerRadius(8)
+                                case .empty:
+                                    ProgressView().frame(width: 120, height: 80)
+                                default:
+                                    EmptyView()
+                                }
                             }
                         }
                     }
-
-                    // Reply quote block
-                    if message.content.hasPrefix("[REPLY]") {
-                        replyQuoteBlock(content: message.content)
-                    }
-
-                    // Message content — bubble styled per sender
-                    let displayContent: String = {
-                        var c = message.content
-                        if c.hasPrefix("[REPLY]"), let range = c.range(of: "]") {
-                            c = String(c[c.index(after: range.upperBound)...]).trimmingCharacters(in: .whitespaces)
-                        }
-                        return translated ?? c
-                    }()
-
-                    Text(displayContent)
-                        .font(.body)
-                        .foregroundColor(.primary)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .padding(.horizontal, Spacing.md)
-                        .padding(.vertical, Spacing.sm)
-                        .background(
-                            isOwn
-                                ? Color.gold.opacity(0.2)
-                                : Color.backgroundSecondary
-                        )
-                        // 16pt corner radius; flat corner on sender side (standard chat style)
-                        .clipShape(
-                            ChatBubbleShape(isOwn: isOwn)
-                        )
-
-                    // Translation indicator
-                    if translated != nil {
-                        Text("Translated")
-                            .font(.caption2)
-                            .foregroundColor(.info)
-                            .italic()
-                    }
-
-                    // Reactions
-                    if let reactions = message.reactionSummary, !reactions.isEmpty {
-                        reactionRow(message: message, reactions: reactions)
-                    }
-
-                    // Inline reaction picker (shown on long press)
-                    if showReactionPicker == message.id {
-                        inlineReactionPicker(for: message)
-                            .transition(.scale.combined(with: .opacity))
-                    }
-                }
-                .frame(maxWidth: .infinity, alignment: isOwn ? .trailing : .leading)
-
-                // Spacer on the left for own messages to push right
-                if isOwn {
-                    if !isGrouped {
-                        avatarCircle(message)
-                    } else {
-                        Color.clear.frame(width: 32, height: 1)
-                    }
                 } else {
-                    Spacer(minLength: 60)
+                    // Inline emote rendering — splits tokens, replaces known emote
+                    // names with 7TV CDN images, renders plain text for everything else
+                    EmoteParsedMessageView(content: displayContent)
+                }
+
+                // Translation indicator
+                if translated != nil {
+                    Text("Translated")
+                        .font(.caption2)
+                        .foregroundColor(.info)
+                        .italic()
+                }
+
+                // Reactions
+                if let reactions = message.reactionSummary, !reactions.isEmpty {
+                    reactionRow(message: message, reactions: reactions)
+                }
+
+                // Inline reaction picker (shown on long-press / context menu)
+                if showReactionPicker == message.id {
+                    inlineReactionPicker(for: message)
+                        .transition(.scale.combined(with: .opacity))
                 }
             }
-            .padding(.horizontal, Spacing.md)
-            .padding(.vertical, isGrouped ? 2 : Spacing.sm)
+
+            Spacer(minLength: 0)
         }
+        .padding(.horizontal, Spacing.md)
+        .padding(.vertical, isGrouped ? 2 : Spacing.sm)
+        .background(Color.clear)
+        .contentShape(Rectangle())
         .contextMenu {
             Button {
                 replyTo = message
@@ -282,6 +275,14 @@ struct ChatView: View {
                 Label("Translate", systemImage: "character.bubble")
             }
         }
+    }
+
+    // MARK: - GIF Detection Helper
+
+    private func isGifMessage(_ content: String) -> Bool {
+        let trimmed = content.trimmingCharacters(in: .whitespaces)
+        guard trimmed.hasPrefix("http://") || trimmed.hasPrefix("https://") else { return false }
+        return trimmed.contains("giphy.com") || trimmed.hasSuffix(".gif") || trimmed.hasSuffix(".mp4")
     }
 
     // MARK: - Reply Quote Block
@@ -399,14 +400,15 @@ struct ChatView: View {
     }
 
     // MARK: - Pinned Banner
+    // Pin icon leading (gold), "Pinned by <user>" caption bold gold, then message content.
 
     private func pinnedBanner(_ message: ChatMessage) -> some View {
         HStack(spacing: Spacing.sm) {
-            Rectangle()
-                .fill(Color.gold)
-                .frame(width: 3)
+            Image(systemName: "pin.fill")
+                .font(.caption)
+                .foregroundColor(.gold)
             VStack(alignment: .leading, spacing: 2) {
-                Text("Pinned Message")
+                Text("Pinned by \(message.userFullName)")
                     .font(.caption.weight(.bold))
                     .foregroundColor(.gold)
                 Text(message.content)
@@ -415,9 +417,6 @@ struct ChatView: View {
                     .lineLimit(2)
             }
             Spacer()
-            Image(systemName: "pin.fill")
-                .font(.caption)
-                .foregroundColor(.gold)
         }
         .padding(.horizontal, Spacing.md)
         .padding(.vertical, Spacing.sm)
@@ -628,45 +627,6 @@ struct ChatView: View {
             .padding(.vertical, 2)
             .background(tierColor(tier).opacity(0.15))
             .cornerRadius(4)
-    }
-}
-
-// MARK: - ChatBubbleShape
-// 16pt corners everywhere; flat bottom-right for outgoing, flat bottom-left for incoming.
-
-private struct ChatBubbleShape: Shape {
-    let isOwn: Bool
-    let radius: CGFloat = 16
-
-    func path(in rect: CGRect) -> Path {
-        var path = Path()
-        let w = rect.width
-        let h = rect.height
-        let r = min(radius, h / 2, w / 2)
-
-        if isOwn {
-            // Outgoing: flat bottom-right corner
-            path.move(to: CGPoint(x: r, y: 0))
-            path.addLine(to: CGPoint(x: w - r, y: 0))
-            path.addArc(center: CGPoint(x: w - r, y: r), radius: r, startAngle: .degrees(-90), endAngle: .degrees(0), clockwise: false)
-            path.addLine(to: CGPoint(x: w, y: h))          // flat bottom-right
-            path.addLine(to: CGPoint(x: r, y: h))
-            path.addArc(center: CGPoint(x: r, y: h - r), radius: r, startAngle: .degrees(90), endAngle: .degrees(180), clockwise: false)
-            path.addLine(to: CGPoint(x: 0, y: r))
-            path.addArc(center: CGPoint(x: r, y: r), radius: r, startAngle: .degrees(180), endAngle: .degrees(270), clockwise: false)
-        } else {
-            // Incoming: flat bottom-left corner
-            path.move(to: CGPoint(x: r, y: 0))
-            path.addLine(to: CGPoint(x: w - r, y: 0))
-            path.addArc(center: CGPoint(x: w - r, y: r), radius: r, startAngle: .degrees(-90), endAngle: .degrees(0), clockwise: false)
-            path.addLine(to: CGPoint(x: w, y: h - r))
-            path.addArc(center: CGPoint(x: w - r, y: h - r), radius: r, startAngle: .degrees(0), endAngle: .degrees(90), clockwise: false)
-            path.addLine(to: CGPoint(x: 0, y: h))           // flat bottom-left
-            path.addLine(to: CGPoint(x: 0, y: r))
-            path.addArc(center: CGPoint(x: r, y: r), radius: r, startAngle: .degrees(180), endAngle: .degrees(270), clockwise: false)
-        }
-        path.closeSubpath()
-        return path
     }
 }
 

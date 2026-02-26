@@ -53,7 +53,15 @@
 	<!-- API Base URL (set per xcconfig) -->
 	<key>API_BASE_URL</key>
 	<string>$(API_BASE_URL)</string>
+	<key>GIPHY_API_KEY</key>
+	<string>$(GIPHY_API_KEY)</string>
 	<key>ENVIRONMENT</key>
 	<string>$(ENVIRONMENT)</string>
+	<!-- Allow CDN access for React, Three.js, Google Fonts -->
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsArbitraryLoads</key>
+		<true/>
+	</dict>
 </dict>
 </plist>

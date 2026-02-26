@@ -12,7 +12,7 @@ packages:
     url: https://github.com/Alamofire/Alamofire.git
     from: 5.8.0
   KeychainAccess:
-    url: https://github.com/kishikawakatsuki/KeychainAccess.git
+    url: https://github.com/kishikawakatsumi/KeychainAccess.git
     from: 4.2.2
   SocketIO:
     url: https://github.com/socketio/socket.io-client-swift.git
@@ -31,6 +31,9 @@ targets:
       - package: Alamofire
       - package: KeychainAccess
       - package: SocketIO
+    configFiles:
+      Debug: BlakJaks/Config/Development.xcconfig
+      Release: BlakJaks/Config/Production.xcconfig
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.blakjaks.app
@@ -40,11 +43,6 @@ targets:
         INFOPLIST_FILE: BlakJaks/Resources/Info.plist
         CODE_SIGN_STYLE: Automatic
         DEVELOPMENT_TEAM: ""
-      configs:
-        Debug:
-          XCCONFIG_FILE_PATH: BlakJaks/Config/Development.xcconfig
-        Release:
-          XCCONFIG_FILE_PATH: BlakJaks/Config/Production.xcconfig
     scheme:
       testTargets:
         - BlakJaksTests

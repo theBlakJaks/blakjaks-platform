@@ -13,6 +13,21 @@ struct LiveStreamView: View {
     @State private var showChat = true
     @State private var player: AVPlayer? = nil
 
+    // Convenience init that accepts an optional stream, falling back to an
+    // offline placeholder so callers (e.g. ChannelListDrawerView) can pass nil.
+    init(stream: LiveStream? = nil, socialVM: SocialViewModel) {
+        self.stream = stream ?? LiveStream(
+            id: 0,
+            title: "Live Stream",
+            hlsUrl: nil,
+            viewerCount: 0,
+            isLive: false,
+            hostName: "",
+            thumbnailUrl: nil
+        )
+        self.socialVM = socialVM
+    }
+
     // Fallback channel for the live stream chat
     private var liveChannel: Channel {
         socialVM.selectedChannel ?? Channel(
@@ -80,9 +95,8 @@ struct LiveStreamView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .principal) {
-                Text(stream.title)
-                    .font(.headline)
-                    .lineLimit(1)
+                Text("Live Stream")
+                    .font(.system(.headline, design: .serif))
             }
         }
         .onAppear {
@@ -140,20 +154,15 @@ struct LiveStreamView: View {
     }
 
     // MARK: - Viewer Count Badge
-    // Color.backgroundSecondary.opacity(0.8) pill, SF Symbol person.2.fill, top-right per spec
+    // Green dot + viewer count, top-right per spec
 
     private var viewerCountBadge: some View {
-        HStack(spacing: Spacing.xs) {
-            Image(systemName: "person.2.fill")
+        HStack(spacing: 4) {
+            Circle().fill(Color.green).frame(width: 8, height: 8)
+            Text("\(stream.viewerCount) watching")
                 .font(.caption)
-            Text("\(stream.viewerCount)")
-                .font(.caption.weight(.semibold))
+                .foregroundColor(.secondary)
         }
-        .foregroundColor(.primary)
-        .padding(.horizontal, Spacing.sm)
-        .padding(.vertical, Spacing.xs)
-        .background(Color.backgroundSecondary.opacity(0.8))
-        .clipShape(Capsule())
     }
 }
 
