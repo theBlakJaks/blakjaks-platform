@@ -59,8 +59,9 @@ export default function DashboardPage() {
     )
   }
 
-  const tierInfo = TIER_THRESHOLDS[user.tier]
-  const scansToNext = tierInfo.scansNeeded > 0 ? Math.max(0, tierInfo.scansNeeded - user.quarterlyScans) : 0
+  const tierKey = (user.tier ?? 'standard') as keyof typeof TIER_THRESHOLDS
+  const tierInfo = TIER_THRESHOLDS[tierKey] ?? TIER_THRESHOLDS.standard
+  const scansToNext = tierInfo.scansNeeded > 0 ? Math.max(0, tierInfo.scansNeeded - (user.quarterlyScans ?? 0)) : 0
 
   return (
     <div className="space-y-6">

@@ -21,7 +21,7 @@ const securityHeaders = [
       "style-src 'self' 'unsafe-inline'",
       "img-src 'self' data: blob: https:",
       "font-src 'self'",
-      `connect-src 'self' ${apiUrl} ${wsUrl} https://translate.googleapis.com`,
+      `connect-src 'self' ${apiUrl} ${wsUrl} https://translate.googleapis.com https://7tv.io`,
       `media-src 'self' ${wsUrl}`,
       "frame-src 'none'",
     ].join('; '),
