@@ -281,16 +281,47 @@ export const api = {
      * Backend returns a plain array — wrap in { channels } for call-site compat.
      */
     async getChannels(): Promise<{ channels: Channel[] }> {
-      const channels = await fetchAPI<Channel[]>('/social/channels')
+      const raw = await fetchAPI<Array<Record<string, unknown>>>('/social/channels')
+      const channels: Channel[] = raw.map((c) => ({
+        id: String(c.id),
+        name: String(c.name ?? ''),
+        category: String(c.category ?? 'General'),
+        description: String(c.description ?? ''),
+        tierRequired: (c.tier_required ?? 'standard') as Channel['tierRequired'],
+        unreadCount: Number(c.unread_count ?? 0),
+        icon: String(c.icon ?? '#'),
+      }))
       return { channels }
     },
 
     /**
      * GET /api/social/channels/{channelId}/messages
-     * Backend returns a plain array.
+     * Backend returns a plain array with snake_case fields — map to frontend Message shape.
      */
     async getMessages(channelId: string): Promise<{ messages: Message[] }> {
-      const messages = await fetchAPI<Message[]>(`/social/channels/${channelId}/messages`)
+      const raw = await fetchAPI<Array<Record<string, unknown>>>(`/social/channels/${channelId}/messages`)
+      const messages: Message[] = raw.map((m) => ({
+        id: String(m.id),
+        channelId: String(m.channel_id),
+        userId: String(m.user_id),
+        username: String(m.username ?? ''),
+        userTier: (m.user_tier ?? 'standard') as Message['userTier'],
+        content: String(m.content ?? ''),
+        timestamp: String(m.created_at ?? new Date().toISOString()),
+        reactions: (() => {
+          const arr = m.reactions as Array<{ emoji: string; users: string[] }> | undefined
+          if (!arr) return {}
+          const out: Record<string, string[]> = {}
+          for (const r of arr) out[r.emoji] = r.users
+          return out
+        })(),
+        replyToId: m.reply_to_id ? String(m.reply_to_id) : undefined,
+        replyToContent: m.reply_preview ? String(m.reply_preview) : undefined,
+        isSystem: Boolean(m.is_system),
+        isPinned: Boolean(m.is_pinned),
+        originalLanguage: m.original_language ? String(m.original_language) : undefined,
+        avatarUrl: m.avatar_url ? String(m.avatar_url) : undefined,
+      }))
       return { messages }
     },
 

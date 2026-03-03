@@ -18,7 +18,8 @@ export function formatDate(date: string | Date, format?: 'short' | 'long'): stri
   return d.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
 }
 
-export function formatRelativeTime(date: string | Date): string {
+export function formatRelativeTime(date: string | Date | undefined | null): string {
+  if (!date) return ''
   const now = Date.now()
   const d = typeof date === 'string' ? new Date(date).getTime() : date.getTime()
   const diff = Math.floor((now - d) / 1000)
