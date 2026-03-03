@@ -17,3 +17,4 @@ data:
   STORAGE_CDN_URL: "https://cdn.blakjaks.com"
   GOOGLE_CLOUD_PROJECT_ID: "blakjaks-production"
   GOOGLE_CLOUD_REGION: "us-central1"
+  CORS_ORIGINS: '["https://app.blakjaks.com","https://admin.blakjaks.com","https://affiliate.blakjaks.com","https://wholesale.blakjaks.com"]'
