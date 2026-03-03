@@ -218,6 +218,10 @@ class ChatSocket {
         this.onReactionHandlers.forEach(h => h(data as unknown as ReactionUpdate))
         break
 
+      case 'ping':
+        this.send({ type: 'pong' })
+        break
+
       case 'error':
         console.warn('[ChatSocket] Server error:', data.message)
         break

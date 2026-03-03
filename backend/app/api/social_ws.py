@@ -182,10 +182,24 @@ async def websocket_endpoint(websocket: WebSocket):
 
     await websocket.send_json({"type": "auth_success", "user_id": str(user_id)})
 
+    # Send periodic pings to keep the connection alive through load balancers
+    async def _ping_loop():
+        try:
+            while True:
+                await asyncio.sleep(20)
+                await websocket.send_json({"type": "ping"})
+        except Exception:
+            pass
+
+    ping_task = asyncio.create_task(_ping_loop())
+
     try:
         while True:
             data = await websocket.receive_json()
             msg_type = data.get("type")
+
+            if msg_type == "pong":
+                continue  # Client responding to our ping
 
             if msg_type == "join_channel":
                 channel_id = uuid.UUID(data["channel_id"])
@@ -279,6 +293,7 @@ async def websocket_endpoint(websocket: WebSocket):
     except Exception as e:
         logger.exception("WebSocket error: %s", e)
     finally:
+        ping_task.cancel()
         await manager.leave_all(websocket, user_id)
 
 
