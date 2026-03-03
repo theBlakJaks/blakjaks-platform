@@ -64,6 +64,7 @@ function SocialPage() {
   const preferredLanguage = useUIStore((s) => s.preferredLanguage)
   const [cooldownActive, setCooldownActive] = useState(false)
   const [cooldownTime, setCooldownTime] = useState(0)
+  const burstCountRef = useRef(0)
   const [gifPickerOpen, setGifPickerOpen] = useState(false)
   const [emotePickerOpen, setEmotePickerOpen] = useState(false)
   const [autocompleteMatches, setAutocompleteMatches] = useState<CachedEmote[]>([])
@@ -282,8 +283,12 @@ function SocialPage() {
     setFirstNewMsgId(null)
 
     if (userTier === 'standard') {
-      setCooldownActive(true)
-      setCooldownTime(5)
+      burstCountRef.current += 1
+      if (burstCountRef.current >= 3) {
+        setCooldownActive(true)
+        setCooldownTime(5)
+        burstCountRef.current = 0
+      }
     }
   }
 
