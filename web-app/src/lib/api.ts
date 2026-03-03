@@ -38,7 +38,10 @@ async function fetchAPI<T>(endpoint: string, options: RequestInit = {}): Promise
   async function extractError(res: Response): Promise<string> {
     try {
       const body = await res.json()
-      return body?.detail ?? body?.message ?? `Request failed with status ${res.status}`
+      const detail = body?.detail
+      if (typeof detail === 'string') return detail
+      if (Array.isArray(detail)) return detail.map((d: { msg?: string }) => d.msg).filter(Boolean).join(', ') || `Request failed with status ${res.status}`
+      return body?.message ?? `Request failed with status ${res.status}`
     } catch {
       return `Request failed with status ${res.status}`
     }
@@ -122,7 +125,7 @@ export const api = {
      * POST /api/auth/signup
      * Returns { user, tokens: { access_token, refresh_token } }
      */
-    async register(data: { email: string; password: string; username: string; firstName: string; lastName: string }) {
+    async register(data: { email: string; password: string; username: string; firstName: string; lastName: string; birthdate: string; referralCode?: string }) {
       return fetchAPI<{ user: unknown; tokens: { access_token: string; refresh_token: string } }>(
         '/auth/signup',
         {
@@ -133,6 +136,8 @@ export const api = {
             username: data.username,
             first_name: data.firstName,
             last_name: data.lastName,
+            birthdate: data.birthdate,
+            referral_code: data.referralCode || undefined,
           }),
         },
       )

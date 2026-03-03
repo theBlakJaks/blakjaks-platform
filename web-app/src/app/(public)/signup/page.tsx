@@ -162,6 +162,8 @@ function SignupForm() {
         username: form.username,
         firstName: form.firstName,
         lastName: form.lastName,
+        birthdate: form.dob,
+        referralCode: referralCode || undefined,
       })
       setSuccess(true)
     } catch (err) {
