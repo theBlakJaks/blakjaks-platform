@@ -1,5 +1,8 @@
 import type { NextConfig } from "next";
 
+const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.blakjaks.com'
+const wsUrl = apiUrl.replace('https://', 'wss://').replace('http://', 'ws://')
+
 const securityHeaders = [
   { key: 'X-Content-Type-Options', value: 'nosniff' },
   { key: 'X-Frame-Options', value: 'DENY' },
@@ -18,8 +21,8 @@ const securityHeaders = [
       "style-src 'self' 'unsafe-inline'",
       "img-src 'self' data: blob: https:",
       "font-src 'self'",
-      "connect-src 'self' https://api.blakjaks.com wss://stream.blakjaks.com https://translate.googleapis.com",
-      "media-src 'self' https://stream.blakjaks.com",
+      `connect-src 'self' ${apiUrl} ${wsUrl} https://translate.googleapis.com`,
+      `media-src 'self' ${wsUrl}`,
       "frame-src 'none'",
     ].join('; '),
   },
