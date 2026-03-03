@@ -66,6 +66,11 @@ function SignupForm() {
   const [usernameSuggestions, setUsernameSuggestions] = useState<string[]>([])
   const usernameTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
+  // Email availability state
+  const [emailStatus, setEmailStatus] = useState<'idle' | 'checking' | 'available' | 'taken' | 'invalid'>('idle')
+  const [emailMessage, setEmailMessage] = useState('')
+  const emailTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
   function updateField(field: string, value: string) {
     setForm((prev) => ({ ...prev, [field]: value }))
   }
@@ -131,6 +136,47 @@ function SignupForm() {
     checkUsername(suggestion)
   }
 
+  const checkEmail = useCallback(async (email: string) => {
+    setEmailStatus('checking')
+    setEmailMessage('')
+    try {
+      const result = await api.users.checkEmail(email)
+      if (result.available) {
+        setEmailStatus('available')
+        setEmailMessage('Email available')
+      } else {
+        setEmailStatus('taken')
+        setEmailMessage(result.message || 'Email already registered')
+      }
+    } catch (err) {
+      console.error('[checkEmail]', err)
+      setEmailStatus('available')
+      setEmailMessage('')
+    }
+  }, [])
+
+  function handleEmailChange(value: string) {
+    updateField('email', value)
+
+    if (emailTimerRef.current) clearTimeout(emailTimerRef.current)
+
+    const trimmed = value.trim()
+    if (!trimmed) {
+      setEmailStatus('idle')
+      setEmailMessage('')
+      return
+    }
+
+    // Basic format check before hitting API
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) {
+      setEmailStatus(trimmed.includes('@') ? 'invalid' : 'idle')
+      setEmailMessage(trimmed.includes('@') ? 'Please enter a valid email' : '')
+      return
+    }
+
+    emailTimerRef.current = setTimeout(() => checkEmail(trimmed), 500)
+  }
+
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
     setError('')
@@ -141,6 +187,7 @@ function SignupForm() {
     if (usernameStatus !== 'available') { setError('Please choose an available username'); return }
     if (!form.email.trim()) { setError('Email is required'); return }
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) { setError('Please enter a valid email address'); return }
+    if (emailStatus === 'taken') { setError('This email is already registered'); return }
     if (!form.password) { setError('Password is required'); return }
     if (form.password.length < 8) { setError('Password must be at least 8 characters'); return }
     if (form.password !== form.confirmPassword) { setError('Passwords do not match'); return }
@@ -284,14 +331,36 @@ function SignupForm() {
             )}
           </div>
 
-          <Input
-            label="Email"
-            type="email"
-            placeholder="you@example.com"
-            value={form.email}
-            onChange={(e) => updateField('email', e.target.value)}
-            required
-          />
+          {/* Email field */}
+          <div className="space-y-1.5">
+            <label className="block text-sm font-medium text-[var(--color-text-muted)]">
+              Email<span className="ml-1 text-[var(--color-danger)]">*</span>
+            </label>
+            <div className="relative">
+              <input
+                type="email"
+                value={form.email}
+                onChange={(e) => handleEmailChange(e.target.value)}
+                placeholder="you@example.com"
+                required
+                className="w-full rounded-[10px] border border-[var(--color-border)] bg-[var(--color-bg-surface)] px-4 py-2.5 pr-10 text-sm text-[var(--color-text)] placeholder-[var(--color-text-dim)] transition-colors focus:border-[var(--color-gold)] focus:outline-none focus:ring-1 focus:ring-[var(--color-gold)]/50"
+              />
+              <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                {emailStatus === 'checking' && <Loader2 size={16} className="animate-spin text-[var(--color-text-dim)]" />}
+                {emailStatus === 'available' && <Check size={16} className="text-emerald-400" />}
+                {(emailStatus === 'taken' || emailStatus === 'invalid') && <X size={16} className="text-red-400" />}
+              </div>
+            </div>
+            {emailMessage && (
+              <span className={`text-xs ${
+                emailStatus === 'available' ? 'text-emerald-400' :
+                emailStatus === 'taken' || emailStatus === 'invalid' ? 'text-red-400' :
+                'text-[var(--color-text-dim)]'
+              }`}>
+                {emailMessage}
+              </span>
+            )}
+          </div>
 
           <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
             <Input

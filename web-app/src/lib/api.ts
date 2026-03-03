@@ -441,6 +441,15 @@ export const api = {
     },
 
     /**
+     * GET /api/users/check-email?email=
+     */
+    async checkEmail(email: string): Promise<{ available: boolean; message: string }> {
+      return fetchAPI<{ available: boolean; message: string }>(
+        `/users/check-email?email=${encodeURIComponent(email)}`,
+      )
+    },
+
+    /**
      * PUT /api/users/me/username
      */
     async changeUsername(username: string) {

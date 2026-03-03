@@ -9,6 +9,7 @@ from sqlalchemy.orm import selectinload
 from app.api.deps import get_current_user, get_db
 from app.api.schemas.user import (
     AvatarUploadResponse,
+    EmailCheckResponse,
     NotificationResponse,
     PaginatedNotifications,
     TierResponse,
@@ -59,6 +60,23 @@ async def check_username(
         )
 
     return UsernameCheckResponse(available=True, message="Username available")
+
+
+@router.get("/check-email", response_model=EmailCheckResponse)
+async def check_email(
+    email: str = Query(..., min_length=5, max_length=255),
+    db: AsyncSession = Depends(get_db),
+):
+    """Check if an email is available for registration."""
+    email_lower = email.strip().lower()
+
+    result = await db.execute(
+        select(User).where(func.lower(User.email) == email_lower)
+    )
+    if result.scalar_one_or_none():
+        return EmailCheckResponse(available=False, message="Email already registered")
+
+    return EmailCheckResponse(available=True, message="Email available")
 
 
 @router.put("/me/username")

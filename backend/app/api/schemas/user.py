@@ -78,5 +78,10 @@ class UsernameCheckResponse(BaseModel):
     suggestions: list[str] | None = None
 
 
+class EmailCheckResponse(BaseModel):
+    available: bool
+    message: str
+
+
 class UsernameChangeRequest(BaseModel):
     username: str = Field(min_length=4, max_length=25, pattern=r'^[a-zA-Z_][a-zA-Z0-9_]{3,24}$')
