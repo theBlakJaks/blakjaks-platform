@@ -39,11 +39,6 @@ const ACCESS_LEVEL_COLORS: Record<string, string> = {
   hidden: 'bg-red-100 text-red-700',
 }
 
-const ACCESS_LEVEL_LABELS: Record<string, string> = {
-  full: 'Full Access',
-  view_only: 'View Only',
-  hidden: 'Hidden',
-}
 
 export default function SocialModeration() {
   const [tab, setTab] = useState<Tab>('Reports')
@@ -216,10 +211,10 @@ export default function SocialModeration() {
     } catch { toast.error('Failed to delete channel') }
   }
 
-  const handleTierAccessChange = async (ch: AdminChannel, tierIdx: number, newLevel: string) => {
+  const handleTierAccessChange = async (ch: AdminChannel, tierIdx: number, newLevel: TierAccessInput['access_level']) => {
     const updatedAccess: TierAccessInput[] = ch.tier_access.map((ta, i) => ({
       tier_id: ta.tier_id,
-      access_level: i === tierIdx ? newLevel : ta.access_level,
+      access_level: i === tierIdx ? newLevel : ta.access_level as TierAccessInput['access_level'],
     }))
     try {
       await updateChannel(ch.id, { tier_access: updatedAccess })
