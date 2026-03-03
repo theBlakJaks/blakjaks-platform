@@ -13,8 +13,6 @@ from app.models.chat_mute import ChatMute
 from app.models.message import Message
 from app.models.user import User
 from app.services.chat_service import (
-    _last_message_time,
-    _recent_messages,
     add_reaction,
     check_rate_limit,
     delete_message,
@@ -86,13 +84,19 @@ def _auth_headers_for(user: User) -> dict:
 
 
 @pytest.fixture(autouse=True)
-def _clear_rate_limit_state():
-    """Clear in-memory rate limit / spam state between tests."""
-    _last_message_time.clear()
-    _recent_messages.clear()
+async def _clear_rate_limit_state():
+    """Clear Redis rate-limit / spam state between tests (no-op if Redis unavailable)."""
     yield
-    _last_message_time.clear()
-    _recent_messages.clear()
+    try:
+        from app.services.redis_client import get_redis
+        redis = await get_redis()
+        # Clean up any rate-limit and spam keys created during tests
+        async for key in redis.scan_iter("chat:rate:*"):
+            await redis.delete(key)
+        async for key in redis.scan_iter("chat:spam:*"):
+            await redis.delete(key)
+    except Exception:
+        pass  # Redis not available in CI — rate limiting gracefully degrades
 
 
 # ── Channel access by tier ───────────────────────────────────────────
