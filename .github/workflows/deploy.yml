@@ -377,7 +377,7 @@ jobs:
           SMOKE_ADMIN_EMAIL: ${{ secrets.SMOKE_ADMIN_EMAIL }}
           SMOKE_ADMIN_PASSWORD: ${{ secrets.SMOKE_ADMIN_PASSWORD }}
           SMOKE_TEST_QR_CODE: ${{ secrets.SMOKE_TEST_QR_CODE }}
-        run: python scripts/staging_smoke_test.py --stop-on-fail
+        run: python scripts/staging_smoke_test.py --stop-on-fail --verbose
 
   # ── Load tests: run against staging after deploy ────────────────────────────
   load-test:
