@@ -139,15 +139,16 @@ jobs:
 
       - run: gcloud auth configure-docker us-central1-docker.pkg.dev --quiet
 
-      - name: Fetch build-time secrets from GCP Secret Manager
+      - name: Get Giphy API key from Secret Manager
+        id: giphy_secret
         run: |
-          echo "NEXT_PUBLIC_GIPHY_API_KEY=$(gcloud secrets versions access latest --secret=GIPHY_API_KEY --project=$PROJECT_ID)" >> $GITHUB_ENV
+          echo "GIPHY_KEY=$(gcloud secrets versions access latest --secret=GIPHY_API_KEY --project=blakjaks-production)" >> $GITHUB_OUTPUT
 
       - name: Build & push web-app image
         run: |
           docker build \
             --build-arg NEXT_PUBLIC_API_URL=https://api.blakjaks.com \
-            --build-arg NEXT_PUBLIC_GIPHY_API_KEY=$NEXT_PUBLIC_GIPHY_API_KEY \
+            --build-arg NEXT_PUBLIC_GIPHY_API_KEY=${{ steps.giphy_secret.outputs.GIPHY_KEY }} \
             -t $REGISTRY/web-app:$GITHUB_SHA ./web-app
           docker push $REGISTRY/web-app:$GITHUB_SHA
 
@@ -301,16 +302,17 @@ jobs:
 
       - run: gcloud auth configure-docker us-central1-docker.pkg.dev --quiet
 
-      - name: Fetch build-time secrets from GCP Secret Manager
+      - name: Get Giphy API key from Secret Manager
+        id: giphy_secret
         run: |
-          echo "NEXT_PUBLIC_GIPHY_API_KEY=$(gcloud secrets versions access latest --secret=GIPHY_API_KEY --project=$PROJECT_ID)" >> $GITHUB_ENV
+          echo "GIPHY_KEY=$(gcloud secrets versions access latest --secret=GIPHY_API_KEY --project=blakjaks-production)" >> $GITHUB_OUTPUT
 
       - name: Build staging images
         run: |
           docker build -t $STAGING_REGISTRY/backend:staging-$GITHUB_SHA   ./backend
           docker build \
             --build-arg NEXT_PUBLIC_API_URL=https://staging-api.blakjaks.com \
-            --build-arg NEXT_PUBLIC_GIPHY_API_KEY=$NEXT_PUBLIC_GIPHY_API_KEY \
+            --build-arg NEXT_PUBLIC_GIPHY_API_KEY=${{ steps.giphy_secret.outputs.GIPHY_KEY }} \
             -t $STAGING_REGISTRY/web-app:staging-$GITHUB_SHA   ./web-app
           docker build -t $STAGING_REGISTRY/affiliate:staging-$GITHUB_SHA ./affiliate
           docker build -t $STAGING_REGISTRY/admin:staging-$GITHUB_SHA     ./admin
