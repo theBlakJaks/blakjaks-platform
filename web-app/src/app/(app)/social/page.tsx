@@ -54,7 +54,7 @@ function SocialPage() {
   const searchParams = useSearchParams()
   const [channels, setChannels] = useState<Channel[]>([])
   const [messages, setMessages] = useState<Message[]>([])
-  const [activeChannel, setActiveChannel] = useState<string>(searchParams.get('channel') || 'ch_001')
+  const [activeChannel, setActiveChannel] = useState<string>(searchParams.get('channel') || '')
   const targetMsgId = useRef<string | null>(searchParams.get('msg'))
   const [collapsedCategories, setCollapsedCategories] = useState<Set<string>>(new Set())
   const [inputText, setInputText] = useState('')
@@ -194,12 +194,18 @@ function SocialPage() {
   useEffect(() => {
     api.social.getChannels().then(({ channels: ch }) => {
       setChannels(ch)
+      // Set active channel to first available if none selected
+      if (!activeChannel && ch.length > 0) {
+        setActiveChannel(ch[0].id)
+      }
       setLoading(false)
     })
-  }, [])
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Load messages and join channel via WebSocket on channel change
   useEffect(() => {
+    if (!activeChannel) return
+
     setMessages([])
     setTranslations({})
     setNewMsgCount(0)
