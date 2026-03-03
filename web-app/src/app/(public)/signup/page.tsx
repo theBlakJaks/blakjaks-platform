@@ -183,14 +183,13 @@ function SignupForm() {
           <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-emerald-500/20">
             <span className="text-3xl text-emerald-400">&#10003;</span>
           </div>
-          <h2 className="text-xl font-bold text-white">Check Your Email</h2>
+          <h2 className="text-xl font-bold text-white">Account Created!</h2>
           <p className="mt-3 text-sm text-[var(--color-text-dim)]">
-            We&apos;ve sent a verification link to <strong className="text-white">{form.email}</strong>.
-            Please check your inbox and click the link to verify your account.
+            Welcome to BlakJaks, <strong className="text-white">{form.firstName}</strong>. Your account is ready.
           </p>
           <Link href="/login">
-            <GoldButton variant="secondary" className="mt-6">
-              Back to Sign In
+            <GoldButton className="mt-6">
+              Sign In
             </GoldButton>
           </Link>
         </Card>
