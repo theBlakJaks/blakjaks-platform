@@ -200,14 +200,14 @@ async def test_vip_can_post_to_public_channel(db: AsyncSession):
     assert result.content == "Hello from VIP!"
 
 
-async def test_standard_cannot_post(db: AsyncSession):
+async def test_standard_can_post(db: AsyncSession):
     await seed_tiers(db)
     user = await _create_user_with_tier(db, "stdpost@test.com", "Standard")
     ch = await _create_channel(db, "public-chat2")
 
-    result = await send_message(db, ch.id, user.id, "Trying to post")
-    assert isinstance(result, str)
-    assert "observational" in result.lower() or "cannot post" in result.lower()
+    result = await send_message(db, ch.id, user.id, "Hello from Standard!")
+    assert isinstance(result, Message)
+    assert result.content == "Hello from Standard!"
 
 
 async def test_vip_cannot_post_to_high_roller_channel(db: AsyncSession):
@@ -428,7 +428,7 @@ async def test_post_message_api(client: AsyncClient, db: AsyncSession):
     assert resp.json()["content"] == "Hello from API!"
 
 
-async def test_standard_post_message_api_forbidden(client: AsyncClient, db: AsyncSession):
+async def test_standard_post_message_api_allowed(client: AsyncClient, db: AsyncSession):
     await seed_tiers(db)
     user = await _create_user_with_tier(db, "stdapi@test.com", "Standard")
     ch = await _create_channel(db, "api-std-channel")
@@ -437,6 +437,7 @@ async def test_standard_post_message_api_forbidden(client: AsyncClient, db: Asyn
     resp = await client.post(
         f"/api/social/channels/{ch.id}/messages",
         headers=headers,
-        json={"content": "Should fail"},
+        json={"content": "Hello from Standard!"},
     )
-    assert resp.status_code == 403
+    assert resp.status_code == 201
+    assert resp.json()["content"] == "Hello from Standard!"
