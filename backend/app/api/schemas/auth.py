@@ -58,18 +58,9 @@ class UserResponse(BaseModel):
     birthdate: date | None
     is_active: bool
     is_admin: bool
-    email_verified: bool
     created_at: datetime
 
     model_config = {"from_attributes": True}
-
-
-class VerifyEmailRequest(BaseModel):
-    token: str
-
-
-class ResendVerificationRequest(BaseModel):
-    email: EmailStr
 
 
 class AuthResponse(BaseModel):

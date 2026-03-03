@@ -1,154 +1,95 @@
 """Transactional email service via Brevo (Sendinblue).
 
-Uses Brevo HTTP API when BREVO_API_KEY is configured.
-Falls back to logging when API key is not set (dev/test).
+PLACEHOLDER: Logs email details instead of calling Brevo API.
+Swap to real Brevo integration when API key is configured.
 """
 
 import logging
-
-import httpx
 
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
-BREVO_API_URL = "https://api.brevo.com/v3/smtp/email"
 
+async def send_email(to_email: str, template_name: str, template_data: dict) -> None:
+    """Generic email sender via Brevo API.
 
-async def send_email(to_email: str, subject: str, html_content: str) -> None:
-    """Send a transactional email via Brevo API."""
-    if not settings.BREVO_API_KEY:
-        logger.info("EMAIL [dev] to=%s subject=%s\n%s", to_email, subject, html_content)
-        return
-
-    payload = {
-        "sender": {"name": "BlakJaks", "email": "noreply@blakjaks.com"},
-        "to": [{"email": to_email}],
-        "subject": subject,
-        "htmlContent": html_content,
-    }
-    try:
-        async with httpx.AsyncClient() as client:
-            resp = await client.post(
-                BREVO_API_URL,
-                json=payload,
-                headers={
-                    "api-key": settings.BREVO_API_KEY,
-                    "Content-Type": "application/json",
-                },
-                timeout=10.0,
-            )
-            if resp.status_code >= 400:
-                logger.error("Brevo API error %d: %s", resp.status_code, resp.text)
-            else:
-                logger.info("Email sent to %s (messageId: %s)", to_email, resp.json().get("messageId"))
-    except Exception:
-        logger.exception("Failed to send email to %s", to_email)
-
-
-async def send_verification_email(user_email: str, first_name: str, verify_url: str) -> None:
-    """Email verification link on signup."""
-    html = f"""
-    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-        <h2 style="color: #c9a84c;">Welcome to BlakJaks, {first_name}!</h2>
-        <p>Please verify your email address to activate your account.</p>
-        <a href="{verify_url}"
-           style="display: inline-block; padding: 12px 32px; background: #c9a84c; color: #000;
-                  text-decoration: none; border-radius: 8px; font-weight: bold; margin: 20px 0;">
-            Verify Email
-        </a>
-        <p style="color: #888; font-size: 13px;">
-            Or copy this link: <a href="{verify_url}">{verify_url}</a>
-        </p>
-        <p style="color: #888; font-size: 13px;">This link expires in 24 hours.</p>
-    </div>
+    PLACEHOLDER: Logs the email instead of sending.
+    TODO: Replace with real Brevo API call using settings.BREVO_API_KEY
     """
-    await send_email(user_email, "Verify Your BlakJaks Email", html)
+    logger.info(
+        "EMAIL [%s] to=%s data=%s",
+        template_name,
+        to_email,
+        template_data,
+    )
 
 
 async def send_welcome_email(user_email: str, first_name: str) -> None:
     """Welcome email on signup."""
-    html = f"""
-    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-        <h2 style="color: #c9a84c;">Welcome to BlakJaks, {first_name}!</h2>
-        <p>Your account is ready. Start exploring the platform.</p>
-    </div>
-    """
-    await send_email(user_email, "Welcome to BlakJaks!", html)
+    await send_email(user_email, "welcome", {
+        "first_name": first_name,
+        "subject": "Welcome to BlakJaks!",
+    })
 
 
 async def send_order_confirmation(user_email: str, order: dict) -> None:
     """Order confirmation with order details."""
-    html = f"""
-    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-        <h2>Order Confirmation</h2>
-        <p>Order #{str(order.get('id', ''))[:8]}</p>
-        <p>Total: ${order.get('total', '0.00')}</p>
-    </div>
-    """
-    await send_email(user_email, f"Order Confirmation #{str(order.get('id', ''))[:8]}", html)
+    await send_email(user_email, "order_confirmation", {
+        "order_id": str(order.get("id", "")),
+        "subtotal": str(order.get("subtotal", "")),
+        "shipping": str(order.get("shipping", "")),
+        "tax": str(order.get("tax", "")),
+        "total": str(order.get("total", "")),
+        "item_count": order.get("item_count", 0),
+        "subject": f"Order Confirmation #{str(order.get('id', ''))[:8]}",
+    })
 
 
 async def send_password_reset(user_email: str, reset_token: str, reset_url: str) -> None:
     """Password reset link email."""
-    html = f"""
-    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-        <h2>Reset Your Password</h2>
-        <p>Click the link below to reset your BlakJaks password.</p>
-        <a href="{reset_url}"
-           style="display: inline-block; padding: 12px 32px; background: #c9a84c; color: #000;
-                  text-decoration: none; border-radius: 8px; font-weight: bold; margin: 20px 0;">
-            Reset Password
-        </a>
-        <p style="color: #888; font-size: 13px;">This link expires in 60 minutes.</p>
-    </div>
-    """
-    await send_email(user_email, "Reset Your BlakJaks Password", html)
+    await send_email(user_email, "password_reset", {
+        "reset_token": reset_token,
+        "reset_url": reset_url,
+        "subject": "Reset Your BlakJaks Password",
+    })
 
 
 async def send_comp_award(user_email: str, first_name: str, amount: str, comp_type: str) -> None:
     """Congratulations comp award notification."""
-    html = f"""
-    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-        <h2 style="color: #c9a84c;">Congratulations, {first_name}!</h2>
-        <p>You received <strong>${amount}</strong> in crypto comp ({comp_type}).</p>
-    </div>
-    """
-    await send_email(user_email, f"Congratulations! You received ${amount} in crypto comp", html)
+    await send_email(user_email, "comp_award", {
+        "first_name": first_name,
+        "amount": amount,
+        "comp_type": comp_type,
+        "subject": f"Congratulations! You received ${amount} in crypto comp",
+    })
 
 
 async def send_tier_advancement(user_email: str, first_name: str, new_tier_name: str) -> None:
     """Tier promotion notification."""
-    html = f"""
-    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-        <h2 style="color: #c9a84c;">Congratulations, {first_name}!</h2>
-        <p>You've been promoted to <strong>{new_tier_name}</strong>!</p>
-    </div>
-    """
-    await send_email(user_email, f"You've been promoted to {new_tier_name}!", html)
+    await send_email(user_email, "tier_advancement", {
+        "first_name": first_name,
+        "new_tier_name": new_tier_name,
+        "subject": f"You've been promoted to {new_tier_name}!",
+    })
 
 
 async def send_withdrawal_confirmation(user_email: str, amount: str, tx_hash: str) -> None:
     """Withdrawal processed confirmation."""
-    html = f"""
-    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-        <h2>Withdrawal Processed</h2>
-        <p>Your withdrawal of <strong>${amount}</strong> has been processed.</p>
-        <p style="color: #888; font-size: 13px;">Transaction: {tx_hash}</p>
-    </div>
-    """
-    await send_email(user_email, f"Withdrawal of ${amount} Processed", html)
+    await send_email(user_email, "withdrawal_confirmation", {
+        "amount": amount,
+        "tx_hash": tx_hash,
+        "subject": f"Withdrawal of ${amount} Processed",
+    })
 
 
 async def send_shipping_update(
     user_email: str, order_id: str, tracking_number: str, status: str
 ) -> None:
     """Order shipped/delivered notification."""
-    html = f"""
-    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-        <h2>Shipping Update</h2>
-        <p>Order #{order_id[:8]} — {status.title()}</p>
-        <p>Tracking: {tracking_number}</p>
-    </div>
-    """
-    await send_email(user_email, f"Order #{order_id[:8]} - {status.title()}", html)
+    await send_email(user_email, "shipping_update", {
+        "order_id": order_id,
+        "tracking_number": tracking_number,
+        "status": status,
+        "subject": f"Order #{order_id[:8]} - {status.title()}",
+    })

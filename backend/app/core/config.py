@@ -176,7 +176,6 @@ class Settings(BaseSettings):
     # Email (Brevo / Sendinblue)
     # -------------------------------------------------------------------------
     BREVO_API_KEY: str = ""
-    FRONTEND_URL: str = "https://app.blakjaks.com"
 
     # -------------------------------------------------------------------------
     # Payment processor (TBD — pluggable)

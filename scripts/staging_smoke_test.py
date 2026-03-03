@@ -170,22 +170,18 @@ def run_flow_1_auth() -> str | None:
     if passed:
         body = r.json()
         token = body.get("tokens", {}).get("access_token") or body.get("access_token")
-        refresh_token = body.get("tokens", {}).get("refresh_token") or body.get("refresh_token")
 
-    # 1.2 Login — fresh user is unverified, expect 403; use signup token instead
+    # 1.2 Login
     r, ms = req("POST", "/auth/login", json_body={"email": fresh_email, "password": "SmokeTest123x"})
     login_body = r.json() if r.status_code == 200 else {}
     login_token = login_body.get("tokens", {}).get("access_token") or login_body.get("access_token")
-    # 403 is expected for unverified email; 200 means email verification is disabled
-    email_unverified = r.status_code == 403
-    login_ok = (r.status_code == 200 and bool(login_token)) or email_unverified
-    passed = step("1.2 POST /auth/login — 403 (unverified) or 200 + tokens", login_ok, ms,
-                  f"got {r.status_code}" + (" (email unverified — expected)" if email_unverified else ""), r)
-    if passed and login_token:
+    passed = step("1.2 POST /auth/login — 200 + tokens", r.status_code == 200 and bool(login_token), ms,
+                  f"got {r.status_code}", r)
+    if passed:
         token = login_token
         refresh_token = login_body.get("tokens", {}).get("refresh_token") or login_body.get("refresh_token")
 
-    # 1.3 Refresh — use refresh_token from signup or login
+    # 1.3 Refresh
     if refresh_token:
         r, ms = req("POST", "/auth/refresh", json_body={"refresh_token": refresh_token})
         refresh_body = r.json() if r.status_code == 200 else {}
@@ -196,7 +192,7 @@ def run_flow_1_auth() -> str | None:
             token = new_token
     else:
         step("1.3 POST /auth/refresh — skipped (no refresh token)", False, 0,
-             "refresh_token missing from signup/login response")
+             "refresh_token missing from login response")
 
     # 1.4 GET /users/me
     if token:

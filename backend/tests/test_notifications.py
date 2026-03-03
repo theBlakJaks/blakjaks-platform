@@ -50,16 +50,15 @@ async def _create_user(db: AsyncSession, email: str):
 async def test_send_welcome_email_logs(caplog):
     with caplog.at_level(logging.INFO, logger="app.services.email_service"):
         await send_welcome_email("test@example.com", "Alice")
-    assert "EMAIL [dev]" in caplog.text
+    assert "welcome" in caplog.text
     assert "test@example.com" in caplog.text
-    assert "Welcome to BlakJaks" in caplog.text
     assert "Alice" in caplog.text
 
 
 async def test_send_comp_award_logs(caplog):
     with caplog.at_level(logging.INFO, logger="app.services.email_service"):
         await send_comp_award("user@example.com", "Bob", "100", "crypto_milestone")
-    assert "EMAIL [dev]" in caplog.text
+    assert "comp_award" in caplog.text
     assert "user@example.com" in caplog.text
     assert "100" in caplog.text
     assert "crypto_milestone" in caplog.text
@@ -68,7 +67,7 @@ async def test_send_comp_award_logs(caplog):
 async def test_send_tier_advancement_logs(caplog):
     with caplog.at_level(logging.INFO, logger="app.services.email_service"):
         await send_tier_advancement("vip@example.com", "Charlie", "VIP")
-    assert "EMAIL [dev]" in caplog.text
+    assert "tier_advancement" in caplog.text
     assert "VIP" in caplog.text
     assert "Charlie" in caplog.text
 
@@ -77,9 +76,8 @@ async def test_send_order_confirmation_logs(caplog):
     order = {"id": "abc-123", "subtotal": "25.00", "shipping": "2.99", "tax": "1.81", "total": "29.80", "item_count": 5}
     with caplog.at_level(logging.INFO, logger="app.services.email_service"):
         await send_order_confirmation("buyer@example.com", order)
-    assert "EMAIL [dev]" in caplog.text
+    assert "order_confirmation" in caplog.text
     assert "buyer@example.com" in caplog.text
-    assert "Order Confirmation" in caplog.text
 
 
 # ── Notification service ─────────────────────────────────────────────
