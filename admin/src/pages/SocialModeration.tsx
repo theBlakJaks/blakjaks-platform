@@ -440,7 +440,7 @@ export default function SocialModeration() {
                               <span className="text-xs text-slate-500">{ta.tier_name}:</span>
                               <select
                                 value={ta.access_level}
-                                onChange={(e) => handleTierAccessChange(ch, i, e.target.value)}
+                                onChange={(e) => handleTierAccessChange(ch, i, e.target.value as TierAccessInput['access_level'])}
                                 className={`rounded px-1.5 py-0.5 text-[11px] font-medium border-0 cursor-pointer ${ACCESS_LEVEL_COLORS[ta.access_level] || 'bg-slate-100 text-slate-600'}`}
                               >
                                 <option value="full">Full</option>
