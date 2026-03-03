@@ -171,13 +171,16 @@ def run_flow_1_auth() -> str | None:
         body = r.json()
         token = body.get("tokens", {}).get("access_token") or body.get("access_token")
 
-    # 1.2 Login
+    # 1.2 Login — fresh user is unverified, expect 403; use signup token instead
     r, ms = req("POST", "/auth/login", json_body={"email": fresh_email, "password": "SmokeTest123x"})
     login_body = r.json() if r.status_code == 200 else {}
     login_token = login_body.get("tokens", {}).get("access_token") or login_body.get("access_token")
-    passed = step("1.2 POST /auth/login — 200 + tokens", r.status_code == 200 and bool(login_token), ms,
-                  f"got {r.status_code}", r)
-    if passed:
+    # 403 is expected for unverified email; 200 means email verification is disabled
+    email_unverified = r.status_code == 403
+    login_ok = (r.status_code == 200 and bool(login_token)) or email_unverified
+    passed = step("1.2 POST /auth/login — 403 (unverified) or 200 + tokens", login_ok, ms,
+                  f"got {r.status_code}" + (" (email unverified — expected)" if email_unverified else ""), r)
+    if passed and login_token:
         token = login_token
         refresh_token = login_body.get("tokens", {}).get("refresh_token") or login_body.get("refresh_token")
 
