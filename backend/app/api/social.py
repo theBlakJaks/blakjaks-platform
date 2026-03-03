@@ -48,11 +48,14 @@ async def list_channels(
 async def list_messages(
     channel_id: uuid.UUID,
     before: uuid.UUID | None = Query(None),
+    since_sequence: int | None = Query(None, description="Return only messages with sequence > this value"),
     limit: int = Query(50, ge=1, le=100),
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    messages = await get_channel_messages(db, channel_id, user.id, before_id=before, limit=limit)
+    messages = await get_channel_messages(
+        db, channel_id, user.id, before_id=before, limit=limit, since_sequence=since_sequence
+    )
     return messages
 
 

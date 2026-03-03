@@ -1,7 +1,9 @@
 FROM node:20-alpine AS builder
 WORKDIR /app
 ARG NEXT_PUBLIC_API_URL=https://api.blakjaks.com
+ARG NEXT_PUBLIC_GIPHY_API_KEY
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
+ENV NEXT_PUBLIC_GIPHY_API_KEY=$NEXT_PUBLIC_GIPHY_API_KEY
 COPY package.json package-lock.json ./
 RUN npm ci
 COPY . .

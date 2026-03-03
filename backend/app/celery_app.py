@@ -22,6 +22,7 @@ celery_app = Celery(
         "app.tasks.teller",
         "app.tasks.affiliate",
         "app.tasks.comps",
+        "app.tasks.chat_cleanup",
     ],
 )
 
@@ -64,5 +65,15 @@ celery_app.conf.beat_schedule = {
     "leaderboard-reconcile-daily": {
         "task": "app.tasks.treasury.reconcile_leaderboard",
         "schedule": crontab(minute=0, hour=0),
+    },
+    # Chat message purge — nightly 2:00 AM UTC
+    "chat-purge-nightly": {
+        "task": "app.tasks.chat_cleanup.purge_old_messages",
+        "schedule": crontab(minute=0, hour=2),
+    },
+    # Orphaned stream cleanup — nightly 2:30 AM UTC
+    "chat-stream-cleanup-nightly": {
+        "task": "app.tasks.chat_cleanup.cleanup_orphaned_streams",
+        "schedule": crontab(minute=30, hour=2),
     },
 }

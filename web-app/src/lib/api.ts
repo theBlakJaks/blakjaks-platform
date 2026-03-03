@@ -290,6 +290,7 @@ export const api = {
         tierRequired: (c.tier_required ?? 'standard') as Channel['tierRequired'],
         unreadCount: Number(c.unread_count ?? 0),
         icon: String(c.icon ?? '#'),
+        viewOnly: Boolean(c.view_only),
       }))
       return { channels }
     },
@@ -298,8 +299,11 @@ export const api = {
      * GET /api/social/channels/{channelId}/messages
      * Backend returns a plain array with snake_case fields — map to frontend Message shape.
      */
-    async getMessages(channelId: string): Promise<{ messages: Message[] }> {
-      const raw = await fetchAPI<Array<Record<string, unknown>>>(`/social/channels/${channelId}/messages`)
+    async getMessages(channelId: string, beforeId?: string, sinceSequence?: number): Promise<{ messages: Message[] }> {
+      const params = new URLSearchParams({ limit: '50' })
+      if (beforeId) params.set('before', beforeId)
+      if (sinceSequence !== undefined) params.set('since_sequence', String(sinceSequence))
+      const raw = await fetchAPI<Array<Record<string, unknown>>>(`/social/channels/${channelId}/messages?${params}`)
       const messages: Message[] = raw.map((m) => ({
         id: String(m.id),
         channelId: String(m.channel_id),
@@ -321,8 +325,17 @@ export const api = {
         isPinned: Boolean(m.is_pinned),
         originalLanguage: m.original_language ? String(m.original_language) : undefined,
         avatarUrl: m.avatar_url ? String(m.avatar_url) : undefined,
+        sequence: m.sequence != null ? Number(m.sequence) : undefined,
       }))
       return { messages }
+    },
+
+    /**
+     * GET /api/social/channels/{channelId}/messages?since_sequence=N
+     * Convenience wrapper for fetching messages after a known sequence.
+     */
+    async getMessagesSinceSequence(channelId: string, sinceSequence: number): Promise<{ messages: Message[] }> {
+      return this.getMessages(channelId, undefined, sinceSequence)
     },
 
     /**

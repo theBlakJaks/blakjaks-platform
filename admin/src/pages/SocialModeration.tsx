@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { AlertTriangle, VolumeX, Ban, Filter } from 'lucide-react'
+import { AlertTriangle, VolumeX, Ban, Filter, Plus, Trash2, Edit2, Hash } from 'lucide-react'
 import toast from 'react-hot-toast'
 import StatsCard from '../components/StatsCard'
 import Badge from '../components/Badge'
@@ -7,11 +7,16 @@ import LoadingSpinner from '../components/LoadingSpinner'
 import EmptyState from '../components/EmptyState'
 import Modal from '../components/Modal'
 import ConfirmDialog from '../components/ConfirmDialog'
-import { getSocialStats, getReports, getModerationLog, deleteMessage, muteUser, banUser, updateReportStatus } from '../api/social'
+import {
+  getSocialStats, getReports, getModerationLog, deleteMessage, muteUser, banUser,
+  updateReportStatus, deleteUserMessages,
+  getAdminChannels, createChannel, updateChannel, deleteChannel,
+  type AdminChannel, type TierAccessInput,
+} from '../api/social'
 import { formatDateTime } from '../utils/formatters'
 import type { ChatReport, SocialStats, ModerationLogEntry } from '../types'
 
-const TABS = ['Reports', 'Moderation Log'] as const
+const TABS = ['Reports', 'Moderation Log', 'Channels'] as const
 type Tab = typeof TABS[number]
 
 const MUTE_DURATIONS = [
@@ -26,6 +31,18 @@ const ACTION_LABELS: Record<string, string> = {
   user_muted: 'User Muted',
   user_banned: 'User Banned',
   message_pinned: 'Message Pinned',
+}
+
+const ACCESS_LEVEL_COLORS: Record<string, string> = {
+  full: 'bg-green-100 text-green-700',
+  view_only: 'bg-amber-100 text-amber-700',
+  hidden: 'bg-red-100 text-red-700',
+}
+
+const ACCESS_LEVEL_LABELS: Record<string, string> = {
+  full: 'Full Access',
+  view_only: 'View Only',
+  hidden: 'Hidden',
 }
 
 export default function SocialModeration() {
@@ -44,8 +61,19 @@ export default function SocialModeration() {
   const [modPage, setModPage] = useState(1)
   const [actionFilter, setActionFilter] = useState('')
 
+  // Channels state
+  const [channels, setChannels] = useState<AdminChannel[]>([])
+  const [channelModalOpen, setChannelModalOpen] = useState(false)
+  const [editingChannel, setEditingChannel] = useState<AdminChannel | null>(null)
+  const [channelName, setChannelName] = useState('')
+  const [channelDesc, setChannelDesc] = useState('')
+  const [channelCategory, setChannelCategory] = useState('General')
+  const [channelDeleteOpen, setChannelDeleteOpen] = useState(false)
+  const [channelToDelete, setChannelToDelete] = useState<AdminChannel | null>(null)
+
   // Action modals
   const [deleteOpen, setDeleteOpen] = useState(false)
+  const [massDeleteOpen, setMassDeleteOpen] = useState(false)
   const [muteOpen, setMuteOpen] = useState(false)
   const [banOpen, setBanOpen] = useState(false)
   const [activeReport, setActiveReport] = useState<ChatReport | null>(null)
@@ -70,12 +98,23 @@ export default function SocialModeration() {
     setModTotal(res.total)
   }, [actionFilter, modPage])
 
+  const fetchChannels = useCallback(async () => {
+    try {
+      const ch = await getAdminChannels()
+      setChannels(ch)
+    } catch {
+      // Will show empty state
+    }
+  }, [])
+
   useEffect(() => { fetchData() }, [fetchData])
   useEffect(() => { if (tab === 'Moderation Log') fetchModLog() }, [tab, fetchModLog])
+  useEffect(() => { if (tab === 'Channels') fetchChannels() }, [tab, fetchChannels])
 
-  const openAction = (report: ChatReport, action: 'delete' | 'mute' | 'ban') => {
+  const openAction = (report: ChatReport, action: 'delete' | 'mute' | 'ban' | 'mass_delete') => {
     setActiveReport(report)
     if (action === 'delete') setDeleteOpen(true)
+    else if (action === 'mass_delete') setMassDeleteOpen(true)
     else if (action === 'mute') { setMuteOpen(true); setMuteReason(report.reason) }
     else setBanOpen(true)
   }
@@ -88,6 +127,17 @@ export default function SocialModeration() {
       toast.success('Message deleted and report resolved')
       fetchData()
     } catch { toast.error('Failed to delete message') }
+  }
+
+  const handleMassDelete = async () => {
+    if (!activeReport) return
+    try {
+      const result = await deleteUserMessages(activeReport.reported_user_id)
+      await updateReportStatus(activeReport.id, 'resolved')
+      toast.success(`Deleted ${result.count} message(s) and report resolved`)
+      setMassDeleteOpen(false)
+      fetchData()
+    } catch { toast.error('Failed to delete messages') }
   }
 
   const handleMute = async () => {
@@ -118,6 +168,64 @@ export default function SocialModeration() {
       toast.success('Report dismissed')
       fetchData()
     } catch { toast.error('Failed to dismiss report') }
+  }
+
+  // Channel CRUD handlers
+  const openCreateChannel = () => {
+    setEditingChannel(null)
+    setChannelName('')
+    setChannelDesc('')
+    setChannelCategory('General')
+    setChannelModalOpen(true)
+  }
+
+  const openEditChannel = (ch: AdminChannel) => {
+    setEditingChannel(ch)
+    setChannelName(ch.name)
+    setChannelDesc(ch.description || '')
+    setChannelCategory(ch.category || 'General')
+    setChannelModalOpen(true)
+  }
+
+  const handleSaveChannel = async () => {
+    if (!channelName.trim()) return
+    try {
+      if (editingChannel) {
+        await updateChannel(editingChannel.id, {
+          name: channelName,
+          description: channelDesc || undefined,
+          category: channelCategory,
+        })
+        toast.success('Channel updated')
+      } else {
+        await createChannel(channelName, channelDesc || null, channelCategory, [])
+        toast.success('Channel created')
+      }
+      setChannelModalOpen(false)
+      fetchChannels()
+    } catch { toast.error('Failed to save channel') }
+  }
+
+  const handleDeleteChannel = async () => {
+    if (!channelToDelete) return
+    try {
+      await deleteChannel(channelToDelete.id)
+      toast.success('Channel deleted')
+      setChannelDeleteOpen(false)
+      fetchChannels()
+    } catch { toast.error('Failed to delete channel') }
+  }
+
+  const handleTierAccessChange = async (ch: AdminChannel, tierIdx: number, newLevel: string) => {
+    const updatedAccess: TierAccessInput[] = ch.tier_access.map((ta, i) => ({
+      tier_id: ta.tier_id,
+      access_level: i === tierIdx ? newLevel : ta.access_level,
+    }))
+    try {
+      await updateChannel(ch.id, { tier_access: updatedAccess })
+      toast.success('Access updated')
+      fetchChannels()
+    } catch { toast.error('Failed to update access') }
   }
 
   const modTotalPages = Math.ceil(modTotal / 20)
@@ -207,17 +315,16 @@ export default function SocialModeration() {
                           <select
                             defaultValue=""
                             onChange={(e) => {
-                              const action = e.target.value
-                              if (action === 'delete') openAction(r, 'delete')
-                              else if (action === 'mute') openAction(r, 'mute')
-                              else if (action === 'ban') openAction(r, 'ban')
-                              else if (action === 'dismiss') handleDismiss(r)
+                              const action = e.target.value as 'delete' | 'mass_delete' | 'mute' | 'ban' | 'dismiss'
+                              if (action === 'dismiss') handleDismiss(r)
+                              else openAction(r, action)
                               e.target.value = ''
                             }}
                             className="rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs text-slate-700 outline-none"
                           >
                             <option value="" disabled>Resolve...</option>
                             <option value="delete">Delete Message</option>
+                            <option value="mass_delete">Delete All Messages</option>
                             <option value="mute">Mute User</option>
                             <option value="ban">Ban User</option>
                             <option value="dismiss">Dismiss</option>
@@ -295,6 +402,89 @@ export default function SocialModeration() {
         </div>
       )}
 
+      {tab === 'Channels' && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-medium text-slate-700">Manage Chat Channels</h3>
+            <button
+              onClick={openCreateChannel}
+              className="flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-2 text-sm font-medium text-white hover:bg-indigo-700 transition-colors"
+            >
+              <Plus size={14} /> Create Channel
+            </button>
+          </div>
+
+          {channels.length === 0 ? (
+            <EmptyState title="No channels" message="Create your first channel to get started." />
+          ) : (
+            <div className="overflow-hidden rounded-xl bg-white shadow-sm">
+              <table className="w-full text-left text-sm">
+                <thead>
+                  <tr className="border-b border-slate-100 bg-slate-50">
+                    <th className="px-4 py-3 font-medium text-slate-600">Channel</th>
+                    <th className="px-4 py-3 font-medium text-slate-600">Category</th>
+                    <th className="px-4 py-3 font-medium text-slate-600">Tier Access</th>
+                    <th className="px-4 py-3 font-medium text-slate-600">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {channels.map(ch => (
+                    <tr key={ch.id} className="border-b border-slate-50 hover:bg-slate-50">
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-2">
+                          <Hash size={14} className="text-slate-400" />
+                          <span className="font-medium text-slate-900">{ch.name}</span>
+                        </div>
+                        {ch.description && <p className="mt-0.5 text-xs text-slate-500 pl-6">{ch.description}</p>}
+                      </td>
+                      <td className="px-4 py-3 text-slate-600">{ch.category}</td>
+                      <td className="px-4 py-3">
+                        <div className="flex flex-wrap gap-1">
+                          {ch.tier_access.length > 0 ? ch.tier_access.map((ta, i) => (
+                            <div key={ta.tier_id} className="flex items-center gap-1">
+                              <span className="text-xs text-slate-500">{ta.tier_name}:</span>
+                              <select
+                                value={ta.access_level}
+                                onChange={(e) => handleTierAccessChange(ch, i, e.target.value)}
+                                className={`rounded px-1.5 py-0.5 text-[11px] font-medium border-0 cursor-pointer ${ACCESS_LEVEL_COLORS[ta.access_level] || 'bg-slate-100 text-slate-600'}`}
+                              >
+                                <option value="full">Full</option>
+                                <option value="view_only">View Only</option>
+                                <option value="hidden">Hidden</option>
+                              </select>
+                            </div>
+                          )) : (
+                            <span className="text-xs text-slate-400">All tiers: Full access</span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => openEditChannel(ch)}
+                            className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition-colors"
+                            title="Edit"
+                          >
+                            <Edit2 size={14} />
+                          </button>
+                          <button
+                            onClick={() => { setChannelToDelete(ch); setChannelDeleteOpen(true) }}
+                            className="rounded-lg p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600 transition-colors"
+                            title="Delete"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Delete Message Confirm */}
       <ConfirmDialog
         open={deleteOpen}
@@ -303,6 +493,17 @@ export default function SocialModeration() {
         title="Delete Message"
         message={`Delete this message from ${activeReport?.reported_user_name}? This will also resolve the report.`}
         confirmLabel="Delete"
+        variant="danger"
+      />
+
+      {/* Mass Delete Confirm */}
+      <ConfirmDialog
+        open={massDeleteOpen}
+        onClose={() => setMassDeleteOpen(false)}
+        onConfirm={handleMassDelete}
+        title="Delete All Messages"
+        message={`Delete ALL messages from ${activeReport?.reported_user_name}? This cannot be undone and will also resolve the report.`}
+        confirmLabel="Delete All"
         variant="danger"
       />
 
@@ -361,6 +562,59 @@ export default function SocialModeration() {
         title="Ban User"
         message={`This will permanently ban ${activeReport?.reported_user_name} from all channels. This action cannot be easily undone.`}
         confirmLabel="Ban User"
+        variant="danger"
+      />
+
+      {/* Channel Create/Edit Modal */}
+      <Modal open={channelModalOpen} onClose={() => setChannelModalOpen(false)} title={editingChannel ? 'Edit Channel' : 'Create Channel'}>
+        <div className="space-y-4">
+          <div>
+            <label className="mb-1 block text-sm font-medium text-slate-700">Channel Name</label>
+            <input
+              type="text"
+              value={channelName}
+              onChange={(e) => setChannelName(e.target.value)}
+              placeholder="e.g. vip-lounge"
+              className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-indigo-500"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-sm font-medium text-slate-700">Description</label>
+            <input
+              type="text"
+              value={channelDesc}
+              onChange={(e) => setChannelDesc(e.target.value)}
+              placeholder="Optional description"
+              className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-indigo-500"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-sm font-medium text-slate-700">Category</label>
+            <input
+              type="text"
+              value={channelCategory}
+              onChange={(e) => setChannelCategory(e.target.value)}
+              placeholder="e.g. General, VIP"
+              className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-indigo-500"
+            />
+          </div>
+          <div className="flex justify-end gap-3">
+            <button onClick={() => setChannelModalOpen(false)} className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">Cancel</button>
+            <button onClick={handleSaveChannel} className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700">
+              {editingChannel ? 'Save Changes' : 'Create Channel'}
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Channel Delete Confirm */}
+      <ConfirmDialog
+        open={channelDeleteOpen}
+        onClose={() => setChannelDeleteOpen(false)}
+        onConfirm={handleDeleteChannel}
+        title="Delete Channel"
+        message={`Delete #${channelToDelete?.name}? This will also delete all messages in this channel. This action cannot be undone.`}
+        confirmLabel="Delete Channel"
         variant="danger"
       />
     </div>

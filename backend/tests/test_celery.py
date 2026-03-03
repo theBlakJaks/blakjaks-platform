@@ -10,10 +10,10 @@ def test_celery_app_imports():
     assert celery_app.main == "blakjaks"
 
 
-def test_celery_beat_schedule_has_five_entries():
+def test_celery_beat_schedule_has_seven_entries():
     from app.celery_app import celery_app
     schedule = celery_app.conf.beat_schedule
-    assert len(schedule) == 5
+    assert len(schedule) == 7
 
 
 def test_celery_beat_schedule_task_names():
@@ -24,6 +24,8 @@ def test_celery_beat_schedule_task_names():
     assert "app.tasks.teller.sync_teller_balances" in task_names
     assert "app.tasks.affiliate.run_weekly_affiliate_payout" in task_names
     assert "app.tasks.comps.run_monthly_guaranteed_comps" in task_names
+    assert "app.tasks.chat_cleanup.purge_old_messages" in task_names
+    assert "app.tasks.chat_cleanup.cleanup_orphaned_streams" in task_names
 
 
 def test_treasury_tasks_import():

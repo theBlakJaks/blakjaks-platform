@@ -10,12 +10,19 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.models.channel import Channel
+from app.models.channel_tier_access import ChannelTierAccess
 from app.models.chat_mute import ChatMute
 from app.models.chat_report import ChatReport
 from app.models.message import Message
 from app.models.message_reaction import MessageReaction
 from app.models.tier import Tier
 from app.models.user import User
+from app.services.chat_buffer import (
+    buffer_message,
+    check_idempotency,
+    next_sequence,
+    set_idempotency,
+)
 from app.services.redis_client import get_redis
 from app.services.tier import TIER_ORDER, get_user_tier_info
 
@@ -78,19 +85,62 @@ async def _get_channel_tier_name(db: AsyncSession, channel: Channel) -> str | No
     return tier.name if tier else None
 
 
-async def _can_access_channel(db: AsyncSession, user_id: uuid.UUID, channel: Channel) -> bool:
-    """Check if a user's tier allows access to the channel."""
+async def _get_channel_access_level(
+    db: AsyncSession, user_id: uuid.UUID, channel: Channel
+) -> str:
+    """Return the access level for a user on a channel.
+
+    Returns 'full', 'view_only', or 'hidden'.
+    Falls back to the legacy tier_required_id check, then to 'full'.
+    """
+    # Get user's effective tier
+    user_tier_name = await _get_user_effective_tier_name(db, user_id)
+
+    # Look up the user's tier row
+    tier_result = await db.execute(
+        select(Tier).where(func.lower(Tier.name) == user_tier_name.lower())
+    )
+    user_tier = tier_result.scalar_one_or_none()
+
+    if user_tier:
+        # Check channel_tier_access table first
+        access_result = await db.execute(
+            select(ChannelTierAccess).where(
+                ChannelTierAccess.channel_id == channel.id,
+                ChannelTierAccess.tier_id == user_tier.id,
+            )
+        )
+        access = access_result.scalar_one_or_none()
+        if access:
+            return access.access_level
+
+    # Fallback: legacy tier_required_id check
     required_tier = await _get_channel_tier_name(db, channel)
     if required_tier is None:
+        return "full"
+    user_rank = _tier_rank(user_tier_name)
+    required_rank = _tier_rank(required_tier)
+    if user_rank < required_rank:
+        return "hidden"
+    return "full"
+
+
+async def _can_access_channel(db: AsyncSession, user_id: uuid.UUID, channel: Channel) -> bool:
+    """Check if a user's tier allows access to the channel."""
+    level = await _get_channel_access_level(db, user_id, channel)
+    return level != "hidden"
+
+
+async def _can_post(db: AsyncSession, user_id: uuid.UUID, channel_id: uuid.UUID | None = None) -> bool:
+    """Check if a user can post messages in a channel."""
+    if channel_id is None:
         return True
-    user_tier = await _get_user_effective_tier_name(db, user_id)
-    return _tier_rank(user_tier) >= _tier_rank(required_tier)
-
-
-async def _can_post(db: AsyncSession, user_id: uuid.UUID) -> bool:
-    """Check if a user can post messages. All tiers can post for now;
-    per-channel posting restrictions will be added later."""
-    return True
+    ch_result = await db.execute(select(Channel).where(Channel.id == channel_id))
+    channel = ch_result.scalar_one_or_none()
+    if channel is None:
+        return True
+    level = await _get_channel_access_level(db, user_id, channel)
+    return level == "full"
 
 
 # ── Channel queries ──────────────────────────────────────────────────
@@ -98,9 +148,6 @@ async def _can_post(db: AsyncSession, user_id: uuid.UUID) -> bool:
 
 async def get_channels(db: AsyncSession, user_id: uuid.UUID) -> list[dict]:
     """Return all channels the user can access based on their effective tier."""
-    user_tier = await _get_user_effective_tier_name(db, user_id)
-    user_rank = _tier_rank(user_tier)
-
     result = await db.execute(
         select(Channel).order_by(Channel.category, Channel.sort_order)
     )
@@ -108,14 +155,16 @@ async def get_channels(db: AsyncSession, user_id: uuid.UUID) -> list[dict]:
 
     accessible = []
     for ch in channels:
+        access_level = await _get_channel_access_level(db, user_id, ch)
+        if access_level == "hidden":
+            continue
+
+        # Get tier name for display
+        tier_name = None
         if ch.tier_required_id is not None:
             tier_result = await db.execute(select(Tier).where(Tier.id == ch.tier_required_id))
             tier = tier_result.scalar_one_or_none()
-            if tier and _tier_rank(tier.name) > user_rank:
-                continue
             tier_name = tier.name if tier else None
-        else:
-            tier_name = None
 
         accessible.append({
             "id": ch.id,
@@ -123,6 +172,7 @@ async def get_channels(db: AsyncSession, user_id: uuid.UUID) -> list[dict]:
             "description": ch.description,
             "category": ch.category,
             "tier_required": tier_name,
+            "view_only": access_level == "view_only",
             "unread_count": 0,  # TODO: track per-user read cursors
             "member_count": 0,
         })
@@ -139,6 +189,7 @@ async def get_channel_messages(
     user_id: uuid.UUID,
     before_id: uuid.UUID | None = None,
     limit: int = 50,
+    since_sequence: int | None = None,
 ) -> list[dict]:
     """Return paginated messages for a channel (cursor-based via before_id)."""
     # Verify channel exists and user has access
@@ -156,6 +207,9 @@ async def get_channel_messages(
         .order_by(Message.created_at.desc())
         .limit(limit)
     )
+
+    if since_sequence is not None:
+        query = query.where(Message.sequence > since_sequence)
 
     if before_id is not None:
         # Get the created_at of the cursor message
@@ -203,6 +257,7 @@ async def get_channel_messages(
             "user_tier": user_tier,
             "avatar_url": msg.user.avatar_url if msg.user else None,
             "content": msg.content,
+            "sequence": msg.sequence,
             "original_language": msg.original_language,
             "reply_to_id": msg.reply_to_id,
             "reply_preview": reply_preview,
@@ -212,6 +267,9 @@ async def get_channel_messages(
             "created_at": msg.created_at,
         })
 
+    # Query is DESC (newest first) for cursor pagination, but chat UI
+    # renders top-to-bottom, so reverse to chronological order.
+    output.reverse()
     return output
 
 
@@ -254,8 +312,26 @@ async def send_message(
     user_id: uuid.UUID,
     content: str,
     reply_to_id: uuid.UUID | None = None,
+    idempotency_key: str | None = None,
 ) -> Message | str:
-    """Send a message. Returns the Message on success, or an error string."""
+    """Send a message. Returns the Message on success, or an error string.
+
+    If ``idempotency_key`` is provided, checks Redis first to prevent
+    duplicate processing.  On success, stores the key→message_id mapping
+    with a 5-minute TTL and assigns a per-channel sequence number.
+    """
+    # ── Idempotency check ──
+    if idempotency_key:
+        try:
+            existing_id = await check_idempotency(idempotency_key)
+            if existing_id:
+                # Return the already-created message
+                msg = await db.get(Message, uuid.UUID(existing_id))
+                if msg:
+                    return msg
+        except Exception:
+            logger.warning("Idempotency check failed — proceeding normally")
+
     # Verify channel
     ch_result = await db.execute(select(Channel).where(Channel.id == channel_id))
     channel = ch_result.scalar_one_or_none()
@@ -266,9 +342,9 @@ async def send_message(
     if not await _can_access_channel(db, user_id, channel):
         return "You do not have access to this channel"
 
-    # Standard members cannot post
-    if not await _can_post(db, user_id):
-        return "Standard members can view but cannot post messages"
+    # Check per-channel posting permissions
+    if not await _can_post(db, user_id, channel_id):
+        return "You can view but cannot post in this channel"
 
     # Check mute
     mute_msg = await check_mute(db, user_id, channel_id)
@@ -299,6 +375,21 @@ async def send_message(
     db.add(msg)
     await db.commit()
     await db.refresh(msg)
+
+    # ── Assign sequence number ──
+    try:
+        seq = await next_sequence(channel_id)
+        msg.sequence = seq
+        await db.commit()
+    except Exception:
+        logger.warning("Failed to assign sequence number — message saved without sequence")
+
+    # ── Store idempotency key ──
+    if idempotency_key:
+        try:
+            await set_idempotency(idempotency_key, str(msg.id))
+        except Exception:
+            logger.warning("Failed to store idempotency key")
 
     # Update rate limit and spam trackers in Redis
     try:
@@ -396,6 +487,83 @@ async def delete_message(db: AsyncSession, message_id: uuid.UUID, user_id: uuid.
     return result.rowcount > 0
 
 
+async def hard_delete_message(
+    db: AsyncSession, message_id: uuid.UUID
+) -> Message | None:
+    """Hard delete a message from PostgreSQL (moderation).
+
+    Returns the deleted Message object (for extracting channel_id and
+    sequence) or None if the message was not found.
+    """
+    result = await db.execute(select(Message).where(Message.id == message_id))
+    msg = result.scalar_one_or_none()
+    if msg is None:
+        return None
+
+    # Capture fields before deletion
+    deleted_msg = Message(
+        id=msg.id,
+        channel_id=msg.channel_id,
+        user_id=msg.user_id,
+        content=msg.content,
+        sequence=msg.sequence,
+    )
+
+    await db.execute(delete(Message).where(Message.id == message_id))
+    await db.commit()
+    return deleted_msg
+
+
+async def send_livestream_message(
+    channel_id: uuid.UUID,
+    stream_id: uuid.UUID,
+    user_id: uuid.UUID,
+    username: str,
+    avatar_url: str | None,
+    content: str,
+) -> dict | str:
+    """Send a livestream chat message — Redis only, no PostgreSQL write.
+
+    Returns the message dict on success, or an error string.
+    """
+    if len(content) > 2000:
+        return "Message exceeds 2000 character limit"
+
+    try:
+        seq = await next_sequence(channel_id)
+    except Exception:
+        return "Failed to generate sequence number"
+
+    msg_id = str(uuid.uuid4())
+    msg_data = {
+        "type": "new_message",
+        "id": msg_id,
+        "channel_id": str(channel_id),
+        "user_id": str(user_id),
+        "username": username,
+        "avatar_url": avatar_url,
+        "content": content,
+        "sequence": seq,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "reply_to_id": None,
+        "reply_to_content": None,
+        "reply_to_username": None,
+        "is_system": False,
+        "is_pinned": False,
+        "idempotency_key": None,
+        "status": "sent",
+    }
+
+    try:
+        await buffer_message(
+            channel_id, seq, msg_data, is_livestream=True, stream_id=stream_id
+        )
+    except Exception:
+        logger.warning("Failed to buffer livestream message")
+
+    return msg_data
+
+
 async def report_message(
     db: AsyncSession, message_id: uuid.UUID, reporter_id: uuid.UUID, reason: str
 ) -> ChatReport:
@@ -438,6 +606,21 @@ async def mute_user(
 async def ban_user(db: AsyncSession, user_id: uuid.UUID, reason: str) -> ChatMute:
     """Permanently ban a user (global mute for 100 years)."""
     return await mute_user(db, user_id, None, 876000, reason)
+
+
+async def delete_user_messages(
+    db: AsyncSession, user_id: uuid.UUID, channel_id: uuid.UUID | None = None
+) -> int:
+    """Soft-delete all messages by a user, optionally scoped to a channel."""
+    conditions = [Message.user_id == user_id, Message.is_deleted == False]  # noqa: E712
+    if channel_id:
+        conditions.append(Message.channel_id == channel_id)
+
+    result = await db.execute(
+        update(Message).where(*conditions).values(is_deleted=True)
+    )
+    await db.commit()
+    return result.rowcount
 
 
 # ── Rate limit & spam ────────────────────────────────────────────────

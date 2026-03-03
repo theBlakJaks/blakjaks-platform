@@ -33,6 +33,7 @@ from app.models.wholesale_order import WholesaleOrder
 from app.models.audit_log import AuditLog
 from app.models.tier_history import TierHistory
 from app.models.social_message_translation import SocialMessageTranslation
+from app.models.channel_tier_access import ChannelTierAccess
 
 __all__ = [
     "Base",
@@ -70,4 +71,5 @@ __all__ = [
     "AuditLog",
     "TierHistory",
     "SocialMessageTranslation",
+    "ChannelTierAccess",
 ]

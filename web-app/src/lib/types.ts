@@ -36,6 +36,7 @@ export interface User {
   memberSince: string
   avatar?: string
   avatarUrl?: string
+  isAdmin?: boolean
 }
 
 export interface Product {
@@ -93,6 +94,7 @@ export interface Channel {
   tierRequired: Tier
   unreadCount: number
   icon: string
+  viewOnly?: boolean
 }
 
 export interface Message {
@@ -112,6 +114,9 @@ export interface Message {
   originalLanguage?: string
   gifUrl?: string
   avatarUrl?: string
+  sequence?: number
+  status?: 'sending' | 'sent' | 'failed'
+  idempotencyKey?: string
 }
 
 export interface VoteOption {

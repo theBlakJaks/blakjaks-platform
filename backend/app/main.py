@@ -45,6 +45,14 @@ async def lifespan(app: FastAPI):
     if redis_ok:
         logger.info("Redis connection verified on startup.")
         await ws_manager.start_subscriber()
+        # Clean up any orphaned livestream Redis keys from previous runs
+        try:
+            from app.services.chat_buffer import cleanup_orphaned_stream_keys
+            removed = await cleanup_orphaned_stream_keys()
+            if removed:
+                logger.info("Cleaned up %d orphaned stream keys on startup.", removed)
+        except Exception:
+            logger.warning("Failed to clean orphaned stream keys on startup.", exc_info=True)
     else:
         logger.warning("Redis unreachable on startup — dependent features will be unavailable.")
 

@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback, Suspense } from 'react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
-import { Lock, ChevronDown, ChevronRight, Send, Smile, Globe, Pin, Radio, Reply, X, ChevronUp } from 'lucide-react'
+import { Lock, ChevronDown, ChevronRight, Send, Smile, Globe, Pin, Radio, Reply, X, ChevronUp, Loader2, Trash2 } from 'lucide-react'
 import { useAuth } from '@/lib/auth-context'
 import { api } from '@/lib/api'
 import type { Channel, Message, Tier } from '@/lib/types'
@@ -22,7 +22,10 @@ import type { EmoteChatInputHandle } from '@/components/ui/EmoteChatInput'
 import { useEmoteStore } from '@/lib/emote-store'
 import { prefixMatchEmotes } from '@/lib/emote-utils'
 import type { CachedEmote } from '@/lib/emote-store'
-import { chatSocket, type ConnectionState } from '@/lib/chat-socket'
+import { getChatClient } from '@/lib/chat'
+import { useChat } from '@/hooks/useChat'
+import { MessageStatus } from '@/components/ui/MessageStatus'
+import { ConnectionQualityDot, ConnectionQualityBanner } from '@/components/ui/ConnectionQualityIndicator'
 
 const TIER_RANK: Record<Tier, number> = { standard: 0, vip: 1, high_roller: 2, whale: 3 }
 
@@ -53,7 +56,6 @@ function SocialPage() {
   const { user } = useAuth()
   const searchParams = useSearchParams()
   const [channels, setChannels] = useState<Channel[]>([])
-  const [messages, setMessages] = useState<Message[]>([])
   const [activeChannel, setActiveChannel] = useState<string>(searchParams.get('channel') || '')
   const targetMsgId = useRef<string | null>(searchParams.get('msg'))
   const [collapsedCategories, setCollapsedCategories] = useState<Set<string>>(new Set())
@@ -72,19 +74,43 @@ function SocialPage() {
   const [replyingTo, setReplyingTo] = useState<Message | null>(null)
   const [newMsgCount, setNewMsgCount] = useState(0)
   const [firstNewMsgId, setFirstNewMsgId] = useState<string | null>(null)
-  const [connState, setConnState] = useState<ConnectionState>('disconnected')
-  const [typingUsers, setTypingUsers] = useState<string[]>([])
+  const [pinnedExpanded, setPinnedExpanded] = useState(true)
   const emoteList = useEmoteStore(s => s.emoteList)
   const emotes = useEmoteStore(s => s.emotes)
   const chatInputRef = useRef<EmoteChatInputHandle>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const chatContainerRef = useRef<HTMLDivElement>(null)
-  // Checked BEFORE each message add; the auto-scroll effect reads this
   const shouldAutoScrollRef = useRef(true)
-  const typingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const userTier = user?.tier || 'standard'
   const userRank = TIER_RANK[userTier]
+
+  // ── Chat engine + hook ──
+  const {
+    messages,
+    connState,
+    quality,
+    catchingUp,
+    hasMore,
+    loadingMore,
+    presence,
+    sendMessage: chatSendMessage,
+    loadMore,
+    addReaction,
+    removeReaction,
+    sendTyping,
+    deleteMessage,
+    retryMessage,
+  } = useChat(activeChannel || null)
+
+  // Connect the chat engine on mount
+  useEffect(() => {
+    const engine = getChatClient()
+    engine.connect(() => localStorage.getItem('blakjaks_token'))
+    return () => {
+      engine.disconnect()
+    }
+  }, [])
 
   const isNearBottom = useCallback(() => {
     const el = chatContainerRef.current
@@ -108,8 +134,7 @@ function SocialPage() {
     setFirstNewMsgId(null)
   }, [])
 
-  // Clear the "new messages" pill when user scrolls back to bottom.
-  // Re-registers whenever loading finishes so chatContainerRef is populated.
+  // Clear the "new messages" pill when user scrolls back to bottom
   useEffect(() => {
     const el = chatContainerRef.current
     if (!el) return
@@ -123,79 +148,23 @@ function SocialPage() {
     return () => el.removeEventListener('scroll', onScroll)
   }, [loading, activeChannel])
 
-  // Connect WebSocket on mount, disconnect on unmount
+  // Track new messages for pill indicator — listen for message array growth
+  const prevMsgCountRef = useRef(0)
   useEffect(() => {
-    chatSocket.connect()
-    const unsub = chatSocket.onStateChange(setConnState)
-    return () => {
-      unsub()
-      chatSocket.disconnect()
+    if (messages.length > prevMsgCountRef.current && !shouldAutoScrollRef.current) {
+      const newMsgs = messages.slice(prevMsgCountRef.current)
+      setNewMsgCount(c => {
+        if (c === 0 && newMsgs.length > 0) setFirstNewMsgId(newMsgs[0].id)
+        return c + newMsgs.length
+      })
     }
-  }, [])
-
-  // Handle incoming WebSocket messages
-  useEffect(() => {
-    const unsubMsg = chatSocket.onMessage((msg) => {
-      // Only add messages for the active channel
-      const incoming: Message = {
-        id: msg.id,
-        channelId: msg.channel_id,
-        userId: msg.user_id,
-        username: msg.username,
-        userTier: 'standard' as Tier,
-        content: msg.content,
-        timestamp: msg.created_at,
-        reactions: {},
-        avatarUrl: msg.avatar_url ?? undefined,
-        isSystem: msg.is_system,
-        replyToId: msg.reply_to_id ?? undefined,
-      }
-
-      shouldAutoScrollRef.current = isNearBottom()
-      setMessages(prev => [...prev, incoming])
-
-      if (!shouldAutoScrollRef.current) {
-        setNewMsgCount(c => {
-          if (c === 0) setFirstNewMsgId(incoming.id)
-          return c + 1
-        })
-      }
-    })
-
-    const unsubTyping = chatSocket.onTyping((evt) => {
-      setTypingUsers(prev => prev.includes(evt.username) ? prev : [...prev, evt.username])
-      // Clear typing indicator after 3 seconds
-      setTimeout(() => {
-        setTypingUsers(prev => prev.filter(u => u !== evt.username))
-      }, 3000)
-    })
-
-    const unsubReaction = chatSocket.onReaction((evt) => {
-      setMessages(prev => prev.map(msg => {
-        if (msg.id !== evt.message_id) return msg
-        const reactions = { ...msg.reactions }
-        const users = reactions[evt.emoji] || []
-        if (evt.action === 'add') {
-          if (!users.includes(evt.user_id)) {
-            reactions[evt.emoji] = [...users, evt.user_id]
-          }
-        } else {
-          const updated = users.filter(id => id !== evt.user_id)
-          if (updated.length === 0) delete reactions[evt.emoji]
-          else reactions[evt.emoji] = updated
-        }
-        return { ...msg, reactions }
-      }))
-    })
-
-    return () => { unsubMsg(); unsubTyping(); unsubReaction() }
-  }, [isNearBottom])
+    prevMsgCountRef.current = messages.length
+  }, [messages])
 
   // Load channels
   useEffect(() => {
     api.social.getChannels().then(({ channels: ch }) => {
       setChannels(ch)
-      // Set active channel to first available if none selected
       if (!activeChannel && ch.length > 0) {
         setActiveChannel(ch[0].id)
       }
@@ -203,39 +172,34 @@ function SocialPage() {
     })
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Load messages and join channel via WebSocket on channel change
+  // Reset state on channel change
   useEffect(() => {
     if (!activeChannel) return
-
-    setMessages([])
     setTranslations({})
     setNewMsgCount(0)
     setFirstNewMsgId(null)
     shouldAutoScrollRef.current = true
     translateQueue.current.clear()
-    setTypingUsers([])
-
-    // Load history via REST
-    api.social.getMessages(activeChannel).then(({ messages: msgs }) => {
-      setMessages(msgs)
-      // Scroll to bottom after initial load
-      requestAnimationFrame(() => {
-        const el = chatContainerRef.current
-        if (el) el.scrollTop = el.scrollHeight
-      })
-    })
-
-    // Join channel via WebSocket for real-time updates
-    chatSocket.joinChannel(activeChannel)
+    prevMsgCountRef.current = 0
   }, [activeChannel])
 
-  // Auto-scroll after DOM update — reads the flag set BEFORE the state update
+  // Auto-scroll after DOM update
   useEffect(() => {
     if (shouldAutoScrollRef.current) {
       const el = chatContainerRef.current
       if (el) el.scrollTop = el.scrollHeight
     }
   }, [messages])
+
+  // Scroll to bottom after initial channel load
+  useEffect(() => {
+    if (messages.length > 0 && shouldAutoScrollRef.current) {
+      requestAnimationFrame(() => {
+        const el = chatContainerRef.current
+        if (el) el.scrollTop = el.scrollHeight
+      })
+    }
+  }, [activeChannel]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // When navigating from a notification, scroll to the referenced message
   useEffect(() => {
@@ -267,16 +231,33 @@ function SocialPage() {
     return () => clearTimeout(timer)
   }, [cooldownActive, cooldownTime])
 
+  // Infinite scroll — load older messages when scrolling near top
+  useEffect(() => {
+    const el = chatContainerRef.current
+    if (!el) return
+    const onScroll = () => {
+      if (el.scrollTop < 100 && hasMore && !loadingMore) {
+        shouldAutoScrollRef.current = false
+        const prevHeight = el.scrollHeight
+        loadMore().then(() => {
+          requestAnimationFrame(() => {
+            if (el) el.scrollTop = el.scrollHeight - prevHeight
+          })
+        })
+      }
+    }
+    el.addEventListener('scroll', onScroll, { passive: true })
+    return () => el.removeEventListener('scroll', onScroll)
+  }, [hasMore, loadingMore, loadMore])
+
   const handleSend = async () => {
     const text = chatInputRef.current?.getText().trim() || inputText.trim()
     if (!text || cooldownActive) return
 
-    // Send via WebSocket — the message will come back via the new_message event
-    chatSocket.sendMessage(activeChannel, text, replyingTo?.id)
+    shouldAutoScrollRef.current = true
+    chatSendMessage(text, replyingTo?.id)
     if (replyingTo) setReplyingTo(null)
 
-    // Always scroll to bottom when user sends their own message
-    shouldAutoScrollRef.current = true
     chatInputRef.current?.clear()
     setInputText('')
     setNewMsgCount(0)
@@ -293,20 +274,9 @@ function SocialPage() {
   }
 
   const handleGifSelect = (gifUrl: string) => {
-    if (!user) return
-    const gifMsg: Message = {
-      id: `msg_gif_${Date.now()}`,
-      channelId: activeChannel,
-      userId: user.id,
-      username: user.username,
-      userTier: user.tier,
-      content: '',
-      gifUrl,
-      timestamp: new Date().toISOString(),
-      reactions: {},
-      avatarUrl: user.avatarUrl,
-    }
-    setMessages(prev => [...prev, gifMsg])
+    if (!user || !activeChannel) return
+    chatSendMessage(gifUrl)
+    shouldAutoScrollRef.current = true
     setGifPickerOpen(false)
   }
 
@@ -318,19 +288,10 @@ function SocialPage() {
     const hasReacted = users.includes(user.id)
 
     if (hasReacted) {
-      chatSocket.removeReaction(msgId, emoji, activeChannel)
+      removeReaction(msgId, emoji)
     } else {
-      chatSocket.addReaction(msgId, emoji, activeChannel)
+      addReaction(msgId, emoji)
     }
-
-    // Optimistic local update — WebSocket event will also arrive
-    setMessages(prev => prev.map(m => {
-      if (m.id !== msgId) return m
-      const reactions = { ...m.reactions }
-      const updated = hasReacted ? users.filter(id => id !== user.id) : [...users, user.id]
-      if (updated.length === 0) { delete reactions[emoji] } else { reactions[emoji] = updated }
-      return { ...m, reactions }
-    }))
   }
 
   // Auto-translate messages when preferred language is not English
@@ -431,6 +392,10 @@ function SocialPage() {
 
   const currentChannel = channels.find(c => c.id === activeChannel)
   const charCount = inputText.length
+  // Backend sends is_admin (snake_case), auth context does raw cast
+  const isAdmin = (user as unknown as Record<string, unknown>)?.is_admin === true || user?.isAdmin === true
+  const channelPresence = activeChannel ? presence.get(activeChannel) : undefined
+  const disableGifEmote = quality === 'poor'
 
   if (loading) {
     return (
@@ -516,16 +481,24 @@ function SocialPage() {
         <header className="h-12 shrink-0 border-b border-white/5 px-4 flex items-center gap-3">
           <span className="text-gray-500 text-lg font-bold">#</span>
           <h1 className="text-white font-semibold">{currentChannel?.name || 'General Chat'}</h1>
+          {currentChannel?.viewOnly && (
+            <span className="rounded-full bg-amber-500/20 px-2 py-0.5 text-[10px] font-semibold text-amber-400">View Only</span>
+          )}
           <span className="flex items-center gap-1.5">
             {connState === 'connected' ? (
               <>
-                <span className="h-2 w-2 rounded-full bg-green-500 shadow-[0_0_6px_rgba(34,197,94,0.6)]" />
+                <ConnectionQualityDot quality={quality} />
                 <span className="text-xs text-green-400">Connected</span>
               </>
             ) : connState === 'connecting' || connState === 'reconnecting' ? (
               <>
                 <span className="h-2 w-2 rounded-full bg-yellow-500 animate-pulse" />
                 <span className="text-xs text-yellow-400">{connState === 'reconnecting' ? 'Reconnecting...' : 'Connecting...'}</span>
+              </>
+            ) : connState === 'session_expired' ? (
+              <>
+                <span className="h-2 w-2 rounded-full bg-red-500" />
+                <span className="text-xs text-red-400">Session Expired</span>
               </>
             ) : (
               <>
@@ -537,19 +510,76 @@ function SocialPage() {
           <span className="text-gray-500 text-sm ml-1 hidden sm:inline">{currentChannel?.description || ''}</span>
         </header>
 
-        {/* Pinned Message — shown if any pinned messages exist in current channel */}
-        {messages.filter(m => m.isPinned).slice(0, 1).map(pinned => (
-          <div key={pinned.id} className="shrink-0 flex items-start gap-3 border-b border-white/5 bg-[#111125] px-4 py-2.5">
-            <Pin size={14} className="mt-0.5 shrink-0 text-[var(--color-gold)]" />
-            <div className="min-w-0">
-              <span className="text-xs font-medium text-[var(--color-gold)]">Pinned by {pinned.username}</span>
-              <p className="text-sm text-[var(--color-text)]">{pinned.content}</p>
-            </div>
+        {/* Session expired banner — terminal state, user must re-login */}
+        {connState === 'session_expired' && (
+          <div className="shrink-0 flex items-center justify-between px-4 py-2.5 bg-red-900/30 border-b border-red-800/40">
+            <span className="text-sm text-red-300">Your session has expired. Please log in again to use chat.</span>
+            <button
+              onClick={() => {
+                localStorage.removeItem('blakjaks_token')
+                localStorage.removeItem('blakjaks_refresh_token')
+                window.location.href = '/login'
+              }}
+              className="shrink-0 ml-4 rounded-lg bg-red-500 px-3 py-1 text-xs font-semibold text-white hover:bg-red-400 transition-colors"
+            >
+              Log In
+            </button>
           </div>
-        ))}
+        )}
+
+        {/* Connection quality banner */}
+        <ConnectionQualityBanner quality={quality} />
+
+        {/* Catching up banner */}
+        {catchingUp && (
+          <div className="shrink-0 flex items-center gap-2 px-4 py-1.5 text-xs text-blue-300 bg-blue-900/20 border-b border-blue-800/30">
+            <Loader2 size={12} className="animate-spin" />
+            Catching up on missed messages...
+          </div>
+        )}
+
+        {/* Pinned Messages — collapsible section */}
+        {(() => {
+          const pinned = messages.filter(m => m.isPinned)
+          if (pinned.length === 0) return null
+          return (
+            <div className="shrink-0 border-b border-white/5 bg-[#111125]">
+              <button
+                onClick={() => setPinnedExpanded(!pinnedExpanded)}
+                className="flex w-full items-center gap-2 px-4 py-2 text-xs font-medium text-[var(--color-gold)] hover:bg-white/5 transition-colors"
+              >
+                <Pin size={12} />
+                {pinned.length} Pinned Message{pinned.length > 1 ? 's' : ''}
+                {pinnedExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+              </button>
+              {pinnedExpanded && pinned.map(p => (
+                <div key={p.id} className="flex items-start gap-3 px-4 py-2 border-t border-white/5">
+                  <Pin size={12} className="mt-0.5 shrink-0 text-[var(--color-gold)]/50" />
+                  <div className="min-w-0 flex-1">
+                    <span className="text-xs font-medium text-[var(--color-gold)]">{p.username}</span>
+                    <p className="text-sm text-[var(--color-text)] line-clamp-2">{p.content}</p>
+                  </div>
+                  <button
+                    onClick={() => scrollToMessage(p.id)}
+                    className="shrink-0 text-[10px] text-[var(--color-text-dim)] hover:text-white transition-colors"
+                  >
+                    Jump
+                  </button>
+                </div>
+              ))}
+            </div>
+          )
+        })()}
 
         {/* Messages Feed */}
         <div ref={chatContainerRef} className="flex-1 overflow-y-auto px-4 py-2 space-y-1 relative">
+          {/* Loading older messages indicator */}
+          {loadingMore && (
+            <div className="flex items-center justify-center py-4">
+              <Loader2 size={20} className="animate-spin text-[var(--color-text-dim)]" />
+              <span className="ml-2 text-xs text-[var(--color-text-dim)]">Loading older messages...</span>
+            </div>
+          )}
           {messages.map((msg, i) => {
             const msgDate = new Date(msg.timestamp).toDateString()
             const prevDate = i > 0 ? new Date(messages[i - 1].timestamp).toDateString() : null
@@ -580,13 +610,15 @@ function SocialPage() {
             const reactionEntries = Object.entries(msg.reactions)
             const isTranslated = !!translations[msg.id]
             const isTranslating = translating.has(msg.id)
+            const isOwnMessage = msg.userId === user?.id
+            const isOnline = channelPresence?.has(msg.userId)
 
             return (
               <div key={msg.id}>
                 {dateSeparator}
               <div
                 id={`msg-${msg.id}`}
-                className={`group relative flex gap-3 rounded-lg px-2 py-0.5 hover:bg-white/[0.02] ${showHeader ? 'mt-3' : ''}`}
+                className={`group relative flex gap-3 rounded-lg px-2 py-0.5 hover:bg-white/[0.02] ${showHeader ? 'mt-3' : ''} ${msg.status === 'failed' ? 'opacity-60' : ''}`}
               >
                 {/* Hover action bar */}
                 <div className="absolute right-2 top-0 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity z-10 flex items-center gap-0.5 rounded-md border border-[var(--color-border)] bg-[var(--color-bg-card)] px-1 py-0.5 shadow-lg">
@@ -608,10 +640,27 @@ function SocialPage() {
                     <Reply size={12} />
                     Reply
                   </button>
+                  {isAdmin && (
+                    <>
+                      <div className="w-px h-4 bg-[var(--color-border)] mx-0.5" />
+                      <button
+                        onClick={() => deleteMessage(msg.id)}
+                        className="flex items-center gap-1 hover:bg-red-500/20 rounded px-1.5 py-0.5 text-xs text-red-400 hover:text-red-300 transition-colors"
+                        title="Delete message"
+                      >
+                        <Trash2 size={12} />
+                      </button>
+                    </>
+                  )}
                 </div>
 
                 {showHeader ? (
-                  <Avatar name={msg.username} tier={msg.userTier} size="sm" avatarUrl={msg.userId === user?.id ? user.avatarUrl : msg.avatarUrl} />
+                  <div className="relative">
+                    <Avatar name={msg.username} tier={msg.userTier} size="sm" avatarUrl={isOwnMessage ? user?.avatarUrl : msg.avatarUrl} />
+                    {isOnline && (
+                      <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-green-500 border-2 border-[#0f0f23]" />
+                    )}
+                  </div>
                 ) : (
                   <div className="w-8 shrink-0" />
                 )}
@@ -626,6 +675,12 @@ function SocialPage() {
                       <span className="text-xs text-[var(--color-text-dim)]">
                         {formatRelativeTime(msg.timestamp)}
                       </span>
+                      {isOwnMessage && msg.status && (
+                        <MessageStatus
+                          status={msg.status}
+                          onRetry={msg.status === 'failed' && msg.idempotencyKey ? () => retryMessage(msg.idempotencyKey!) : undefined}
+                        />
+                      )}
                       {reactionEntries.length > 0 && (
                         <div className="flex gap-1 ml-1">
                           {reactionEntries.map(([emoji, users]) => {
@@ -678,7 +733,7 @@ function SocialPage() {
                         <span className="text-[var(--color-gold)] font-medium">Replying to {msg.replyTo}:</span>
                       </div>
                       {msg.replyToContent && (
-                        <p className="text-[var(--color-text-dim)] text-[11px] line-clamp-2 italic">{msg.replyToContent}</p>
+                        <p className={`text-[var(--color-text-dim)] text-[11px] line-clamp-2 ${msg.replyToContent === 'Original message deleted' ? 'italic' : ''}`}>{msg.replyToContent}</p>
                       )}
                     </div>
                   )}
@@ -739,19 +794,12 @@ function SocialPage() {
           </div>
         )}
 
-        {/* Typing Indicator */}
-        {typingUsers.length > 0 && (
-          <div className="shrink-0 px-4 py-1 text-xs text-[var(--color-text-dim)]">
-            {typingUsers.length === 1
-              ? `${typingUsers[0]} is typing...`
-              : typingUsers.length === 2
-                ? `${typingUsers[0]} and ${typingUsers[1]} are typing...`
-                : `${typingUsers[0]} and ${typingUsers.length - 1} others are typing...`}
-          </div>
-        )}
-
         {/* Message Composer */}
-        <div className="shrink-0 border-t border-white/5 px-4 py-3">
+        {currentChannel?.viewOnly ? (
+          <div className="shrink-0 border-t border-white/5 px-4 py-3 text-center text-sm text-[var(--color-text-dim)]">
+            This channel is view only
+          </div>
+        ) : <div className="shrink-0 border-t border-white/5 px-4 py-3">
           {replyingTo && (
             <div className="mb-2 flex items-start gap-2 text-xs rounded-md bg-[var(--color-bg-surface)] border-l-2 border-[var(--color-gold)] px-3 py-2">
               <Reply size={12} className="text-[var(--color-gold)] mt-0.5 shrink-0" />
@@ -779,7 +827,7 @@ function SocialPage() {
                 placeholder={`Message #${currentChannel?.name || 'general'}...`}
                 disabled={cooldownActive}
                 maxLength={500}
-                className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-surface)] px-4 py-2.5 pr-24 text-sm text-[var(--color-text)] focus:border-[var(--color-gold)] focus:outline-none focus:ring-1 focus:ring-[var(--color-gold)]/50 disabled:opacity-50"
+                className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-surface)] px-4 py-2.5 pr-24 text-sm text-[var(--color-text)] focus:border-[var(--color-gold)] focus:outline-none disabled:opacity-50"
                 onChange={(text, isDeleting) => {
                   setInputText(text)
                   if (isDeleting) {
@@ -789,11 +837,6 @@ function SocialPage() {
                     const lastWord = words[words.length - 1]
                     setAutocompleteMatches(lastWord.length >= 2 ? prefixMatchEmotes(lastWord, emoteList) : [])
                   }
-                  // Send typing indicator (debounced)
-                  if (typingTimerRef.current) clearTimeout(typingTimerRef.current)
-                  typingTimerRef.current = setTimeout(() => {
-                    chatSocket.sendTyping(activeChannel)
-                  }, 300)
                 }}
                 onFocus={() => setInputFocused(true)}
                 onBlur={() => setInputFocused(false)}
@@ -812,15 +855,17 @@ function SocialPage() {
               <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1.5">
                 <button
                   onClick={() => { setEmotePickerOpen(!emotePickerOpen); setGifPickerOpen(false) }}
-                  className={`p-1 transition-colors ${emotePickerOpen ? 'text-[var(--color-gold)]' : 'text-[var(--color-text-dim)] hover:text-[var(--color-text-muted)]'}`}
+                  className={`p-1 transition-colors ${emotePickerOpen ? 'text-[var(--color-gold)]' : 'text-[var(--color-text-dim)] hover:text-[var(--color-text-muted)]'} ${disableGifEmote ? 'opacity-50 cursor-not-allowed' : ''}`}
                   title="Emotes"
+                  disabled={disableGifEmote}
                 >
                   <Smile size={18} />
                 </button>
                 <button
                   onClick={() => { setGifPickerOpen(!gifPickerOpen); setEmotePickerOpen(false) }}
-                  className={`p-1 transition-colors ${gifPickerOpen ? 'text-[var(--color-gold)]' : 'text-[var(--color-text-dim)] hover:text-[var(--color-text-muted)]'}`}
+                  className={`p-1 transition-colors ${gifPickerOpen ? 'text-[var(--color-gold)]' : 'text-[var(--color-text-dim)] hover:text-[var(--color-text-muted)]'} ${disableGifEmote ? 'opacity-50 cursor-not-allowed' : ''}`}
                   title="GIF"
+                  disabled={disableGifEmote}
                 >
                   <span className="text-xs font-bold">GIF</span>
                 </button>
@@ -836,7 +881,7 @@ function SocialPage() {
                   onDismiss={() => setAutocompleteMatches([])}
                 />
               )}
-              {emotePickerOpen && (
+              {emotePickerOpen && !disableGifEmote && (
                 <EmotePicker
                   onSelect={(emote) => {
                     chatInputRef.current?.insertEmote(emote.name, emote.id)
@@ -844,7 +889,7 @@ function SocialPage() {
                   onClose={() => setEmotePickerOpen(false)}
                 />
               )}
-              {gifPickerOpen && (
+              {gifPickerOpen && !disableGifEmote && (
                 <GiphyPicker onSelect={handleGifSelect} onClose={() => setGifPickerOpen(false)} />
               )}
             </div>
@@ -857,7 +902,7 @@ function SocialPage() {
               {charCount}/500
             </div>
           )}
-        </div>
+        </div>}
       </main>
     </div>
   )

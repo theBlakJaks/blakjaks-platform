@@ -126,3 +126,67 @@ export async function updateReportStatus(reportId: string, status: string): Prom
     await client.put(`/admin/social/reports/${reportId}`, { status })
   } catch { /* mock success */ }
 }
+
+// ── Channel management ──────────────────────────────────────────────
+
+export interface AdminChannel {
+  id: string
+  name: string
+  description: string | null
+  category: string | null
+  is_locked: boolean
+  sort_order: number
+  tier_access: Array<{
+    tier_id: string
+    tier_name: string
+    access_level: 'full' | 'view_only' | 'hidden'
+  }>
+}
+
+export interface TierAccessInput {
+  tier_id: string
+  access_level: 'full' | 'view_only' | 'hidden'
+}
+
+export async function getAdminChannels(): Promise<AdminChannel[]> {
+  const { data } = await client.get('/admin/social/channels')
+  return data
+}
+
+export async function createChannel(
+  name: string,
+  description: string | null,
+  category: string,
+  tierAccess: TierAccessInput[],
+): Promise<{ id: string }> {
+  const { data } = await client.post('/admin/social/channels', {
+    name,
+    description,
+    category,
+    tier_access: tierAccess,
+  })
+  return data
+}
+
+export async function updateChannel(
+  channelId: string,
+  updates: {
+    name?: string
+    description?: string
+    category?: string
+    tier_access?: TierAccessInput[]
+  },
+): Promise<void> {
+  await client.put(`/admin/social/channels/${channelId}`, updates)
+}
+
+export async function deleteChannel(channelId: string): Promise<void> {
+  await client.delete(`/admin/social/channels/${channelId}`)
+}
+
+export async function deleteUserMessages(userId: string, channelId?: string): Promise<{ count: number }> {
+  const params: Record<string, string> = {}
+  if (channelId) params.channel_id = channelId
+  const { data } = await client.delete(`/admin/social/users/${userId}/messages`, { params })
+  return data
+}

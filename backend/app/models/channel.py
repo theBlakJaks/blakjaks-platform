@@ -21,3 +21,4 @@ class Channel(UUIDPrimaryKey, TimestampMixin, Base):
 
     tier_required = relationship("Tier", back_populates="channels")
     messages = relationship("Message", back_populates="channel")
+    tier_access = relationship("ChannelTierAccess", back_populates="channel", cascade="all, delete-orphan")
