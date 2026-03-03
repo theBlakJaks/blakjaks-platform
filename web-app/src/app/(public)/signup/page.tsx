@@ -92,7 +92,15 @@ function SignupForm() {
     setUsernameMessage('')
     setUsernameSuggestions([])
     try {
-      const result = await api.users.checkUsername(username)
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000'}/api/users/check-username?username=${encodeURIComponent(username)}`,
+      )
+      if (!res.ok) {
+        setUsernameStatus('invalid')
+        setUsernameMessage('Unable to check username')
+        return
+      }
+      const result = await res.json()
       if (result.available) {
         setUsernameStatus('available')
         setUsernameMessage('Username available')
@@ -102,7 +110,8 @@ function SignupForm() {
         setUsernameSuggestions(result.suggestions || [])
       }
     } catch {
-      setUsernameStatus('idle')
+      setUsernameStatus('invalid')
+      setUsernameMessage('Unable to check username')
     }
   }, [])
 
