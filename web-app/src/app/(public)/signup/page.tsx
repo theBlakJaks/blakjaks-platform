@@ -92,26 +92,20 @@ function SignupForm() {
     setUsernameMessage('')
     setUsernameSuggestions([])
     try {
-      const res = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000'}/api/users/check-username?username=${encodeURIComponent(username)}`,
-      )
-      if (!res.ok) {
-        setUsernameStatus('invalid')
-        setUsernameMessage('Unable to check username')
-        return
-      }
-      const result = await res.json()
+      const result = await api.users.checkUsername(username)
       if (result.available) {
         setUsernameStatus('available')
         setUsernameMessage('Username available')
       } else {
         setUsernameStatus('taken')
-        setUsernameMessage(result.message)
+        setUsernameMessage(result.message || 'Username already taken')
         setUsernameSuggestions(result.suggestions || [])
       }
-    } catch {
-      setUsernameStatus('invalid')
-      setUsernameMessage('Unable to check username')
+    } catch (err) {
+      // Network/CORS error — skip client-side check, backend validates on register
+      console.error('[checkUsername]', err)
+      setUsernameStatus('available')
+      setUsernameMessage('')
     }
   }, [])
 
