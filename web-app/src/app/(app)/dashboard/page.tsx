@@ -75,23 +75,23 @@ export default function DashboardPage() {
       <Card className="border-[var(--color-gold)]/20 bg-gradient-to-r from-[var(--color-bg-card)] to-[var(--color-bg-surface)]">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-4">
-            <TierBadge tier={user.effectiveTier} size="lg" />
+            <TierBadge tier={user.effectiveTier ?? 'standard'} size="lg" />
             <div>
-              <h2 className="text-lg font-bold text-white">{getTierLabel(user.effectiveTier)} Member</h2>
-              {user.permanentTier !== user.tier && (
+              <h2 className="text-lg font-bold text-white">{getTierLabel(user.effectiveTier ?? 'standard')} Member</h2>
+              {user.permanentTier && user.permanentTier !== user.tier && (
                 <p className="text-xs text-[var(--color-text-dim)]">
-                  Permanent: {getTierLabel(user.permanentTier)} | Quarterly: {getTierLabel(user.tier)}
+                  Permanent: {getTierLabel(user.permanentTier)} | Quarterly: {getTierLabel(user.tier ?? 'standard')}
                 </p>
               )}
               <p className="text-sm text-[var(--color-text-muted)]">
-                {user.quarterlyScans} scans this quarter
+                {user.quarterlyScans ?? 0} scans this quarter
               </p>
             </div>
           </div>
           {tierInfo.next && (
             <div className="w-full sm:w-64">
               <ProgressBar
-                value={user.quarterlyScans}
+                value={user.quarterlyScans ?? 0}
                 max={tierInfo.scansNeeded}
                 label={`${scansToNext} scans to ${getTierLabel(tierInfo.next as 'standard' | 'vip' | 'high_roller' | 'whale')}`}
               />
@@ -102,9 +102,9 @@ export default function DashboardPage() {
 
       {/* Stat Cards */}
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <StatCard icon={QrCode} label="Total Scans" value={user.totalScans.toLocaleString()} sub="Lifetime" />
-        <StatCard icon={DollarSign} label="USDC Earned" value={formatCurrency(user.lifetimeUSDC)} sub="Lifetime" color="#22C55E" />
-        <StatCard icon={Zap} label="Quarter Scans" value={String(user.quarterlyScans)} sub="Current quarter" color="#3B82F6" />
+        <StatCard icon={QrCode} label="Total Scans" value={(user.totalScans ?? 0).toLocaleString()} sub="Lifetime" />
+        <StatCard icon={DollarSign} label="USDC Earned" value={formatCurrency(user.lifetimeUSDC ?? 0)} sub="Lifetime" color="#22C55E" />
+        <StatCard icon={Zap} label="Quarter Scans" value={String(user.quarterlyScans ?? 0)} sub="Current quarter" color="#3B82F6" />
         <StatCard icon={Flame} label="Active Streak" value="12 days" sub="Keep it going!" color="#EF4444" />
       </div>
 
