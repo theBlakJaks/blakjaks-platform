@@ -47,10 +47,8 @@ let _instance: ChatClient | null = null
 export function getChatClient(): ChatClient {
   if (!_instance) {
     if (typeof SharedWorker !== 'undefined') {
-      console.log('[Chat] Using SharedWorker') // TODO: remove after confirming worker runs on staging
       _instance = new WorkerBridge()
     } else {
-      console.log('[Chat] Using inline ChatEngine (SharedWorker unavailable)') // TODO: remove after confirming worker runs on staging
       _instance = new ChatEngine()
     }
   }
