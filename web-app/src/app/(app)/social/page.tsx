@@ -22,6 +22,7 @@ import type { EmoteChatInputHandle } from '@/components/ui/EmoteChatInput'
 import { useEmoteStore } from '@/lib/emote-store'
 import { prefixMatchEmotes } from '@/lib/emote-utils'
 import type { CachedEmote } from '@/lib/emote-store'
+import { chatSocket, type ConnectionState } from '@/lib/chat-socket'
 
 const TIER_RANK: Record<Tier, number> = { standard: 0, vip: 1, high_roller: 2, whale: 3 }
 
@@ -39,61 +40,6 @@ const LANGUAGE_NAMES: Record<string, string> = {
   ar: 'Arabic', hi: 'Hindi', ru: 'Russian', it: 'Italian',
 }
 
-const RANDOM_MESSAGES = [
-  'Just grabbed another can of Spearmint. So good.',
-  'Who is watching the next live stream?',
-  'Comp just hit my wallet. Love it.',
-  'Anyone else stacking scans this week?',
-  'Wintergreen crew where you at?',
-  'The governance vote on Mango Tango is going to be close.',
-  'Blue Razz 6mg is my daily driver.',
-  'Just referred a friend, easy bonus!',
-  'This community is the best.',
-  'Coffee flavor is growing on me ngl.',
-]
-
-const MOCK_USERS = [
-  { id: 'usr_010', username: 'cryptoQueen', tier: 'high_roller' as Tier, avatarUrl: 'https://i.pravatar.cc/150?u=usr_010' },
-  { id: 'usr_011', username: 'mintFanatic', tier: 'standard' as Tier, avatarUrl: 'https://i.pravatar.cc/150?u=usr_011' },
-  { id: 'usr_012', username: 'whaleDave', tier: 'whale' as Tier, avatarUrl: 'https://i.pravatar.cc/150?u=usr_012' },
-  { id: 'usr_013', username: 'newbie42', tier: 'standard' as Tier, avatarUrl: 'https://i.pravatar.cc/150?u=usr_013' },
-  { id: 'usr_014', username: 'vipSarah', tier: 'vip' as Tier, avatarUrl: 'https://i.pravatar.cc/150?u=usr_014' },
-  { id: 'usr_015', username: 'blazeRunner', tier: 'vip' as Tier, avatarUrl: 'https://i.pravatar.cc/150?u=usr_015' },
-  { id: 'usr_016', username: 'pouch_master', tier: 'high_roller' as Tier, avatarUrl: 'https://i.pravatar.cc/150?u=usr_016' },
-]
-
-const CHANNEL_MEMBER_COUNTS: Record<string, number> = {
-  ch_001: 1247, ch_002: 892, ch_003: 643, ch_004: 312, ch_005: 87,
-  ch_006: 24, ch_007: 534, ch_008: 278, ch_009: 189, ch_010: 156,
-  ch_012: 72, ch_013: 18,
-}
-
-const SYSTEM_MESSAGES: Message[] = [
-  {
-    id: 'sys_001', channelId: 'ch_001', userId: 'system', username: 'System',
-    userTier: 'standard', content: 'vipSarah just hit VIP tier!',
-    timestamp: new Date(Date.now() - 7200000).toISOString(), reactions: {}, isSystem: true,
-  },
-  {
-    id: 'sys_002', channelId: 'ch_001', userId: 'system', username: 'System',
-    userTier: 'standard', content: 'Someone just won $1,000 in comps!',
-    timestamp: new Date(Date.now() - 3600000).toISOString(), reactions: {}, isSystem: true,
-  },
-]
-
-const PINNED_MESSAGE: Message = {
-  id: 'pin_001', channelId: 'ch_001', userId: 'usr_012', username: 'whaleDave',
-  userTier: 'whale', content: 'Welcome to BlakJaks Social! Read the rules and be respectful. New members, drop an intro in #Introductions!',
-  timestamp: new Date(Date.now() - 86400000).toISOString(), reactions: { '\uD83D\uDCAF': ['usr_010', 'usr_014', 'usr_011'] },
-  avatarUrl: 'https://i.pravatar.cc/150?u=usr_012',
-}
-
-const FOREIGN_MESSAGE: Message = {
-  id: 'foreign_001', channelId: 'ch_001', userId: 'usr_017', username: 'tokyoDrifter',
-  userTier: 'vip', content: '\u3053\u306E\u30B3\u30DF\u30E5\u30CB\u30C6\u30A3\u306F\u6700\u9AD8\u3067\u3059\uFF01',
-  timestamp: new Date(Date.now() - 1800000).toISOString(), reactions: {}, originalLanguage: 'ja',
-  avatarUrl: 'https://i.pravatar.cc/150?u=usr_017',
-}
 
 export default function SocialPageWrapper() {
   return (
@@ -125,6 +71,8 @@ function SocialPage() {
   const [replyingTo, setReplyingTo] = useState<Message | null>(null)
   const [newMsgCount, setNewMsgCount] = useState(0)
   const [firstNewMsgId, setFirstNewMsgId] = useState<string | null>(null)
+  const [connState, setConnState] = useState<ConnectionState>('disconnected')
+  const [typingUsers, setTypingUsers] = useState<string[]>([])
   const emoteList = useEmoteStore(s => s.emoteList)
   const emotes = useEmoteStore(s => s.emotes)
   const chatInputRef = useRef<EmoteChatInputHandle>(null)
@@ -132,6 +80,7 @@ function SocialPage() {
   const chatContainerRef = useRef<HTMLDivElement>(null)
   // Checked BEFORE each message add; the auto-scroll effect reads this
   const shouldAutoScrollRef = useRef(true)
+  const typingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const userTier = user?.tier || 'standard'
   const userRank = TIER_RANK[userTier]
@@ -173,6 +122,74 @@ function SocialPage() {
     return () => el.removeEventListener('scroll', onScroll)
   }, [loading, activeChannel])
 
+  // Connect WebSocket on mount, disconnect on unmount
+  useEffect(() => {
+    chatSocket.connect()
+    const unsub = chatSocket.onStateChange(setConnState)
+    return () => {
+      unsub()
+      chatSocket.disconnect()
+    }
+  }, [])
+
+  // Handle incoming WebSocket messages
+  useEffect(() => {
+    const unsubMsg = chatSocket.onMessage((msg) => {
+      // Only add messages for the active channel
+      const incoming: Message = {
+        id: msg.id,
+        channelId: msg.channel_id,
+        userId: msg.user_id,
+        username: msg.username,
+        userTier: 'standard' as Tier,
+        content: msg.content,
+        timestamp: msg.created_at,
+        reactions: {},
+        avatarUrl: msg.avatar_url ?? undefined,
+        isSystem: msg.is_system,
+        replyToId: msg.reply_to_id ?? undefined,
+      }
+
+      shouldAutoScrollRef.current = isNearBottom()
+      setMessages(prev => [...prev, incoming])
+
+      if (!shouldAutoScrollRef.current) {
+        setNewMsgCount(c => {
+          if (c === 0) setFirstNewMsgId(incoming.id)
+          return c + 1
+        })
+      }
+    })
+
+    const unsubTyping = chatSocket.onTyping((evt) => {
+      setTypingUsers(prev => prev.includes(evt.username) ? prev : [...prev, evt.username])
+      // Clear typing indicator after 3 seconds
+      setTimeout(() => {
+        setTypingUsers(prev => prev.filter(u => u !== evt.username))
+      }, 3000)
+    })
+
+    const unsubReaction = chatSocket.onReaction((evt) => {
+      setMessages(prev => prev.map(msg => {
+        if (msg.id !== evt.message_id) return msg
+        const reactions = { ...msg.reactions }
+        const users = reactions[evt.emoji] || []
+        if (evt.action === 'add') {
+          if (!users.includes(evt.user_id)) {
+            reactions[evt.emoji] = [...users, evt.user_id]
+          }
+        } else {
+          const updated = users.filter(id => id !== evt.user_id)
+          if (updated.length === 0) delete reactions[evt.emoji]
+          else reactions[evt.emoji] = updated
+        }
+        return { ...msg, reactions }
+      }))
+    })
+
+    return () => { unsubMsg(); unsubTyping(); unsubReaction() }
+  }, [isNearBottom])
+
   // Load channels
   useEffect(() => {
     api.social.getChannels().then(({ channels: ch }) => {
@@ -181,7 +198,7 @@ function SocialPage() {
     })
   }, [])
 
-  // Start with blank chat, populate one by one
+  // Load messages and join channel via WebSocket on channel change
   useEffect(() => {
     setMessages([])
     setTranslations({})
@@ -189,6 +206,20 @@ function SocialPage() {
     setFirstNewMsgId(null)
     shouldAutoScrollRef.current = true
     translateQueue.current.clear()
+    setTypingUsers([])
+
+    // Load history via REST
+    api.social.getMessages(activeChannel).then(({ messages: msgs }) => {
+      setMessages(msgs)
+      // Scroll to bottom after initial load
+      requestAnimationFrame(() => {
+        const el = chatContainerRef.current
+        if (el) el.scrollTop = el.scrollHeight
+      })
+    })
+
+    // Join channel via WebSocket for real-time updates
+    chatSocket.joinChannel(activeChannel)
   }, [activeChannel])
 
   // Auto-scroll after DOM update — reads the flag set BEFORE the state update
@@ -200,19 +231,16 @@ function SocialPage() {
   }, [messages])
 
   // When navigating from a notification, scroll to the referenced message
-  // once it appears in the drip-fed message list
   useEffect(() => {
     if (!targetMsgId.current) return
     const found = messages.find(m => m.id === targetMsgId.current)
     if (found) {
       const id = targetMsgId.current
-      targetMsgId.current = null // only scroll once
-      // Wait a tick for the DOM to render the message
+      targetMsgId.current = null
       requestAnimationFrame(() => {
         const el = document.getElementById(`msg-${id}`)
         if (el) {
           el.scrollIntoView({ behavior: 'instant', block: 'center' })
-          // Brief gold highlight
           el.style.outline = '2px solid var(--color-gold)'
           el.style.borderRadius = '8px'
           setTimeout(() => { el.style.outline = ''; el.style.borderRadius = '' }, 2000)
@@ -220,57 +248,6 @@ function SocialPage() {
       })
     }
   }, [messages])
-
-  // Drip-feed mock messages one by one
-  const mockIndexRef = useRef(0)
-  const allMockMessages = useRef<Message[]>([])
-
-  useEffect(() => {
-    api.social.getMessages(activeChannel).then(({ messages: msgs }) => {
-      const enriched = activeChannel === 'ch_001'
-        ? [...msgs.slice(0, -2), SYSTEM_MESSAGES[0], ...msgs.slice(-2, -1), FOREIGN_MESSAGE, SYSTEM_MESSAGES[1], ...msgs.slice(-1)]
-        : msgs
-      allMockMessages.current = enriched
-      mockIndexRef.current = 0
-    })
-
-    const interval = setInterval(() => {
-      // Check scroll position BEFORE adding the message — this is the
-      // source of truth, not a scroll event handler
-      shouldAutoScrollRef.current = isNearBottom()
-
-      let newMsg: Message
-      if (mockIndexRef.current < allMockMessages.current.length) {
-        const msg = allMockMessages.current[mockIndexRef.current]
-        newMsg = { ...msg, timestamp: new Date().toISOString() }
-        mockIndexRef.current++
-      } else {
-        const randomUser = MOCK_USERS[Math.floor(Math.random() * MOCK_USERS.length)]
-        const randomContent = RANDOM_MESSAGES[Math.floor(Math.random() * RANDOM_MESSAGES.length)]
-        newMsg = {
-          id: `msg_live_${Date.now()}`,
-          channelId: activeChannel,
-          userId: randomUser.id,
-          username: randomUser.username,
-          userTier: randomUser.tier,
-          content: randomContent,
-          timestamp: new Date().toISOString(),
-          reactions: {},
-          avatarUrl: randomUser.avatarUrl,
-        }
-      }
-      setMessages(prev => [...prev, newMsg])
-      // Track new messages when scrolled up
-      if (!shouldAutoScrollRef.current) {
-        setNewMsgCount(c => {
-          if (c === 0) setFirstNewMsgId(newMsg.id)
-          return c + 1
-        })
-      }
-    }, 3000)
-
-    return () => clearInterval(interval)
-  }, [activeChannel, isNearBottom])
 
   // Cooldown timer
   useEffect(() => {
@@ -287,15 +264,12 @@ function SocialPage() {
     const text = chatInputRef.current?.getText().trim() || inputText.trim()
     if (!text || cooldownActive) return
 
-    const newMsg = await api.social.sendMessage(activeChannel, text)
-    if (replyingTo) {
-      newMsg.replyTo = replyingTo.username
-      newMsg.replyToContent = replyingTo.content
-      setReplyingTo(null)
-    }
+    // Send via WebSocket — the message will come back via the new_message event
+    chatSocket.sendMessage(activeChannel, text, replyingTo?.id)
+    if (replyingTo) setReplyingTo(null)
+
     // Always scroll to bottom when user sends their own message
     shouldAutoScrollRef.current = true
-    setMessages(prev => [...prev, newMsg])
     chatInputRef.current?.clear()
     setInputText('')
     setNewMsgCount(0)
@@ -327,14 +301,24 @@ function SocialPage() {
 
   const toggleReaction = (msgId: string, emoji: string) => {
     if (!user) return
-    setMessages(prev => prev.map(msg => {
-      if (msg.id !== msgId) return msg
-      const users = msg.reactions[emoji] || []
-      const hasReacted = users.includes(user.id)
+    const msg = messages.find(m => m.id === msgId)
+    if (!msg) return
+    const users = msg.reactions[emoji] || []
+    const hasReacted = users.includes(user.id)
+
+    if (hasReacted) {
+      chatSocket.removeReaction(msgId, emoji, activeChannel)
+    } else {
+      chatSocket.addReaction(msgId, emoji, activeChannel)
+    }
+
+    // Optimistic local update — WebSocket event will also arrive
+    setMessages(prev => prev.map(m => {
+      if (m.id !== msgId) return m
+      const reactions = { ...m.reactions }
       const updated = hasReacted ? users.filter(id => id !== user.id) : [...users, user.id]
-      const reactions = { ...msg.reactions }
       if (updated.length === 0) { delete reactions[emoji] } else { reactions[emoji] = updated }
-      return { ...msg, reactions }
+      return { ...m, reactions }
     }))
   }
 
@@ -436,7 +420,6 @@ function SocialPage() {
 
   const currentChannel = channels.find(c => c.id === activeChannel)
   const charCount = inputText.length
-  const onlineCount = CHANNEL_MEMBER_COUNTS[activeChannel] || 0
 
   if (loading) {
     return (
@@ -523,22 +506,36 @@ function SocialPage() {
           <span className="text-gray-500 text-lg font-bold">#</span>
           <h1 className="text-white font-semibold">{currentChannel?.name || 'General Chat'}</h1>
           <span className="flex items-center gap-1.5">
-            <span className="h-2 w-2 rounded-full bg-green-500 shadow-[0_0_6px_rgba(34,197,94,0.6)]" />
-            <span className="text-xs text-green-400">{onlineCount.toLocaleString()} online</span>
+            {connState === 'connected' ? (
+              <>
+                <span className="h-2 w-2 rounded-full bg-green-500 shadow-[0_0_6px_rgba(34,197,94,0.6)]" />
+                <span className="text-xs text-green-400">Connected</span>
+              </>
+            ) : connState === 'connecting' || connState === 'reconnecting' ? (
+              <>
+                <span className="h-2 w-2 rounded-full bg-yellow-500 animate-pulse" />
+                <span className="text-xs text-yellow-400">{connState === 'reconnecting' ? 'Reconnecting...' : 'Connecting...'}</span>
+              </>
+            ) : (
+              <>
+                <span className="h-2 w-2 rounded-full bg-red-500" />
+                <span className="text-xs text-red-400">Disconnected</span>
+              </>
+            )}
           </span>
           <span className="text-gray-500 text-sm ml-1 hidden sm:inline">{currentChannel?.description || ''}</span>
         </header>
 
-        {/* Pinned Message */}
-        {activeChannel === 'ch_001' && (
-          <div className="shrink-0 flex items-start gap-3 border-b border-white/5 bg-[#111125] px-4 py-2.5">
+        {/* Pinned Message — shown if any pinned messages exist in current channel */}
+        {messages.filter(m => m.isPinned).slice(0, 1).map(pinned => (
+          <div key={pinned.id} className="shrink-0 flex items-start gap-3 border-b border-white/5 bg-[#111125] px-4 py-2.5">
             <Pin size={14} className="mt-0.5 shrink-0 text-[var(--color-gold)]" />
             <div className="min-w-0">
-              <span className="text-xs font-medium text-[var(--color-gold)]">Pinned by whaleDave</span>
-              <p className="text-sm text-[var(--color-text)]">{PINNED_MESSAGE.content}</p>
+              <span className="text-xs font-medium text-[var(--color-gold)]">Pinned by {pinned.username}</span>
+              <p className="text-sm text-[var(--color-text)]">{pinned.content}</p>
             </div>
           </div>
-        )}
+        ))}
 
         {/* Messages Feed */}
         <div ref={chatContainerRef} className="flex-1 overflow-y-auto px-4 py-2 space-y-1 relative">
@@ -731,6 +728,17 @@ function SocialPage() {
           </div>
         )}
 
+        {/* Typing Indicator */}
+        {typingUsers.length > 0 && (
+          <div className="shrink-0 px-4 py-1 text-xs text-[var(--color-text-dim)]">
+            {typingUsers.length === 1
+              ? `${typingUsers[0]} is typing...`
+              : typingUsers.length === 2
+                ? `${typingUsers[0]} and ${typingUsers[1]} are typing...`
+                : `${typingUsers[0]} and ${typingUsers.length - 1} others are typing...`}
+          </div>
+        )}
+
         {/* Message Composer */}
         <div className="shrink-0 border-t border-white/5 px-4 py-3">
           {replyingTo && (
@@ -770,6 +778,11 @@ function SocialPage() {
                     const lastWord = words[words.length - 1]
                     setAutocompleteMatches(lastWord.length >= 2 ? prefixMatchEmotes(lastWord, emoteList) : [])
                   }
+                  // Send typing indicator (debounced)
+                  if (typingTimerRef.current) clearTimeout(typingTimerRef.current)
+                  typingTimerRef.current = setTimeout(() => {
+                    chatSocket.sendTyping(activeChannel)
+                  }, 300)
                 }}
                 onFocus={() => setInputFocused(true)}
                 onBlur={() => setInputFocused(false)}

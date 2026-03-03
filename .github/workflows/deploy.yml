@@ -141,7 +141,9 @@ jobs:
 
       - name: Build & push web-app image
         run: |
-          docker build -t $REGISTRY/web-app:$GITHUB_SHA ./web-app
+          docker build \
+            --build-arg NEXT_PUBLIC_API_URL=https://api.blakjaks.com \
+            -t $REGISTRY/web-app:$GITHUB_SHA ./web-app
           docker push $REGISTRY/web-app:$GITHUB_SHA
 
       - name: Get GKE credentials
@@ -297,7 +299,9 @@ jobs:
       - name: Build staging images
         run: |
           docker build -t $STAGING_REGISTRY/backend:staging-$GITHUB_SHA   ./backend
-          docker build -t $STAGING_REGISTRY/web-app:staging-$GITHUB_SHA   ./web-app
+          docker build \
+            --build-arg NEXT_PUBLIC_API_URL=https://staging-api.blakjaks.com \
+            -t $STAGING_REGISTRY/web-app:staging-$GITHUB_SHA   ./web-app
           docker build -t $STAGING_REGISTRY/affiliate:staging-$GITHUB_SHA ./affiliate
           docker build -t $STAGING_REGISTRY/admin:staging-$GITHUB_SHA     ./admin
           docker build -t $STAGING_REGISTRY/wholesale:staging-$GITHUB_SHA ./wholesale

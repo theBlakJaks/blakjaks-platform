@@ -12,7 +12,7 @@ from starlette.requests import Request
 
 from app.api.auth import limiter
 from app.api.router import api_router
-from app.api.social_ws import router as social_ws_router
+from app.api.social_ws import manager as ws_manager, router as social_ws_router
 from app.core.config import settings, validate_settings
 from app.services.redis_client import close_redis, get_redis, ping_redis
 
@@ -44,12 +44,14 @@ async def lifespan(app: FastAPI):
     redis_ok = await ping_redis()
     if redis_ok:
         logger.info("Redis connection verified on startup.")
+        await ws_manager.start_subscriber()
     else:
         logger.warning("Redis unreachable on startup — dependent features will be unavailable.")
 
     yield
 
     # Shutdown
+    await ws_manager.stop_subscriber()
     await close_redis()
 
 

@@ -106,7 +106,9 @@ export interface Message {
   reactions: Record<string, string[]>
   replyTo?: string
   replyToContent?: string
+  replyToId?: string
   isSystem?: boolean
+  isPinned?: boolean
   originalLanguage?: string
   gifUrl?: string
   avatarUrl?: string

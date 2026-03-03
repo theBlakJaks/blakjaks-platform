@@ -30,6 +30,7 @@ from app.services.reaction_service import (
     remove_reaction as svc_remove_reaction,
 )
 from app.services.translation_service import detect_language, translate_message
+from app.api.social_ws import manager as ws_manager
 
 router = APIRouter(prefix="/social", tags=["social"])
 
@@ -100,10 +101,22 @@ async def create_reaction(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    # svc_add_reaction raises HTTPException 409 on duplicate; propagates naturally
     result = await svc_add_reaction(db, message_id, user.id, body.emoji)
-    # TODO: emit Socket.IO "reaction_added" event to channel subscribers when
-    # a socket namespace is wired into the REST layer.
+
+    # Broadcast reaction update to WebSocket clients via Redis pub/sub
+    from sqlalchemy import select
+    from app.models.message import Message
+    msg_result = await db.execute(select(Message.channel_id).where(Message.id == message_id))
+    channel_id = msg_result.scalar_one_or_none()
+    if channel_id:
+        await ws_manager.publish_to_redis(channel_id, {
+            "type": "reaction_update",
+            "message_id": str(message_id),
+            "emoji": body.emoji,
+            "user_id": str(user.id),
+            "action": "add",
+        })
+
     return result
 
 
@@ -117,8 +130,21 @@ async def destroy_reaction(
     removed = await svc_remove_reaction(db, message_id, user.id, emoji)
     if not removed:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Reaction not found")
-    # TODO: emit Socket.IO "reaction_removed" event to channel subscribers when
-    # a socket namespace is wired into the REST layer.
+
+    # Broadcast reaction update to WebSocket clients via Redis pub/sub
+    from sqlalchemy import select
+    from app.models.message import Message
+    msg_result = await db.execute(select(Message.channel_id).where(Message.id == message_id))
+    channel_id = msg_result.scalar_one_or_none()
+    if channel_id:
+        await ws_manager.publish_to_redis(channel_id, {
+            "type": "reaction_update",
+            "message_id": str(message_id),
+            "emoji": emoji,
+            "user_id": str(user.id),
+            "action": "remove",
+        })
+
     return {"message": "Reaction removed"}
 
 

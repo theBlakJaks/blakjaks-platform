@@ -1,6 +1,7 @@
 """Chat service — channel access, messaging, reactions, moderation."""
 
 import logging
+import time
 import uuid
 from datetime import datetime, timedelta, timezone
 
@@ -15,6 +16,7 @@ from app.models.message import Message
 from app.models.message_reaction import MessageReaction
 from app.models.tier import Tier
 from app.models.user import User
+from app.services.redis_client import get_redis
 from app.services.tier import TIER_ORDER, get_user_tier_info
 
 logger = logging.getLogger(__name__)
@@ -30,12 +32,6 @@ RATE_LIMITS: dict[str, float] = {
 # Spam detection: identical message threshold and mute duration
 SPAM_THRESHOLD = 5
 SPAM_MUTE_HOURS = 1
-
-# In-memory rate limit tracker: user_id -> last_message_timestamp
-_last_message_time: dict[uuid.UUID, datetime] = {}
-
-# In-memory spam tracker: user_id -> list of recent message contents
-_recent_messages: dict[uuid.UUID, list[str]] = {}
 
 
 # ── Helpers ──────────────────────────────────────────────────────────
@@ -281,7 +277,7 @@ async def send_message(
 
     # Rate limit
     user_tier = await _get_user_effective_tier_name(db, user_id)
-    rate_err = check_rate_limit(user_id, user_tier)
+    rate_err = await check_rate_limit(user_id, user_tier)
     if rate_err:
         return rate_err
 
@@ -304,13 +300,18 @@ async def send_message(
     await db.commit()
     await db.refresh(msg)
 
-    # Update rate limit tracker
-    _last_message_time[user_id] = datetime.now(timezone.utc)
-
-    # Track for spam detection
-    _recent_messages.setdefault(user_id, []).append(content)
-    if len(_recent_messages[user_id]) > SPAM_THRESHOLD:
-        _recent_messages[user_id] = _recent_messages[user_id][-SPAM_THRESHOLD:]
+    # Update rate limit and spam trackers in Redis
+    try:
+        redis = await get_redis()
+        # Rate limit: store timestamp, auto-expire after 10s
+        await redis.set(f"chat:rate:{user_id}", str(time.time()), ex=10)
+        # Spam detection: keep last N messages, expire after 5 minutes
+        spam_key = f"chat:spam:{user_id}"
+        await redis.lpush(spam_key, content)
+        await redis.ltrim(spam_key, 0, SPAM_THRESHOLD - 1)
+        await redis.expire(spam_key, 300)
+    except Exception:
+        logger.warning("Redis unavailable for rate/spam tracking")
 
     return msg
 
@@ -442,19 +443,22 @@ async def ban_user(db: AsyncSession, user_id: uuid.UUID, reason: str) -> ChatMut
 # ── Rate limit & spam ────────────────────────────────────────────────
 
 
-def check_rate_limit(user_id: uuid.UUID, tier_name: str) -> str | None:
+async def check_rate_limit(user_id: uuid.UUID, tier_name: str) -> str | None:
     """Check if the user can send a message based on tier cooldown. Returns error or None."""
     cooldown = RATE_LIMITS.get(tier_name, 1.0)
     if cooldown == 0.0:
         return None
 
-    last_time = _last_message_time.get(user_id)
-    if last_time is None:
-        return None
-
-    elapsed = (datetime.now(timezone.utc) - last_time).total_seconds()
-    if elapsed < cooldown:
-        return f"Rate limited. Please wait {cooldown - elapsed:.1f}s"
+    try:
+        redis = await get_redis()
+        key = f"chat:rate:{user_id}"
+        last_ts = await redis.get(key)
+        if last_ts is not None:
+            elapsed = time.time() - float(last_ts)
+            if elapsed < cooldown:
+                return f"Rate limited. Please wait {cooldown - elapsed:.1f}s"
+    except Exception:
+        logger.warning("Redis unavailable for rate limit check — allowing message")
 
     return None
 
@@ -477,12 +481,18 @@ async def check_mute(db: AsyncSession, user_id: uuid.UUID, channel_id: uuid.UUID
 
 async def _check_spam(db: AsyncSession, user_id: uuid.UUID, channel_id: uuid.UUID, content: str) -> str | None:
     """Detect spam (5 identical messages) and auto-mute."""
-    recent = _recent_messages.get(user_id, [])
-    identical_count = sum(1 for m in recent if m == content)
-    if identical_count >= SPAM_THRESHOLD - 1:  # This would be the 5th
-        await mute_user(db, user_id, channel_id, SPAM_MUTE_HOURS, "Spam detection: repeated identical messages")
-        _recent_messages[user_id] = []
-        return "You have been muted for 1 hour due to spam"
+    try:
+        redis = await get_redis()
+        key = f"chat:spam:{user_id}"
+        recent = await redis.lrange(key, 0, SPAM_THRESHOLD - 1)
+        identical_count = sum(1 for m in recent if m == content)
+        if identical_count >= SPAM_THRESHOLD - 1:  # This would be the 5th
+            await mute_user(db, user_id, channel_id, SPAM_MUTE_HOURS, "Spam detection: repeated identical messages")
+            await redis.delete(key)
+            return "You have been muted for 1 hour due to spam"
+    except Exception:
+        logger.warning("Redis unavailable for spam check — skipping")
+
     return None
 
 
