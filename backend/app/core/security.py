@@ -42,6 +42,15 @@ def create_reset_token(user_id: uuid.UUID) -> str:
     )
 
 
+def create_email_verification_token(user_id: uuid.UUID) -> str:
+    expire = datetime.now(timezone.utc) + timedelta(hours=24)
+    return jwt.encode(
+        {"sub": str(user_id), "exp": expire, "type": "email_verify"},
+        settings.SECRET_KEY,
+        algorithm=settings.ALGORITHM,
+    )
+
+
 def decode_token(token: str) -> dict:
     """Decode and validate a JWT. Raises JWTError on failure."""
     return jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])

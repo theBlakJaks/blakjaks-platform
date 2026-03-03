@@ -42,6 +42,7 @@ class User(UUIDPrimaryKey, UpdateTimestampMixin, Base):
 
     is_active: Mapped[bool] = mapped_column(Boolean, server_default=text("true"), nullable=False)
     is_admin: Mapped[bool] = mapped_column(Boolean, server_default=text("false"), nullable=False)
+    email_verified: Mapped[bool] = mapped_column(Boolean, server_default=text("false"), nullable=False)
 
     tier = relationship("Tier", back_populates="users")
     referrer = relationship("User", remote_side="User.id", foreign_keys=[referred_by])

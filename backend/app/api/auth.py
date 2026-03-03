@@ -17,14 +17,18 @@ from app.api.schemas.auth import (
     LoginRequest,
     MessageResponse,
     RefreshRequest,
+    ResendVerificationRequest,
     ResetPasswordConfirm,
     ResetPasswordRequest,
     SignupRequest,
     TokenResponse,
     UserResponse,
+    VerifyEmailRequest,
 )
+from app.core.config import settings
 from app.core.security import (
     create_access_token,
+    create_email_verification_token,
     create_refresh_token,
     create_reset_token,
     decode_token,
@@ -33,7 +37,7 @@ from app.core.security import (
 )
 from app.models.user import User
 from app.services.wallet_service import create_user_wallet
-from app.services.email_service import send_password_reset, send_welcome_email
+from app.services.email_service import send_password_reset, send_verification_email, send_welcome_email
 from app.services.intercom_service import create_or_update_contact
 from app.services.affiliate_service import attribute_referral, get_or_create_affiliate
 from app.services.user_service import assign_member_id
@@ -67,6 +71,7 @@ async def signup(request: Request, body: SignupRequest, db: AsyncSession = Depen
         birthdate=body.birthdate,
         username=body.username,
         username_lower=body.username.lower(),
+        email_verified=False,
     )
     db.add(user)
     try:
@@ -98,11 +103,15 @@ async def signup(request: Request, body: SignupRequest, db: AsyncSession = Depen
         except Exception:
             logger.exception("Failed to attribute referral for %s", body.email)
 
-    # Send welcome email and sync to Intercom (fire-and-forget)
+    # Send verification email
     try:
-        await send_welcome_email(body.email, body.first_name)
+        token = create_email_verification_token(user.id)
+        verify_url = f"{settings.FRONTEND_URL}/verify-email?token={token}"
+        await send_verification_email(body.email, body.first_name, verify_url)
     except Exception:
-        logger.exception("Failed to send welcome email to %s", body.email)
+        logger.exception("Failed to send verification email to %s", body.email)
+
+    # Sync to Intercom (fire-and-forget)
     try:
         await create_or_update_contact(user.id, body.email, f"{body.first_name} {body.last_name}")
     except Exception:
@@ -117,6 +126,54 @@ async def signup(request: Request, body: SignupRequest, db: AsyncSession = Depen
     )
 
 
+@router.post("/verify-email", response_model=MessageResponse)
+async def verify_email(body: VerifyEmailRequest, db: AsyncSession = Depends(get_db)):
+    try:
+        payload = decode_token(body.token)
+        if payload.get("type") != "email_verify":
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, "Invalid token type")
+        user_id = uuid.UUID(payload["sub"])
+    except (JWTError, KeyError, ValueError):
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Invalid or expired verification link")
+
+    result = await db.execute(select(User).where(User.id == user_id))
+    user = result.scalar_one_or_none()
+    if user is None:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Invalid or expired verification link")
+
+    if user.email_verified:
+        return MessageResponse(message="Email already verified")
+
+    user.email_verified = True
+    await db.commit()
+
+    # Send welcome email now that they're verified
+    try:
+        await send_welcome_email(user.email, user.first_name or "")
+    except Exception:
+        logger.exception("Failed to send welcome email to %s", user.email)
+
+    return MessageResponse(message="Email verified successfully")
+
+
+@router.post("/resend-verification", response_model=MessageResponse)
+@limiter.limit("3/minute")
+async def resend_verification(request: Request, body: ResendVerificationRequest, db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(User).where(User.email == body.email))
+    user = result.scalar_one_or_none()
+
+    # Always return success to prevent email enumeration
+    if user is not None and not user.email_verified:
+        try:
+            token = create_email_verification_token(user.id)
+            verify_url = f"{settings.FRONTEND_URL}/verify-email?token={token}"
+            await send_verification_email(user.email, user.first_name or "", verify_url)
+        except Exception:
+            logger.exception("Failed to resend verification email to %s", user.email)
+
+    return MessageResponse(message="If that email exists and is unverified, a verification link has been sent")
+
+
 @router.post("/login", response_model=AuthResponse)
 @limiter.limit("10/minute")
 async def login(request: Request, body: LoginRequest, db: AsyncSession = Depends(get_db)):
@@ -127,6 +184,12 @@ async def login(request: Request, body: LoginRequest, db: AsyncSession = Depends
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid email or password")
     if not user.is_active:
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Account is deactivated")
+    if not user.email_verified:
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN,
+            detail="Please verify your email address",
+            headers={"X-Error-Code": "EMAIL_NOT_VERIFIED"},
+        )
 
     return AuthResponse(
         user=UserResponse.model_validate(user),
