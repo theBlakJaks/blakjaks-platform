@@ -6,6 +6,7 @@ Create Date: 2026-02-20
 """
 
 from alembic import op
+from sqlalchemy import text
 
 revision = "024"
 down_revision = "023"
@@ -18,8 +19,8 @@ def upgrade():
     # this migration is a no-op on fresh databases.
     conn = op.get_bind()
     result = conn.execute(
-        "SELECT column_name FROM information_schema.columns "
-        "WHERE table_name='scans' AND column_name='usdt_earned'"
+        text("SELECT column_name FROM information_schema.columns "
+             "WHERE table_name='scans' AND column_name='usdt_earned'")
     )
     if result.fetchone():
         op.alter_column('scans', 'usdt_earned', new_column_name='usdc_earned')
@@ -28,8 +29,8 @@ def upgrade():
 def downgrade():
     conn = op.get_bind()
     result = conn.execute(
-        "SELECT column_name FROM information_schema.columns "
-        "WHERE table_name='scans' AND column_name='usdc_earned'"
+        text("SELECT column_name FROM information_schema.columns "
+             "WHERE table_name='scans' AND column_name='usdc_earned'")
     )
     if result.fetchone():
         op.alter_column('scans', 'usdc_earned', new_column_name='usdt_earned')

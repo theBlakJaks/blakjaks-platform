@@ -8,7 +8,7 @@ os.environ.setdefault("RATELIMIT_ENABLED", "False")
 
 import pytest
 from httpx import ASGITransport, AsyncClient
-from sqlalchemy import event
+from sqlalchemy import event, update
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.ext.compiler import compiles
@@ -86,10 +86,15 @@ SIGNUP_PAYLOAD = {
 
 
 @pytest.fixture
-async def registered_user(client: AsyncClient) -> dict:
-    """Sign up a user and return the full response body."""
+async def registered_user(client: AsyncClient, db: AsyncSession) -> dict:
+    """Sign up a user and return the full response body (email pre-verified)."""
     resp = await client.post("/api/auth/signup", json=SIGNUP_PAYLOAD)
     assert resp.status_code == 201
+    # Mark email as verified so login works in tests
+    from app.models.user import User
+    from sqlalchemy import update
+    await db.execute(update(User).where(User.email == SIGNUP_PAYLOAD["email"]).values(email_verified=True))
+    await db.commit()
     return resp.json()
 
 
