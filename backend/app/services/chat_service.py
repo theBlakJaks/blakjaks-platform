@@ -88,9 +88,9 @@ async def _can_access_channel(db: AsyncSession, user_id: uuid.UUID, channel: Cha
 
 
 async def _can_post(db: AsyncSession, user_id: uuid.UUID) -> bool:
-    """Standard members are observational only — cannot post."""
-    user_tier = await _get_user_effective_tier_name(db, user_id)
-    return user_tier != "Standard"
+    """Check if a user can post messages. All tiers can post for now;
+    per-channel posting restrictions will be added later."""
+    return True
 
 
 # ── Channel queries ──────────────────────────────────────────────────
