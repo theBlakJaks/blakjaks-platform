@@ -21,7 +21,6 @@ from app.models.chat_report import ChatReport
 from app.models.affiliate_chip import AffiliateChip
 from app.models.affiliate_payout import AffiliatePayout
 from app.models.sunset_status import SunsetStatus
-from app.models.governance_proposal import GovernanceProposal
 from app.models.vote import Vote
 from app.models.vote_ballot import VoteBallot
 from app.models.teller_account import TellerAccount
@@ -59,7 +58,6 @@ __all__ = [
     "AffiliateChip",
     "AffiliatePayout",
     "SunsetStatus",
-    "GovernanceProposal",
     "Vote",
     "VoteBallot",
     "TellerAccount",
