@@ -147,17 +147,15 @@ async def _can_post(db: AsyncSession, user_id: uuid.UUID, channel_id: uuid.UUID 
 
 
 async def get_channels(db: AsyncSession, user_id: uuid.UUID) -> list[dict]:
-    """Return all channels the user can access based on their effective tier."""
+    """Return all channels with locked status — locked rooms are visible but not enterable."""
     result = await db.execute(
         select(Channel).order_by(Channel.category, Channel.sort_order)
     )
     channels = result.scalars().all()
 
-    accessible = []
+    all_channels = []
     for ch in channels:
         access_level = await _get_channel_access_level(db, user_id, ch)
-        if access_level == "hidden":
-            continue
 
         # Get tier name for display
         tier_name = None
@@ -166,18 +164,20 @@ async def get_channels(db: AsyncSession, user_id: uuid.UUID) -> list[dict]:
             tier = tier_result.scalar_one_or_none()
             tier_name = tier.name if tier else None
 
-        accessible.append({
+        all_channels.append({
             "id": ch.id,
             "name": ch.name,
             "description": ch.description,
             "category": ch.category,
             "tier_required": tier_name,
+            "locked": access_level == "hidden",
             "view_only": access_level == "view_only",
+            "room_type": ch.room_type,
             "unread_count": 0,  # TODO: track per-user read cursors
             "member_count": 0,
         })
 
-    return accessible
+    return all_channels
 
 
 # ── Message queries ──────────────────────────────────────────────────
