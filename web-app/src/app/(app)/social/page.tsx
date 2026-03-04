@@ -6,7 +6,7 @@ import { useSearchParams } from 'next/navigation'
 import { Lock, ChevronDown, ChevronRight, Send, Smile, Globe, Pin, Radio, Reply, X, ChevronUp, Loader2, Trash2 } from 'lucide-react'
 import { useAuth } from '@/lib/auth-context'
 import { api } from '@/lib/api'
-import type { Channel, Message, Tier } from '@/lib/types'
+import type { Channel, Message, Tier, VoteOut } from '@/lib/types'
 import Avatar from '@/components/ui/Avatar'
 import TierBadge from '@/components/ui/TierBadge'
 import GoldButton from '@/components/ui/GoldButton'
@@ -52,6 +52,83 @@ export default function SocialPageWrapper() {
   )
 }
 
+function GovernancePollCard({ poll, onVote }: { poll: VoteOut; onVote: (voteId: string, optionId: string) => void }) {
+  const isExpired = new Date(poll.end_date) < new Date()
+  const isClosed = poll.status === 'closed' || isExpired
+  const hasVoted = poll.user_has_voted
+  const totalVotes = poll.total_votes
+
+  // Countdown
+  const timeLeft = (() => {
+    if (isClosed) return 'Closed'
+    const diff = new Date(poll.end_date).getTime() - Date.now()
+    if (diff <= 0) return 'Closed'
+    const days = Math.floor(diff / 86400000)
+    const hours = Math.floor((diff % 86400000) / 3600000)
+    if (days > 0) return `${days}d ${hours}h remaining`
+    const mins = Math.floor((diff % 3600000) / 60000)
+    return `${hours}h ${mins}m remaining`
+  })()
+
+  return (
+    <div className="rounded-xl border border-white/10 bg-[var(--color-bg-card)] p-4">
+      <div className="flex items-start justify-between mb-2">
+        <h3 className="text-white font-semibold">{poll.title}</h3>
+        <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${isClosed ? 'bg-gray-500/20 text-gray-400' : 'bg-green-500/20 text-green-400'}`}>
+          {timeLeft}
+        </span>
+      </div>
+      {poll.description && (
+        <p className="text-sm text-gray-400 mb-3">{poll.description}</p>
+      )}
+      <div className="space-y-2">
+        {poll.options.map(opt => {
+          const result = poll.results.find(r => r.option_id === opt.id)
+          const pct = result?.percentage ?? 0
+          const count = result?.count ?? 0
+          const isSelected = poll.user_selected_option === opt.id
+          const winner = isClosed && poll.results.length > 0 && poll.results.reduce((a, b) => a.count > b.count ? a : b).option_id === opt.id
+
+          return (
+            <button
+              key={opt.id}
+              onClick={() => !hasVoted && !isClosed && onVote(poll.id, opt.id)}
+              disabled={hasVoted || isClosed}
+              className={`w-full text-left rounded-lg border px-3 py-2.5 transition-colors relative overflow-hidden ${
+                isSelected
+                  ? 'border-[var(--color-gold)] bg-[var(--color-gold)]/10'
+                  : winner
+                    ? 'border-green-500/50 bg-green-500/5'
+                    : 'border-white/10 hover:border-white/20 disabled:hover:border-white/10'
+              }`}
+            >
+              {/* Progress bar background */}
+              {(hasVoted || isClosed) && (
+                <div
+                  className={`absolute inset-y-0 left-0 ${isSelected ? 'bg-[var(--color-gold)]/10' : 'bg-white/5'}`}
+                  style={{ width: `${pct}%` }}
+                />
+              )}
+              <div className="relative flex items-center justify-between">
+                <span className={`text-sm ${isSelected ? 'text-[var(--color-gold)] font-medium' : 'text-gray-300'}`}>
+                  {opt.label}
+                  {isSelected && ' \u2713'}
+                </span>
+                {(hasVoted || isClosed) && (
+                  <span className="text-xs text-gray-400">{pct}% ({count})</span>
+                )}
+              </div>
+            </button>
+          )
+        })}
+      </div>
+      <div className="mt-3 text-xs text-gray-500">
+        {totalVotes} {totalVotes === 1 ? 'vote' : 'votes'}
+      </div>
+    </div>
+  )
+}
+
 function SocialPage() {
   const { user } = useAuth()
   const searchParams = useSearchParams()
@@ -76,6 +153,8 @@ function SocialPage() {
   const [newMsgCount, setNewMsgCount] = useState(0)
   const [firstNewMsgId, setFirstNewMsgId] = useState<string | null>(null)
   const [pinnedExpanded, setPinnedExpanded] = useState(true)
+  const [polls, setPolls] = useState<VoteOut[]>([])
+  const [pollsLoading, setPollsLoading] = useState(false)
   const emoteList = useEmoteStore(s => s.emoteList)
   const emotes = useEmoteStore(s => s.emotes)
   const chatInputRef = useRef<EmoteChatInputHandle>(null)
@@ -288,6 +367,19 @@ function SocialPage() {
     setGifPickerOpen(false)
   }
 
+  const handlePollVote = async (voteId: string, optionId: string) => {
+    try {
+      await api.governance.castVote(voteId, optionId)
+      // Refresh polls to get updated results
+      if (currentChannel) {
+        const votes = await api.governance.getVotesForTier(currentChannel.category)
+        setPolls(votes)
+      }
+    } catch (err) {
+      console.error('Failed to cast vote:', err)
+    }
+  }
+
   const toggleReaction = (msgId: string, emoji: string) => {
     if (!user) return
     const msg = messages.find(m => m.id === msgId)
@@ -405,6 +497,19 @@ function SocialPage() {
   const channelPresence = activeChannel ? presence.get(activeChannel) : undefined
   const disableGifEmote = quality === 'poor'
 
+  // Fetch polls for governance rooms
+  useEffect(() => {
+    if (!currentChannel || currentChannel.roomType !== 'governance') {
+      setPolls([])
+      return
+    }
+    setPollsLoading(true)
+    api.governance.getVotesForTier(currentChannel.category).then(votes => {
+      setPolls(votes)
+      setPollsLoading(false)
+    }).catch(() => setPollsLoading(false))
+  }, [activeChannel, currentChannel?.roomType, currentChannel?.category]) // eslint-disable-line react-hooks/exhaustive-deps
+
   if (loading) {
     return (
       <div className="flex min-h-[60vh] items-center justify-center">
@@ -448,7 +553,7 @@ function SocialPage() {
                 </button>
 
                 {!isCollapsed && chs.map(ch => {
-                  const isLocked = TIER_RANK[ch.tierRequired] > userRank
+                  const isLocked = ch.locked
                   const isActive = ch.id === activeChannel
                   const hasUnread = ch.unreadCount > 0 && !isLocked
 
@@ -579,6 +684,22 @@ function SocialPage() {
           )
         })()}
 
+        {currentChannel?.roomType === 'governance' ? (
+          <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
+            {pollsLoading ? (
+              <div className="flex justify-center py-12"><Spinner /></div>
+            ) : polls.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-12 text-gray-500">
+                <p className="text-sm">No active polls</p>
+              </div>
+            ) : (
+              polls.map(poll => (
+                <GovernancePollCard key={poll.id} poll={poll} onVote={handlePollVote} />
+              ))
+            )}
+          </div>
+        ) : (
+        <>
         {/* Messages Feed */}
         <div ref={chatContainerRef} className="flex-1 overflow-y-auto px-4 py-2 space-y-1 relative">
           {/* Loading older messages indicator */}
@@ -803,7 +924,11 @@ function SocialPage() {
         )}
 
         {/* Message Composer */}
-        {currentChannel?.viewOnly ? (
+        {currentChannel?.roomType === 'announcements' && !isAdmin ? (
+          <div className="shrink-0 border-t border-white/5 px-4 py-3 text-center text-sm text-[var(--color-text-dim)]">
+            Announcements — admin only
+          </div>
+        ) : currentChannel?.viewOnly ? (
           <div className="shrink-0 border-t border-white/5 px-4 py-3 text-center text-sm text-[var(--color-text-dim)]">
             This channel is view only
           </div>
@@ -919,6 +1044,8 @@ function SocialPage() {
             </div>
           )}
         </div>}
+        </>
+        )}
       </main>
     </div>
   )
