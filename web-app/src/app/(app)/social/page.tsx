@@ -245,8 +245,14 @@ function SocialPage() {
   useEffect(() => {
     api.social.getChannels().then(({ channels: ch }) => {
       setChannels(ch)
-      if (!activeChannel && ch.length > 0) {
-        setActiveChannel(ch[0].id)
+      // If URL param points to a locked channel, clear it
+      const urlChannel = ch.find(c => c.id === activeChannel)
+      if (activeChannel && urlChannel?.locked) {
+        const firstUnlocked = ch.find(c => !c.locked)
+        setActiveChannel(firstUnlocked?.id ?? '')
+      } else if (!activeChannel && ch.length > 0) {
+        const firstUnlocked = ch.find(c => !c.locked)
+        setActiveChannel(firstUnlocked?.id ?? ch[0].id)
       }
       setLoading(false)
     })
@@ -924,7 +930,11 @@ function SocialPage() {
         )}
 
         {/* Message Composer */}
-        {currentChannel?.roomType === 'announcements' && !isAdmin ? (
+        {currentChannel?.locked ? (
+          <div className="shrink-0 border-t border-white/5 px-4 py-3 text-center text-sm text-[var(--color-text-dim)]">
+            Upgrade your tier to access this channel
+          </div>
+        ) : currentChannel?.roomType === 'announcements' && !isAdmin ? (
           <div className="shrink-0 border-t border-white/5 px-4 py-3 text-center text-sm text-[var(--color-text-dim)]">
             Announcements — admin only
           </div>
