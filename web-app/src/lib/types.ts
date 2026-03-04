@@ -6,11 +6,7 @@ export type TransactionType = 'comp' | 'purchase' | 'withdrawal' | 'affiliate'
 
 export type TransactionStatus = 'completed' | 'pending' | 'failed'
 
-export type VoteStatus = 'active' | 'closed' | 'upcoming'
-
-export type ProposalStatus = 'submitted' | 'under_review' | 'approved' | 'rejected'
-
-export type CompType = 'scan' | 'referral' | 'tier_bonus' | 'governance' | 'promotion'
+export type CompType = 'scan' | 'referral' | 'tier_bonus' | 'promotion'
 
 export interface User {
   id: string
@@ -95,6 +91,8 @@ export interface Channel {
   unreadCount: number
   icon: string
   viewOnly?: boolean
+  roomType: 'chat' | 'announcements' | 'governance'
+  locked: boolean
 }
 
 export interface Message {
@@ -122,28 +120,29 @@ export interface Message {
 export interface VoteOption {
   id: string
   label: string
-  votes: number
 }
 
-export interface Vote {
+export interface VoteResult {
+  option_id: string
+  label: string
+  count: number
+  percentage: number
+}
+
+export interface VoteOut {
   id: string
   title: string
   description: string
+  target_tiers: string[]
   options: VoteOption[]
-  deadline: string
-  status: VoteStatus
-  userVote?: string
-  results?: Record<string, number>
-  totalVotes: number
-}
-
-export interface Proposal {
-  id: string
-  title: string
-  description: string
-  submittedBy: string
-  status: ProposalStatus
-  createdAt: string
+  status: string
+  start_date: string
+  end_date: string
+  total_votes: number
+  results: VoteResult[]
+  user_has_voted: boolean
+  user_selected_option: string | null
+  created_at: string
 }
 
 export interface CompAward {
@@ -182,7 +181,7 @@ export interface ActivityFeedItem {
   id: string
   message: string
   timestamp: string
-  type: 'scan' | 'comp' | 'order' | 'governance' | 'social' | 'system'
+  type: 'scan' | 'comp' | 'order' | 'social' | 'system'
 }
 
 export interface DashboardData {

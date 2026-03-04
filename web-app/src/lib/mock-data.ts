@@ -1,5 +1,5 @@
 import type {
-  User, Product, Order, Transaction, Channel, Message, Vote, Proposal,
+  User, Product, Order, Transaction, Channel, Message,
   CompAward, Scan, TreasuryWallet, TransparencyOverview, ActivityFeedItem,
   MonthlyEarning,
 } from './types'
@@ -129,22 +129,22 @@ export const transactions: Transaction[] = [
 
 export const channels: Channel[] = [
   // General
-  { id: 'ch_001', name: 'General Chat', category: 'General', description: 'Open discussion for all members', tierRequired: 'standard', unreadCount: 5, icon: 'MessageCircle' },
-  { id: 'ch_002', name: 'Introductions', category: 'General', description: 'New? Say hello!', tierRequired: 'standard', unreadCount: 0, icon: 'HandMetal' },
-  { id: 'ch_003', name: 'Flavor Reviews', category: 'General', description: 'Share your thoughts on BlakJaks flavors', tierRequired: 'standard', unreadCount: 12, icon: 'Star' },
+  { id: 'ch_001', name: 'General Chat', category: 'General', description: 'Open discussion for all members', tierRequired: 'standard', unreadCount: 5, icon: 'MessageCircle', roomType: 'chat', locked: false },
+  { id: 'ch_002', name: 'Introductions', category: 'General', description: 'New? Say hello!', tierRequired: 'standard', unreadCount: 0, icon: 'HandMetal', roomType: 'chat', locked: false },
+  { id: 'ch_003', name: 'Flavor Reviews', category: 'General', description: 'Share your thoughts on BlakJaks flavors', tierRequired: 'standard', unreadCount: 12, icon: 'Star', roomType: 'chat', locked: false },
   // VIP Lounge
-  { id: 'ch_004', name: 'VIP Chat', category: 'VIP Lounge', description: 'Exclusive VIP discussion', tierRequired: 'vip', unreadCount: 3, icon: 'Crown' },
-  { id: 'ch_010', name: 'VIP Governance', category: 'VIP Lounge', description: 'VIP governance proposals and voting', tierRequired: 'vip', unreadCount: 1, icon: 'FileText' },
+  { id: 'ch_004', name: 'VIP Chat', category: 'VIP Lounge', description: 'Exclusive VIP discussion', tierRequired: 'vip', unreadCount: 3, icon: 'Crown', roomType: 'chat', locked: false },
+  { id: 'ch_010', name: 'VIP Governance', category: 'VIP Lounge', description: 'VIP governance proposals and voting', tierRequired: 'vip', unreadCount: 1, icon: 'FileText', roomType: 'governance', locked: false },
   // High Roller Lounge
-  { id: 'ch_005', name: 'High Roller Chat', category: 'High Roller Lounge', description: 'For High Roller tier and above', tierRequired: 'high_roller', unreadCount: 0, icon: 'Gem' },
-  { id: 'ch_012', name: 'High Roller Governance', category: 'High Roller Lounge', description: 'High Roller governance proposals and voting', tierRequired: 'high_roller', unreadCount: 2, icon: 'FileText' },
+  { id: 'ch_005', name: 'High Roller Chat', category: 'High Roller Lounge', description: 'For High Roller tier and above', tierRequired: 'high_roller', unreadCount: 0, icon: 'Gem', roomType: 'chat', locked: false },
+  { id: 'ch_012', name: 'High Roller Governance', category: 'High Roller Lounge', description: 'High Roller governance proposals and voting', tierRequired: 'high_roller', unreadCount: 2, icon: 'FileText', roomType: 'governance', locked: false },
   // Whale Pod
-  { id: 'ch_006', name: 'Whale Chat', category: 'Whale Pod', description: 'Whale-exclusive channel', tierRequired: 'whale', unreadCount: 0, icon: 'Trophy' },
-  { id: 'ch_013', name: 'Whale Governance', category: 'Whale Pod', description: 'Whale governance proposals and voting', tierRequired: 'whale', unreadCount: 0, icon: 'FileText' },
+  { id: 'ch_006', name: 'Whale Chat', category: 'Whale Pod', description: 'Whale-exclusive channel', tierRequired: 'whale', unreadCount: 0, icon: 'Trophy', roomType: 'chat', locked: false },
+  { id: 'ch_013', name: 'Whale Governance', category: 'Whale Pod', description: 'Whale governance proposals and voting', tierRequired: 'whale', unreadCount: 0, icon: 'FileText', roomType: 'governance', locked: false },
   // Comps & Crypto
-  { id: 'ch_007', name: 'Comp Updates', category: 'Comps & Crypto', description: 'Latest comp award announcements', tierRequired: 'standard', unreadCount: 8, icon: 'Coins' },
-  { id: 'ch_008', name: 'Wallet Help', category: 'Comps & Crypto', description: 'Questions about wallets and withdrawals', tierRequired: 'standard', unreadCount: 2, icon: 'Wallet' },
-  { id: 'ch_009', name: 'Crypto Talk', category: 'Comps & Crypto', description: 'Discuss blockchain and crypto topics', tierRequired: 'standard', unreadCount: 0, icon: 'Bitcoin' },
+  { id: 'ch_007', name: 'Comp Updates', category: 'Comps & Crypto', description: 'Latest comp award announcements', tierRequired: 'standard', unreadCount: 8, icon: 'Coins', roomType: 'announcements', locked: false },
+  { id: 'ch_008', name: 'Wallet Help', category: 'Comps & Crypto', description: 'Questions about wallets and withdrawals', tierRequired: 'standard', unreadCount: 2, icon: 'Wallet', roomType: 'chat', locked: false },
+  { id: 'ch_009', name: 'Crypto Talk', category: 'Comps & Crypto', description: 'Discuss blockchain and crypto topics', tierRequired: 'standard', unreadCount: 0, icon: 'Bitcoin', roomType: 'chat', locked: false },
 ]
 
 const mockUsers = [
@@ -228,60 +228,6 @@ export const messagesByChannel: Record<string, Message[]> = {
   ch_012: generateMessages('ch_012', 10),
   ch_013: generateMessages('ch_013', 6),
 }
-
-export const votes: Vote[] = [
-  {
-    id: 'vote_001', title: 'New Flavor: Mango Tango', description: 'Should BlakJaks release a mango-flavored pouch for summer 2025?',
-    options: [
-      { id: 'opt_1a', label: 'Yes, release it!', votes: 842 },
-      { id: 'opt_1b', label: 'No, focus on existing flavors', votes: 156 },
-      { id: 'opt_1c', label: 'Yes, but limited edition only', votes: 423 },
-    ],
-    deadline: '2025-03-01T00:00:00Z', status: 'active', totalVotes: 1421,
-  },
-  {
-    id: 'vote_002', title: 'Comp Rate Adjustment Q2', description: 'Vote on the proposed comp rate increase for Q2 2025.',
-    options: [
-      { id: 'opt_2a', label: 'Increase by 10%', votes: 567 },
-      { id: 'opt_2b', label: 'Increase by 20%', votes: 334 },
-      { id: 'opt_2c', label: 'Keep current rates', votes: 189 },
-    ],
-    deadline: '2025-02-28T00:00:00Z', status: 'active', totalVotes: 1090,
-  },
-  {
-    id: 'vote_003', title: 'Community Event: Vegas Meetup', description: 'Should we organize a BlakJaks community meetup in Las Vegas?',
-    options: [
-      { id: 'opt_3a', label: 'Definitely!', votes: 1203 },
-      { id: 'opt_3b', label: 'Maybe later', votes: 245 },
-      { id: 'opt_3c', label: 'Virtual event instead', votes: 389 },
-    ],
-    deadline: '2025-03-15T00:00:00Z', status: 'active', totalVotes: 1837,
-  },
-  {
-    id: 'vote_004', title: 'Packaging Redesign', description: 'Vote on the proposed packaging redesign for 2025.',
-    options: [
-      { id: 'opt_4a', label: 'Design A - Minimal', votes: 890 },
-      { id: 'opt_4b', label: 'Design B - Bold', votes: 1150 },
-      { id: 'opt_4c', label: 'Keep current design', votes: 340 },
-    ],
-    deadline: '2025-01-31T00:00:00Z', status: 'closed', userVote: 'opt_4b', totalVotes: 2380,
-  },
-  {
-    id: 'vote_005', title: 'Charity Partnership', description: 'Which charity should BlakJaks partner with for Q1 donations?',
-    options: [
-      { id: 'opt_5a', label: 'Ocean Cleanup', votes: 678 },
-      { id: 'opt_5b', label: 'Mental Health Foundation', votes: 912 },
-      { id: 'opt_5c', label: 'Youth Education Fund', votes: 445 },
-    ],
-    deadline: '2024-12-31T00:00:00Z', status: 'closed', userVote: 'opt_5b', totalVotes: 2035,
-  },
-]
-
-export const proposals: Proposal[] = [
-  { id: 'prop_001', title: 'Add Subscription Option', description: 'Allow members to subscribe for monthly auto-shipments at a discounted rate.', submittedBy: 'cryptoQueen', status: 'under_review', createdAt: '2025-02-10T10:00:00Z' },
-  { id: 'prop_002', title: 'NFT Membership Cards', description: 'Create NFT-based membership cards that unlock exclusive perks.', submittedBy: 'whaleDave', status: 'approved', createdAt: '2025-01-20T14:00:00Z' },
-  { id: 'prop_003', title: 'Multi-Language Support', description: 'Add support for Spanish, French, and German in the social hub.', submittedBy: 'vipSarah', status: 'submitted', createdAt: '2025-02-15T08:00:00Z' },
-]
 
 export const comps: CompAward[] = [
   { id: 'comp_001', date: '2025-02-17T10:00:00Z', amount: 0.50, type: 'scan', txHash: '0xabc123...def456', status: 'completed' },

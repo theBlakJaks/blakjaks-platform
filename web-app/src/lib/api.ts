@@ -1,4 +1,4 @@
-import type { Channel, Message, Vote, Proposal } from './types'
+import type { Channel, Message, VoteOut } from './types'
 import { refreshToken } from './store'
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000'
@@ -291,6 +291,8 @@ export const api = {
         unreadCount: Number(c.unread_count ?? 0),
         icon: String(c.icon ?? '#'),
         viewOnly: Boolean(c.view_only),
+        roomType: (c.room_type ?? 'chat') as Channel['roomType'],
+        locked: Boolean(c.locked),
       }))
       return { channels }
     },
@@ -514,33 +516,28 @@ export const api = {
   // -------------------------------------------------------------------------
   governance: {
     /**
-     * GET /api/governance/votes
-     * Backend returns a plain array of active votes; proposals come from a
-     * separate endpoint that does not exist yet, so we return an empty array.
+     * GET /api/governance/votes/tier/{tierName}
+     * Returns votes targeted at the given tier.
      */
-    async getVotes(): Promise<{ votes: Vote[]; proposals: Proposal[] }> {
-      const votes = await fetchAPI<Vote[]>('/governance/votes')
-      return { votes, proposals: [] }
+    async getVotesForTier(tierName: string): Promise<VoteOut[]> {
+      return fetchAPI<VoteOut[]>(`/governance/votes/tier/${encodeURIComponent(tierName)}`)
     },
 
     /**
-     * POST /api/governance/votes/{voteId}/ballot
+     * POST /api/governance/votes/{voteId}/cast
      */
-    async castVote(voteId: string, optionId: string) {
-      return fetchAPI<{ message: string; option_id: string }>(
-        `/governance/votes/${voteId}/ballot`,
-        { method: 'POST', body: JSON.stringify({ option_id: optionId }) },
-      )
+    async castVote(voteId: string, optionId: string): Promise<{ message: string; option_id: string }> {
+      return fetchAPI(`/governance/votes/${voteId}/cast`, {
+        method: 'POST',
+        body: JSON.stringify({ option_id: optionId }),
+      })
     },
 
     /**
-     * POST /api/governance/proposals
+     * GET /api/governance/votes/{voteId}
      */
-    async submitProposal(data: { title: string; description: string }) {
-      return fetchAPI<{ id: string; title: string; description: string; status: string; created_at: string }>(
-        '/governance/proposals',
-        { method: 'POST', body: JSON.stringify(data) },
-      )
+    async getVoteDetail(voteId: string): Promise<VoteOut> {
+      return fetchAPI<VoteOut>(`/governance/votes/${voteId}`)
     },
   },
 
