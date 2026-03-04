@@ -142,7 +142,7 @@ jobs:
       - name: Get Giphy API key from Secret Manager
         id: giphy_secret
         run: |
-          echo "GIPHY_KEY=$(gcloud secrets versions access latest --secret=GIPHY_API_KEY --project=blakjaks-production)" >> $GITHUB_OUTPUT
+          echo "GIPHY_KEY=$(gcloud secrets versions access latest --secret=giphy-api-key --project=blakjaks-production)" >> $GITHUB_OUTPUT
 
       - name: Build & push web-app image
         run: |
@@ -305,7 +305,7 @@ jobs:
       - name: Get Giphy API key from Secret Manager
         id: giphy_secret
         run: |
-          echo "GIPHY_KEY=$(gcloud secrets versions access latest --secret=GIPHY_API_KEY --project=blakjaks-production)" >> $GITHUB_OUTPUT
+          echo "GIPHY_KEY=$(gcloud secrets versions access latest --secret=giphy-api-key --project=blakjaks-production)" >> $GITHUB_OUTPUT
 
       - name: Build staging images
         run: |
