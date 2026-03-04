@@ -106,6 +106,12 @@ protocol APIClientProtocol {
     func removeReaction(messageId: String, emoji: String) async throws
     func getPinnedMessages(channelId: String) async throws -> [ChatMessage]
 
+    // Emotes
+    func getSavedEmotes() async throws -> [SavedEmoteResponse]
+    func saveEmote(emoteId: String, emoteName: String, animated: Bool, zeroWidth: Bool) async throws -> SavedEmoteResponse
+    func deleteSavedEmote(emoteId: String) async throws
+    func reorderSavedEmotes(emoteIds: [String]) async throws
+
     // Governance
     func getActiveVotes() async throws -> [GovernanceVote]
     func getVoteDetail(id: String) async throws -> GovernanceVoteDetail
@@ -379,6 +385,28 @@ struct ReferralCode: Codable {
     let code: String
     let referralUrl: String
     let totalUses: Int
+}
+
+struct SavedEmoteResponse: Codable {
+    let emoteId: String
+    let emoteName: String
+    let animated: Bool
+    let zeroWidth: Bool
+    let sortOrder: Int
+}
+
+struct SavedEmoteCreateRequest: Encodable {
+    let emoteId: String
+    let emoteName: String
+    let animated: Bool
+    let zeroWidth: Bool
+
+    enum CodingKeys: String, CodingKey {
+        case emoteId = "emote_id"
+        case emoteName = "emote_name"
+        case animated
+        case zeroWidth = "zero_width"
+    }
 }
 
 struct CompPayoutResult: Codable {

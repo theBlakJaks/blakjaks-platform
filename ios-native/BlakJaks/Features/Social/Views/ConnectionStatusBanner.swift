@@ -2,71 +2,40 @@ import SwiftUI
 
 // MARK: - ConnectionStatusBanner
 
-/// Displays connection state and quality warnings at the top of the chat.
+/// Shows a banner ONLY when the session has fully expired (refresh token dead).
+/// Normal 4001s (access token expired) are handled silently via auto-refresh.
+/// This only appears when the 30-day refresh token has expired.
 
 struct ConnectionStatusBanner: View {
 
     let connectionState: ChatConnectionState
-    let quality: ConnectionQuality
+    let onSignOut: () -> Void
 
     var body: some View {
-        Group {
-            if connectionState == .reconnecting || connectionState == .connecting {
-                banner(
-                    icon: nil,
-                    text: "Reconnecting...",
-                    showSpinner: true,
-                    fg: Color.gold,
-                    bg: Color.gold.opacity(0.08)
-                )
-            } else if connectionState == .disconnected {
-                banner(
-                    icon: "wifi.slash",
-                    text: "Disconnected",
-                    showSpinner: false,
-                    fg: Color.textTertiary,
-                    bg: Color.bgCard
-                )
-            } else if connectionState == .sessionExpired {
-                banner(
-                    icon: "exclamationmark.triangle.fill",
-                    text: "Session expired — please sign in again",
-                    showSpinner: false,
-                    fg: .red,
-                    bg: Color.red.opacity(0.08)
-                )
-            } else if quality == .poor {
-                banner(
-                    icon: "wifi.exclamationmark",
-                    text: "Poor connection",
-                    showSpinner: false,
-                    fg: Color.gold,
-                    bg: Color.gold.opacity(0.06)
-                )
+        if connectionState == .sessionExpired {
+            HStack(spacing: 8) {
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .font(.system(size: 12))
+                    .foregroundColor(.red)
+                Text("Session expired — please sign in again")
+                    .font(BJFont.sora(12, weight: .medium))
+                    .foregroundColor(.red)
+                Spacer()
+                Button {
+                    onSignOut()
+                } label: {
+                    Text("Sign In")
+                        .font(BJFont.sora(11, weight: .bold))
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 5)
+                        .background(Color.red)
+                        .clipShape(RoundedRectangle(cornerRadius: 6))
+                }
             }
+            .padding(.horizontal, Spacing.md)
+            .padding(.vertical, 8)
+            .background(Color.red.opacity(0.08))
         }
-    }
-
-    // MARK: - Banner
-
-    private func banner(icon: String?, text: String, showSpinner: Bool, fg: Color, bg: Color) -> some View {
-        HStack(spacing: 6) {
-            if showSpinner {
-                ProgressView()
-                    .scaleEffect(0.7)
-                    .tint(fg)
-            }
-            if let icon {
-                Image(systemName: icon)
-                    .font(.system(size: 11))
-                    .foregroundColor(fg)
-            }
-            Text(text)
-                .font(BJFont.sora(11, weight: .medium))
-                .foregroundColor(fg)
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 6)
-        .background(bg)
     }
 }

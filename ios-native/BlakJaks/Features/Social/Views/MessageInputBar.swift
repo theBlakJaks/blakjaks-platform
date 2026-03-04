@@ -4,6 +4,15 @@ import SwiftUI
 
 struct MessageInputBar: View {
 
+    // MARK: - InputFocus State Machine
+
+    enum InputFocus: Equatable {
+        case none
+        case keyboard
+        case emotePicker
+        case gifPicker
+    }
+
     @ObservedObject var vm: ChatRoomViewModel
     let emoteMap: [String: CachedEmote]
     let emoteList: [CachedEmote]
@@ -11,8 +20,8 @@ struct MessageInputBar: View {
     let onSendGif: (String) -> Void
     let onMarkUsed: (CachedEmote) -> Void
 
-    @State private var showEmotePicker = false
-    @State private var showGifPicker = false
+    @State private var focus: InputFocus = .none
+    @State private var isTextFieldFirstResponder = false
     @State private var stagedGifUrl: String?
     @State private var pendingEmote: CachedEmote?
     @State private var localInput = ""
@@ -28,7 +37,7 @@ struct MessageInputBar: View {
             } else {
                 VStack(spacing: 0) {
                     // Emote autocomplete
-                    if !autocompleteMatches.isEmpty && !showEmotePicker {
+                    if !autocompleteMatches.isEmpty && focus != .emotePicker {
                         EmoteAutocomplete(
                             matches: autocompleteMatches,
                             onSelect: { emote in
@@ -50,8 +59,22 @@ struct MessageInputBar: View {
 
                     // Input row
                     HStack(alignment: .bottom, spacing: Spacing.xs) {
-                        pickerButtons
-                        richInput
+                        // Unified container: text field + buttons on right
+                        HStack(spacing: 0) {
+                            richInput
+                            emoteButton
+                                .padding(.leading, 4)
+                                .padding(.trailing, 6)
+                            gifButton
+                                .padding(.trailing, 8)
+                        }
+                        .background(Color.bgInput)
+                        .clipShape(RoundedRectangle(cornerRadius: 20))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 20)
+                                .stroke(Color.borderSubtle, lineWidth: 0.8)
+                        )
+
                         sendButton
                     }
                     .padding(.horizontal, Spacing.sm)
@@ -65,17 +88,29 @@ struct MessageInputBar: View {
                 .background(Color.bgPrimary)
                 .overlay(cooldownOverlay)
 
-                // Emote picker panel (replaces keyboard)
-                // EmotePicker observes the store directly for search
-                if showEmotePicker {
+                // Emote picker panel
+                if focus == .emotePicker {
                     EmotePicker(
                         store: emoteStore,
                         onSelect: { emote in
                             onMarkUsed(emote)
                             pendingEmote = emote
+                            // Transition #8: stay in .emotePicker
+                        }
+                    )
+                    .frame(height: 300)
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                }
+
+                // GIF picker panel (inline, not sheet)
+                if focus == .gifPicker {
+                    GiphyPicker(
+                        onSelect: { gifUrl in
+                            stagedGifUrl = gifUrl
+                            focus = .none   // Transition #9
                         },
                         onDismiss: {
-                            showEmotePicker = false
+                            focus = .keyboard
                         }
                     )
                     .frame(height: 300)
@@ -83,7 +118,10 @@ struct MessageInputBar: View {
                 }
             }
         }
-        .animation(.easeInOut(duration: 0.2), value: showEmotePicker)
+        .animation(.easeInOut(duration: 0.2), value: focus)
+        .onChange(of: focus) { newFocus in
+            isTextFieldFirstResponder = (newFocus == .keyboard)
+        }
     }
 
     // MARK: - Rich Input
@@ -92,10 +130,12 @@ struct MessageInputBar: View {
         EmoteRichInput(
             text: $localInput,
             pendingEmote: $pendingEmote,
+            isFirstResponder: $isTextFieldFirstResponder,
             placeholder: "Message \(vm.channel.name)...",
             maxCharacters: maxCharacters,
             emoteMap: emoteMap,
             onSubmit: {
+                focus = .none   // Transition #10
                 vm.inputText = localInput
                 Task {
                     await vm.sendMessage()
@@ -106,16 +146,13 @@ struct MessageInputBar: View {
                 if !text.isEmpty {
                     vm.sendTypingIfNeeded()
                 }
+            },
+            onBeginEditing: {
+                focus = .keyboard   // Transition #1
             }
         )
-        .frame(minHeight: 38, maxHeight: 120)
+        .frame(minHeight: 42, maxHeight: 120)
         .fixedSize(horizontal: false, vertical: true)
-        .background(Color.bgInput)
-        .overlay(
-            RoundedRectangle(cornerRadius: 20)
-                .stroke(Color.borderSubtle, lineWidth: 0.8)
-        )
-        .clipShape(RoundedRectangle(cornerRadius: 20))
     }
 
     // MARK: - Read-Only Banner
@@ -180,6 +217,7 @@ struct MessageInputBar: View {
                     localInput = ""
                 }
             }
+            focus = .none   // Transition #10
         } label: {
             ZStack {
                 Circle()
@@ -219,47 +257,46 @@ struct MessageInputBar: View {
         }
     }
 
-    // MARK: - Picker Buttons
+    // MARK: - Emote Button
 
-    private var pickerButtons: some View {
-        VStack(spacing: 6) {
-            Button {
-                if showEmotePicker {
-                    showEmotePicker = false
-                } else {
-                    UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                        showEmotePicker = true
-                    }
-                }
-            } label: {
-                Image(systemName: showEmotePicker ? "keyboard" : "face.smiling")
-                    .font(.system(size: 22))
-                    .foregroundColor(showEmotePicker ? Color.gold : Color.textTertiary)
+    private var emoteButton: some View {
+        Button {
+            switch focus {
+            case .keyboard:     focus = .emotePicker    // Transition #2
+            case .emotePicker:  focus = .keyboard       // Transition #3
+            case .gifPicker:    focus = .emotePicker    // Transition #4
+            case .none:         focus = .emotePicker
             }
-
-            Button {
-                showGifPicker = true
-            } label: {
-                Text("GIF")
-                    .font(.system(size: 9, weight: .bold))
-                    .foregroundColor(Color.textTertiary)
-                    .padding(.horizontal, 4)
-                    .padding(.vertical, 2)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 3)
-                            .stroke(Color.textTertiary, lineWidth: 0.8)
-                    )
-            }
-            .sheet(isPresented: $showGifPicker) {
-                GiphyPicker { gifUrl in
-                    stagedGifUrl = gifUrl
-                    showGifPicker = false
-                }
-                .presentationDetents([.medium, .large])
-            }
+        } label: {
+            Image(systemName: focus == .emotePicker ? "keyboard" : "face.smiling")
+                .font(.system(size: 24))
+                .foregroundColor(focus == .emotePicker ? Color.gold : Color.textTertiary)
+                .frame(width: 36, height: 36)
+                .contentShape(Rectangle())
         }
-        .padding(.bottom, 4)
+    }
+
+    // MARK: - GIF Button
+
+    private var gifButton: some View {
+        Button {
+            switch focus {
+            case .keyboard:     focus = .gifPicker      // Transition #5
+            case .gifPicker:    focus = .keyboard       // Transition #6
+            case .emotePicker:  focus = .gifPicker      // Transition #7
+            case .none:         focus = .gifPicker
+            }
+        } label: {
+            Text("GIF")
+                .font(.system(size: 12, weight: .bold))
+                .foregroundColor(focus == .gifPicker ? Color.gold : Color.textTertiary)
+                .padding(.horizontal, 6)
+                .padding(.vertical, 3)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 4)
+                        .stroke(focus == .gifPicker ? Color.gold : Color.textTertiary, lineWidth: 0.8)
+                )
+        }
     }
 
     // MARK: - Staged GIF Preview

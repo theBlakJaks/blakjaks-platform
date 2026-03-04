@@ -67,6 +67,11 @@ enum APIEndpoints {
     static let proposals             = "/governance/proposals"
     static func vote(_ id: String) -> String { "/governance/proposals/\(id)/vote" }
 
+    // MARK: - Emotes
+    static let savedEmotes           = "/emotes/saved"
+    static func savedEmote(_ id: String) -> String { "/emotes/saved/\(id)" }
+    static let savedEmotesReorder    = "/emotes/saved/reorder"
+
     // MARK: - Wholesale / Affiliate
     static let wholesaleDashboard    = "/wholesale/dashboard"
     static let affiliateDashboard    = "/affiliate/dashboard"

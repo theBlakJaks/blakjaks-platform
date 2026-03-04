@@ -14,6 +14,10 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
         // UIAppFonts in Info.plist loads fonts synchronously (11s delay for variable fonts).
         // Background registration completes before the first SwiftUI layout pass.
         DispatchQueue.global(qos: .userInitiated).async { Self.registerFonts() }
+
+        // Disable swipe-back navigation globally — buttons only.
+        SwipeBackDisabler.install()
+
         return true
     }
 

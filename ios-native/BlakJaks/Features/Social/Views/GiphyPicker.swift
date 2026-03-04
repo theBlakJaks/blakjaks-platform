@@ -2,12 +2,13 @@ import SwiftUI
 
 // MARK: - GiphyPicker
 
-/// Sheet with search and 2-column grid of GIFs fetched through the backend Giphy proxy.
+/// Inline panel with search and 2-column grid of GIFs fetched through the backend Giphy proxy.
 /// Selecting a GIF returns its URL for the message.
 
 struct GiphyPicker: View {
 
     let onSelect: (String) -> Void   // returns the GIF URL
+    let onDismiss: () -> Void        // back to keyboard
 
     @State private var searchText = ""
     @State private var gifs: [GiphyProxyGif] = []
@@ -17,42 +18,38 @@ struct GiphyPicker: View {
     private let columns = [GridItem(.flexible(), spacing: 8), GridItem(.flexible(), spacing: 8)]
 
     var body: some View {
-        NavigationStack {
-            VStack(spacing: 0) {
-                searchBar
-                Divider().background(Color.borderSubtle)
+        VStack(spacing: 0) {
+            // Drag handle
+            RoundedRectangle(cornerRadius: 2)
+                .fill(Color.textTertiary.opacity(0.4))
+                .frame(width: 36, height: 4)
+                .padding(.top, 6)
+                .padding(.bottom, 4)
 
-                ScrollView(showsIndicators: false) {
-                    if isLoading && gifs.isEmpty {
-                        ProgressView().tint(Color.gold).padding(Spacing.xl)
-                    } else if gifs.isEmpty {
-                        Text("Search for GIFs")
-                            .font(BJFont.sora(13, weight: .regular))
-                            .foregroundColor(Color.textTertiary)
-                            .padding(Spacing.xl)
-                    } else {
-                        LazyVGrid(columns: columns, spacing: 8) {
-                            ForEach(gifs) { gif in
-                                gifCell(gif)
-                            }
+            searchBar
+            Divider().background(Color.borderSubtle)
+
+            ScrollView(showsIndicators: false) {
+                if isLoading && gifs.isEmpty {
+                    ProgressView().tint(Color.gold).padding(Spacing.xl)
+                } else if gifs.isEmpty {
+                    Text("Search for GIFs")
+                        .font(BJFont.sora(13, weight: .regular))
+                        .foregroundColor(Color.textTertiary)
+                        .padding(Spacing.xl)
+                } else {
+                    LazyVGrid(columns: columns, spacing: 8) {
+                        ForEach(gifs) { gif in
+                            gifCell(gif)
                         }
-                        .padding(Spacing.md)
                     }
+                    .padding(Spacing.md)
                 }
             }
-            .background(Color.bgPrimary)
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .principal) {
-                    Text("GIFs")
-                        .font(BJFont.sora(13, weight: .bold))
-                        .tracking(3)
-                        .foregroundColor(Color.gold)
-                }
-            }
-            .task {
-                await loadTrending()
-            }
+        }
+        .background(Color.bgPrimary)
+        .task {
+            await loadTrending()
         }
     }
 

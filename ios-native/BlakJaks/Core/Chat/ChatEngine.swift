@@ -168,10 +168,11 @@ final class ChatEngine: ObservableObject {
         confirmationTimers[key] = workItem
         DispatchQueue.main.asyncAfter(deadline: .now() + confirmationTimeout, execute: workItem)
 
-        // Send immediately if connected
-        if socket != nil {
+        // Send immediately if fully connected (auth_success received)
+        if connectionState == .connected {
             send(.sendMessage(channelId: channelId, content: content, replyToId: replyToId, idempotencyKey: key))
         }
+        // Otherwise flushQueue() will pick it up once connected
 
         return queued
     }
@@ -197,7 +198,7 @@ final class ChatEngine: ObservableObject {
         confirmationTimers[idempotencyKey] = workItem
         DispatchQueue.main.asyncAfter(deadline: .now() + confirmationTimeout, execute: workItem)
 
-        if socket != nil {
+        if connectionState == .connected {
             send(.sendMessage(
                 channelId: queued.channelId,
                 content: queued.content,
@@ -407,9 +408,11 @@ final class ChatEngine: ObservableObject {
         stopRttInterval()
         stopSequencePersistTimer()
 
-        // Close code 4001: Auth failure — terminal, do not reconnect
+        // Close code 4001: Auth failure — try refreshing the token silently
         if closeCode == 4001 {
-            setState(.sessionExpired)
+            Task { @MainActor [weak self] in
+                await self?.attemptTokenRefreshAndReconnect()
+            }
             return
         }
 
@@ -443,6 +446,28 @@ final class ChatEngine: ObservableObject {
         }
     }
 
+    /// Silently refresh access token using the stored refresh token, then reconnect.
+    /// If refresh fails (e.g. refresh token expired after 30 days), set session expired.
+    private func attemptTokenRefreshAndReconnect() async {
+        setState(.reconnecting)
+        guard let refreshToken = KeychainManager.shared.refreshToken else {
+            print("[ChatEngine] No refresh token — session truly expired")
+            setState(.sessionExpired)
+            return
+        }
+        do {
+            let tokens = try await APIClient.shared.refreshToken(refreshToken: refreshToken)
+            KeychainManager.shared.store(tokens: tokens)
+            print("[ChatEngine] Token refreshed, reconnecting WS")
+            reconnectAttempts = 0
+            rapidCloseCount = 0
+            doConnect()
+        } catch {
+            print("[ChatEngine] Token refresh failed: \(error) — session expired")
+            setState(.sessionExpired)
+        }
+    }
+
     private func handleNewMessage(_ msg: NewMessagePayload) {
         trackSequence(channelId: msg.channelId, sequence: msg.sequence)
         ack(channelId: msg.channelId, sequence: msg.sequence)
@@ -472,6 +497,7 @@ final class ChatEngine: ObservableObject {
         for channelId in joinedChannels {
             resumeChannel(channelId)
         }
+        flushQueue()
         measureRtt()
         startRttInterval()
         startSequencePersistTimer()

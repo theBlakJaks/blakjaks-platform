@@ -11,11 +11,13 @@ struct EmoteRichInput: UIViewRepresentable {
 
     @Binding var text: String
     @Binding var pendingEmote: CachedEmote?
+    @Binding var isFirstResponder: Bool
     let placeholder: String
     let maxCharacters: Int
     let emoteMap: [String: CachedEmote]
     var onSubmit: (() -> Void)?
     var onTextChange: ((String) -> Void)?
+    var onBeginEditing: (() -> Void)?
 
     func makeCoordinator() -> Coordinator {
         Coordinator(self)
@@ -78,6 +80,13 @@ struct EmoteRichInput: UIViewRepresentable {
         }
 
         context.coordinator.updatePlaceholder(uiView)
+
+        // First responder management driven by binding
+        if isFirstResponder && !uiView.isFirstResponder {
+            uiView.becomeFirstResponder()
+        } else if !isFirstResponder && uiView.isFirstResponder {
+            uiView.resignFirstResponder()
+        }
     }
 
     // MARK: - Coordinator
@@ -200,10 +209,17 @@ struct EmoteRichInput: UIViewRepresentable {
 
         func textViewDidBeginEditing(_ textView: UITextView) {
             updatePlaceholder(textView)
+            if !parent.isFirstResponder {
+                DispatchQueue.main.async { self.parent.isFirstResponder = true }
+            }
+            parent.onBeginEditing?()
         }
 
         func textViewDidEndEditing(_ textView: UITextView) {
             updatePlaceholder(textView)
+            if parent.isFirstResponder {
+                DispatchQueue.main.async { self.parent.isFirstResponder = false }
+            }
         }
 
         // MARK: - Helpers

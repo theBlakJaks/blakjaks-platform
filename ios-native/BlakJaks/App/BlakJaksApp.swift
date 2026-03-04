@@ -18,6 +18,7 @@ struct BlakJaksApp: App {
             }
             UserDefaults.standard.set(true, forKey: key)
         }
+
     }
 
     // Auth flow (unauthenticated):

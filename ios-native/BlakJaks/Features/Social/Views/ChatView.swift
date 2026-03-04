@@ -6,6 +6,7 @@ struct ChatView: View {
 
     let channel: Channel
     @EnvironmentObject private var chatEngine: ChatEngine
+    @EnvironmentObject private var authState: AuthState
     @StateObject private var vm: ChatRoomViewModel
     private let emoteStore = EmoteStore.shared
     @State private var translatedMessages: [String: String] = [:]
@@ -26,10 +27,10 @@ struct ChatView: View {
             Color.bgPrimary.ignoresSafeArea()
 
             VStack(spacing: 0) {
-                // Connection status
+                // Session expired banner only
                 ConnectionStatusBanner(
                     connectionState: chatEngine.connectionState,
-                    quality: chatEngine.quality
+                    onSignOut: { authState.signOut() }
                 )
 
                 messagesArea
@@ -65,6 +66,7 @@ struct ChatView: View {
         }
         .navigationTitle("")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar(.hidden, for: .tabBar)
         .toolbar {
             ToolbarItem(placement: .principal) {
                 VStack(spacing: 1) {
@@ -233,6 +235,7 @@ struct ChatView: View {
             memberCount: 1204
         ), engine: engine)
         .environmentObject(engine)
+        .environmentObject(AuthState())
     }
     .preferredColorScheme(.dark)
 }

@@ -468,6 +468,26 @@ final class APIClient: APIClientProtocol {
         return response.results
     }
 
+    // MARK: - Saved Emotes
+
+    func getSavedEmotes() async throws -> [SavedEmoteResponse] {
+        try await request(APIEndpoints.savedEmotes)
+    }
+
+    func saveEmote(emoteId: String, emoteName: String, animated: Bool, zeroWidth: Bool) async throws -> SavedEmoteResponse {
+        let body = SavedEmoteCreateRequest(emoteId: emoteId, emoteName: emoteName, animated: animated, zeroWidth: zeroWidth)
+        return try await requestEncodable(APIEndpoints.savedEmotes, body: body)
+    }
+
+    func deleteSavedEmote(emoteId: String) async throws {
+        try await requestVoid(APIEndpoints.savedEmote(emoteId), method: .delete)
+    }
+
+    func reorderSavedEmotes(emoteIds: [String]) async throws {
+        let params: Parameters = ["emote_ids": emoteIds]
+        try await requestVoid(APIEndpoints.savedEmotesReorder, method: .put, parameters: params)
+    }
+
     // MARK: - Governance
 
     func getActiveVotes() async throws -> [GovernanceVote] {

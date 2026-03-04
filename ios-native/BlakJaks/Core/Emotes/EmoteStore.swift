@@ -19,6 +19,7 @@ struct EmoteState {
     var emoteMap: [String: CachedEmote] = [:]
     var emoteList: [CachedEmote] = []
     var recentlyUsed: [CachedEmote] = []
+    var savedEmotes: [CachedEmote] = []
 }
 
 // MARK: - ImageDownloadThrottle
@@ -79,9 +80,12 @@ final class EmoteStore: ObservableObject {
     var emoteMap: [String: CachedEmote] { state.emoteMap }
     var emoteList: [CachedEmote] { state.emoteList }
     var recentlyUsed: [CachedEmote] { state.recentlyUsed }
+    var savedEmotes: [CachedEmote] { state.savedEmotes }
 
     private let maxRecent = 24
     private let recentKey = "com.blakjaks.chat.recentEmotes"
+    private let savedEmotesKey = "com.blakjaks.chat.savedEmotes"
+    private var reorderDebounce: DispatchWorkItem?
     private let diskCacheTTL: TimeInterval = 3600 // 1 hour
 
     private var diskCacheURL: URL {
@@ -99,11 +103,15 @@ final class EmoteStore: ObservableObject {
 
     private init() {
         restoreRecents()
+        restoreSavedEmotesLocally()
     }
 
     // MARK: - Initialize
 
     func initializeEmotes() async {
+        // Always fetch saved emotes from server on init (source of truth)
+        await loadSavedEmotes()
+
         guard state.emoteList.isEmpty else { return }
         isLoading = true
 
@@ -288,6 +296,85 @@ final class EmoteStore: ObservableObject {
             print("[EmoteStore] 7TV search error: \(error)")
             return []
         }
+    }
+
+    // MARK: - Saved Emotes
+
+    /// Loads saved emotes from the server. Falls back to local cache on failure.
+    func loadSavedEmotes() async {
+        do {
+            let remote = try await APIClient.shared.getSavedEmotes()
+            let emotes = remote.map { CachedEmote(id: $0.emoteId, name: $0.emoteName, animated: $0.animated, zeroWidth: $0.zeroWidth) }
+            state.savedEmotes = emotes
+            persistSavedEmotesLocally()
+        } catch {
+            // Fallback to local cache so emotes appear even while offline
+            restoreSavedEmotesLocally()
+            print("[EmoteStore] Failed to load saved emotes from server, using local cache: \(error)")
+        }
+    }
+
+    func saveEmote(_ emote: CachedEmote) {
+        guard !state.savedEmotes.contains(where: { $0.id == emote.id }) else { return }
+        state.savedEmotes.insert(emote, at: 0)
+        addEmote(emote)
+        persistSavedEmotesLocally()
+        // Sync to server
+        Task {
+            do {
+                _ = try await APIClient.shared.saveEmote(emoteId: emote.id, emoteName: emote.name, animated: emote.animated, zeroWidth: emote.zeroWidth)
+            } catch {
+                print("[EmoteStore] Failed to save emote to server: \(error)")
+            }
+        }
+    }
+
+    func isEmoteSaved(_ emote: CachedEmote) -> Bool {
+        state.savedEmotes.contains { $0.id == emote.id }
+    }
+
+    func removeFromSaved(_ emote: CachedEmote) {
+        state.savedEmotes.removeAll { $0.id == emote.id }
+        persistSavedEmotesLocally()
+        // Sync to server
+        Task {
+            do {
+                try await APIClient.shared.deleteSavedEmote(emoteId: emote.id)
+            } catch {
+                print("[EmoteStore] Failed to delete emote from server: \(error)")
+            }
+        }
+    }
+
+    func moveSavedEmote(from source: IndexSet, to destination: Int) {
+        state.savedEmotes.move(fromOffsets: source, toOffset: destination)
+        persistSavedEmotesLocally()
+        // Sync order to server (debounced — user may drag multiple times)
+        reorderDebounce?.cancel()
+        let ids = state.savedEmotes.map(\.id)
+        let work = DispatchWorkItem {
+            Task {
+                do {
+                    try await APIClient.shared.reorderSavedEmotes(emoteIds: ids)
+                } catch {
+                    print("[EmoteStore] Failed to reorder emotes on server: \(error)")
+                }
+            }
+        }
+        reorderDebounce = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0, execute: work)
+    }
+
+    /// Local cache — survives app restarts while offline, but server is source of truth.
+    private func persistSavedEmotesLocally() {
+        guard let data = try? JSONEncoder().encode(state.savedEmotes) else { return }
+        UserDefaults.standard.set(data, forKey: savedEmotesKey)
+    }
+
+    private func restoreSavedEmotesLocally() {
+        guard let data = UserDefaults.standard.data(forKey: savedEmotesKey),
+              let emotes = try? JSONDecoder().decode([CachedEmote].self, from: data) else { return }
+        state.savedEmotes = emotes
     }
 
     // MARK: - Persistence
