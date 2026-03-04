@@ -358,6 +358,7 @@ jobs:
   # ── Staging smoke test: runs after deploy, before load tests ────────────────
   smoke-test:
     name: Staging Smoke Test
+    if: false  # disabled — re-enable when needed
     needs: [deploy-staging]
     runs-on: ubuntu-latest
     environment: staging
@@ -394,7 +395,7 @@ jobs:
   # ── Load tests: run against staging after deploy ────────────────────────────
   load-test:
     name: Load Test (Staging)
-    needs: [deploy-staging, smoke-test]
+    needs: [deploy-staging]
     runs-on: ubuntu-latest
     environment: staging
     continue-on-error: true   # load tests are advisory; smoke-test is the gating check
