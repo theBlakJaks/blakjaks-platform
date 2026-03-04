@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { LayoutDashboard, MessageCircle, User, Settings, LogOut, Eye, Vote, Radio } from 'lucide-react'
+import { LayoutDashboard, MessageCircle, User, Settings, LogOut, Eye, Radio } from 'lucide-react'
 import Logo from '@/components/ui/Logo'
 import Avatar from '@/components/ui/Avatar'
 import Spinner from '@/components/ui/Spinner'
@@ -18,14 +18,12 @@ import { cn } from '@/lib/utils'
 const mainNav = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/social', label: 'Social', icon: MessageCircle },
-  { href: '/governance', label: 'Governance', icon: Vote },
   { href: '/transparency', label: 'Transparency', icon: Eye },
 ]
 
 const mobileNav = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/social', label: 'Social', icon: MessageCircle },
-  { href: '/governance', label: 'Governance', icon: Vote },
   { href: '/profile', label: 'Profile', icon: User },
 ]
 
