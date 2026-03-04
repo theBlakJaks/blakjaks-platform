@@ -102,7 +102,7 @@ struct GiphyPicker: View {
 
     private func gifCell(_ gif: GiphyProxyGif) -> some View {
         Button {
-            onSelect(gif.url)
+            onSelect(gif.previewUrl)
         } label: {
             AsyncImage(url: URL(string: gif.previewUrl)) { phase in
                 switch phase {
