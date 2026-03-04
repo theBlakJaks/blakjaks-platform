@@ -1,4 +1,4 @@
-import type { NextConfig } from "next";
+import type { NextConfig } from "next"
 
 const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.blakjaks.com'
 const wsUrl = apiUrl.replace('https://', 'wss://').replace('http://', 'ws://')
