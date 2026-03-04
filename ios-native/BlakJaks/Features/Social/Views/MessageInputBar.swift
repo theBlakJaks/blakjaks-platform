@@ -5,8 +5,11 @@ import SwiftUI
 struct MessageInputBar: View {
 
     @ObservedObject var vm: ChatRoomViewModel
-    @ObservedObject var emoteStore: EmoteStore
+    let emoteMap: [String: CachedEmote]
+    let emoteList: [CachedEmote]
+    let emoteStore: EmoteStore
     let onSendGif: (String) -> Void
+    let onMarkUsed: (CachedEmote) -> Void
 
     @State private var showEmotePicker = false
     @State private var showGifPicker = false
@@ -29,7 +32,7 @@ struct MessageInputBar: View {
                         EmoteAutocomplete(
                             matches: autocompleteMatches,
                             onSelect: { emote in
-                                emoteStore.markUsed(emote)
+                                onMarkUsed(emote)
                                 pendingEmote = emote
                             }
                         )
@@ -47,13 +50,8 @@ struct MessageInputBar: View {
 
                     // Input row
                     HStack(alignment: .bottom, spacing: Spacing.xs) {
-                        // Emote/GIF toggle buttons
                         pickerButtons
-
-                        // Rich text input with inline emote images
                         richInput
-
-                        // Send button
                         sendButton
                     }
                     .padding(.horizontal, Spacing.sm)
@@ -68,11 +66,12 @@ struct MessageInputBar: View {
                 .overlay(cooldownOverlay)
 
                 // Emote picker panel (replaces keyboard)
+                // EmotePicker observes the store directly for search
                 if showEmotePicker {
                     EmotePicker(
                         store: emoteStore,
                         onSelect: { emote in
-                            emoteStore.markUsed(emote)
+                            onMarkUsed(emote)
                             pendingEmote = emote
                         },
                         onDismiss: {
@@ -95,7 +94,7 @@ struct MessageInputBar: View {
             pendingEmote: $pendingEmote,
             placeholder: "Message \(vm.channel.name)...",
             maxCharacters: maxCharacters,
-            emoteMap: emoteStore.emoteMap,
+            emoteMap: emoteMap,
             onSubmit: {
                 vm.inputText = localInput
                 Task {
@@ -296,7 +295,11 @@ struct MessageInputBar: View {
     private var autocompleteMatches: [CachedEmote] {
         guard let lastWord = localInput.split(separator: " ").last,
               lastWord.count >= 2 else { return [] }
-        return emoteStore.prefixMatch(String(lastWord))
+        let lower = String(lastWord).lowercased()
+        return emoteList
+            .filter { $0.name.lowercased().hasPrefix(lower) }
+            .prefix(5)
+            .map { $0 }
     }
 
     // MARK: - Cooldown Overlay

@@ -37,9 +37,20 @@ struct ChatView: View {
                 // Typing indicator
                 TypingIndicator(usernames: vm.typingUsernames)
 
-                MessageInputBar(vm: vm, emoteStore: emoteStore) { gifUrl in
-                    Task { await vm.sendGif(gifUrl) }
-                }
+                MessageInputBar(
+                    vm: vm,
+                    emoteMap: frozenEmoteMap,
+                    emoteList: emoteStore.emoteList,
+                    emoteStore: emoteStore,
+                    onSendGif: { gifUrl in Task { await vm.sendGif(gifUrl) } },
+                    onMarkUsed: { emote in
+                        emoteStore.markUsed(emote)
+                        // Keep frozenEmoteMap in sync so messages render new emotes
+                        if frozenEmoteMap[emote.name] == nil {
+                            frozenEmoteMap[emote.name] = emote
+                        }
+                    }
+                )
             }
 
             // New message indicator

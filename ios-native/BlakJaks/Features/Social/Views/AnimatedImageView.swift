@@ -143,6 +143,7 @@ private struct AnimatedUIImageView: UIViewRepresentable {
         let iv = UIImageView()
         iv.contentMode = contentMode
         iv.clipsToBounds = true
+        iv.isUserInteractionEnabled = false
         iv.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         iv.setContentCompressionResistancePriority(.defaultLow, for: .vertical)
         return iv

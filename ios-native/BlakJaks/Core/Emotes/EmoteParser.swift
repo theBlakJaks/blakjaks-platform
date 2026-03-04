@@ -9,7 +9,7 @@ enum MessageSegment: Identifiable {
     var id: String {
         switch self {
         case .text(let s): return "t_\(s.hashValue)"
-        case .emote(let e, _): return "e_\(e.id)_\(UUID().uuidString.prefix(4))"
+        case .emote(let e, _): return "e_\(e.id)"
         }
     }
 }

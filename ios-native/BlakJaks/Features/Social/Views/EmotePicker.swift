@@ -193,32 +193,22 @@ struct EmotePicker: View {
     }
 
     private func emoteCell(_ emote: CachedEmote) -> some View {
-        Button {
-            store.markUsed(emote)
-            onSelect(emote)
-        } label: {
+        Group {
             if let url = emote.url(size: "2x") {
                 AnimatedImageView(url: url, height: 36)
                     .frame(width: 36, height: 36)
+                    .allowsHitTesting(false)
             } else {
-                Color.clear.frame(width: 36, height: 36)
+                RoundedRectangle(cornerRadius: 4)
+                    .fill(Color.bgCard)
+                    .frame(width: 36, height: 36)
             }
         }
+        .padding(4)
         .contentShape(Rectangle())
-        .buttonStyle(EmoteCellButtonStyle())
-    }
-}
-
-// MARK: - Button Style
-
-private struct EmoteCellButtonStyle: ButtonStyle {
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .frame(width: 36, height: 36)
-            .padding(4)
-            .background(configuration.isPressed ? Color.bgCard : Color.clear)
-            .clipShape(RoundedRectangle(cornerRadius: 6))
-            .scaleEffect(configuration.isPressed ? 0.9 : 1.0)
-            .animation(.easeInOut(duration: 0.1), value: configuration.isPressed)
+        .onTapGesture {
+            store.markUsed(emote)
+            onSelect(emote)
+        }
     }
 }

@@ -275,6 +275,7 @@ extension MessageRow: Equatable {
         lhs.message.reactions == rhs.message.reactions &&
         lhs.message.deliveryStatus == rhs.message.deliveryStatus &&
         lhs.translatedText == rhs.translatedText &&
-        lhs.isTranslating == rhs.isTranslating
+        lhs.isTranslating == rhs.isTranslating &&
+        lhs.emoteMap.count == rhs.emoteMap.count
     }
 }

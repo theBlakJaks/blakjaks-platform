@@ -58,16 +58,23 @@ struct EmoteRichInput: UIViewRepresentable {
         context.coordinator.parent = self
         context.coordinator.textView = uiView
 
-        // Handle pending emote insertion via binding
-        if let emote = pendingEmote {
-            context.coordinator.insertEmote(emote, into: uiView)
-            DispatchQueue.main.async { self.pendingEmote = nil }
-        }
-
-        // If text was cleared externally (e.g. after send), clear the rich input
-        let currentPlain = context.coordinator.extractPlainText(from: uiView.attributedText)
-        if text.isEmpty && !currentPlain.isEmpty {
-            context.coordinator.clearTextView(uiView)
+        // Handle pending emote insertion — MUST defer to avoid
+        // "Modifying state during view update" which silently drops changes
+        if let emote = pendingEmote, !context.coordinator.isHandlingEmote {
+            context.coordinator.isHandlingEmote = true
+            DispatchQueue.main.async {
+                self.pendingEmote = nil
+                context.coordinator.insertEmote(emote, into: uiView)
+                context.coordinator.isHandlingEmote = false
+            }
+        } else if pendingEmote == nil, text.isEmpty {
+            // If text was cleared externally (e.g. after send), clear the rich input
+            let currentPlain = context.coordinator.extractPlainText(from: uiView.attributedText)
+            if !currentPlain.isEmpty {
+                DispatchQueue.main.async {
+                    context.coordinator.clearTextView(uiView)
+                }
+            }
         }
 
         context.coordinator.updatePlaceholder(uiView)
@@ -78,6 +85,7 @@ struct EmoteRichInput: UIViewRepresentable {
     class Coordinator: NSObject, UITextViewDelegate {
         var parent: EmoteRichInput
         var isUpdating = false
+        var isHandlingEmote = false
         weak var textView: UITextView?
         private let emoteHeight: CGFloat = 22
 
@@ -114,11 +122,11 @@ struct EmoteRichInput: UIViewRepresentable {
             attachment.bounds = CGRect(origin: CGPoint(x: 0, y: -4), size: size)
 
             // Try cached image first, fall back to placeholder + async load
-            if let url = emote.url(size: "1x"), let cached = EmoteImageLoader.shared.cachedImage(for: url) {
+            if let url = emote.url(size: "2x"), let cached = EmoteImageLoader.shared.cachedImage(for: url) {
                 attachment.image = cached
             } else {
                 attachment.image = createPlaceholderImage(size: size)
-                if let url = emote.url(size: "1x") {
+                if let url = emote.url(size: "2x") {
                     Task { @MainActor [weak textView, weak attachment] in
                         if let image = await EmoteImageLoader.shared.loadImage(url: url) {
                             attachment?.image = image
