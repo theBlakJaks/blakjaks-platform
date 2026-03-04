@@ -18,6 +18,7 @@ class Channel(UUIDPrimaryKey, TimestampMixin, Base):
         UUID(as_uuid=True), ForeignKey("tiers.id"), nullable=True, index=True
     )
     sort_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    room_type: Mapped[str] = mapped_column(String(20), server_default=text("'chat'"), nullable=False)
 
     tier_required = relationship("Tier", back_populates="channels")
     messages = relationship("Message", back_populates="channel")
