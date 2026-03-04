@@ -20,6 +20,7 @@ from app.api.wholesale import router as wholesale_router
 from app.api.dwolla import router as dwolla_router
 from app.api.giphy import router as giphy_router
 from app.api.insights import router as insights_router
+from app.api.bootstrap import router as bootstrap_router
 
 api_router = APIRouter(prefix="/api")
 api_router.include_router(auth_router)
@@ -42,3 +43,4 @@ api_router.include_router(wholesale_router)
 api_router.include_router(dwolla_router)
 api_router.include_router(giphy_router)
 api_router.include_router(insights_router)
+api_router.include_router(bootstrap_router)

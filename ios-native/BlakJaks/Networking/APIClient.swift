@@ -10,9 +10,20 @@ final class APIClient: APIClientProtocol {
 
     private let session: Session
 
+    /// Tracks in-flight GET requests so identical calls share a single network round-trip.
+    private let inflightLock = NSLock()
+    private var inflightGETs: [URL: [(Result<Data, Error>) -> Void]] = [:]
+
     private init() {
         let interceptor = TokenRefreshInterceptor()
-        session = Session(interceptor: interceptor)
+
+        // HTTP caching — 20 MB memory / 100 MB disk
+        let cache = URLCache(memoryCapacity: 20_000_000, diskCapacity: 100_000_000)
+        let configuration = URLSessionConfiguration.default
+        configuration.urlCache = cache
+        configuration.requestCachePolicy = .useProtocolCachePolicy
+
+        session = Session(configuration: configuration, interceptor: interceptor)
     }
 
     // MARK: - Private helpers
@@ -34,13 +45,19 @@ final class APIClient: APIClientProtocol {
         parameters: Parameters? = nil,
         encoding: ParameterEncoding = JSONEncoding.default
     ) async throws -> T {
+        // Deduplicate identical in-flight GET requests
+        if method == .get {
+            let url = baseURL(for: path)
+            let data = try await deduplicatedGET(url: url, parameters: parameters, encoding: encoding)
+            return try APIClient.decoder.decode(T.self, from: data)
+        }
+
         return try await withCheckedThrowingContinuation { continuation in
             session.request(
                 baseURL(for: path),
                 method: method,
                 parameters: parameters,
-                encoding: encoding,
-                headers: authHeaders()
+                encoding: encoding
             )
             .validate()
             .responseDecodable(of: T.self, decoder: APIClient.decoder) { response in
@@ -51,6 +68,40 @@ final class APIClient: APIClientProtocol {
                     continuation.resume(throwing: APIError.from(afError: error, response: response.response, data: response.data))
                 }
             }
+        }
+    }
+
+    /// Fires a GET and deduplicates identical in-flight requests by URL.
+    private func deduplicatedGET(url: URL, parameters: Parameters?, encoding: ParameterEncoding) async throws -> Data {
+        return try await withCheckedThrowingContinuation { continuation in
+            inflightLock.lock()
+            if inflightGETs[url] != nil {
+                // Already in flight — piggyback on the existing request.
+                inflightGETs[url]?.append { result in
+                    continuation.resume(with: result)
+                }
+                inflightLock.unlock()
+                return
+            }
+            inflightGETs[url] = [{ result in continuation.resume(with: result) }]
+            inflightLock.unlock()
+
+            session.request(url, method: .get, parameters: parameters, encoding: encoding)
+                .validate()
+                .responseData { [weak self] response in
+                    guard let self else { return }
+                    self.inflightLock.lock()
+                    let callbacks = self.inflightGETs.removeValue(forKey: url) ?? []
+                    self.inflightLock.unlock()
+
+                    switch response.result {
+                    case .success(let data):
+                        callbacks.forEach { $0(.success(data)) }
+                    case .failure(let error):
+                        let apiError = APIError.from(afError: error, response: response.response, data: response.data)
+                        callbacks.forEach { $0(.failure(apiError)) }
+                    }
+                }
         }
     }
 
@@ -64,8 +115,7 @@ final class APIClient: APIClientProtocol {
                 baseURL(for: path),
                 method: method,
                 parameters: body,
-                encoder: JSONParameterEncoder.default,
-                headers: authHeaders()
+                encoder: JSONParameterEncoder.default
             )
             .validate()
             .responseDecodable(of: T.self, decoder: APIClient.decoder) { response in
@@ -79,12 +129,18 @@ final class APIClient: APIClientProtocol {
         }
     }
 
-    private func requestVoid(_ path: String, method: HTTPMethod = .post) async throws {
+    private func requestVoid(
+        _ path: String,
+        method: HTTPMethod = .post,
+        parameters: Parameters? = nil,
+        encoding: ParameterEncoding = JSONEncoding.default
+    ) async throws {
         return try await withCheckedThrowingContinuation { continuation in
             session.request(
                 baseURL(for: path),
                 method: method,
-                headers: authHeaders()
+                parameters: parameters,
+                encoding: encoding
             )
             .validate()
             .response { response in
@@ -96,14 +152,6 @@ final class APIClient: APIClientProtocol {
                 }
             }
         }
-    }
-
-    private func authHeaders() -> HTTPHeaders {
-        var headers = HTTPHeaders()
-        if let token = KeychainManager.shared.accessToken {
-            headers.add(.authorization(bearerToken: token))
-        }
-        return headers
     }
 
     // MARK: - Auth
@@ -168,8 +216,7 @@ final class APIClient: APIClientProtocol {
                 baseURL(for: APIEndpoints.pushToken),
                 method: .post,
                 parameters: body,
-                encoder: JSONParameterEncoder.default,
-                headers: authHeaders()
+                encoder: JSONParameterEncoder.default
             )
             .validate()
             .response { response in
@@ -195,8 +242,7 @@ final class APIClient: APIClientProtocol {
                 multipartFormData: { form in
                     form.append(imageData, withName: "avatar", fileName: "avatar.jpg", mimeType: mimeType)
                 },
-                to: baseURL(for: APIEndpoints.avatarUpload),
-                headers: authHeaders()
+                to: baseURL(for: APIEndpoints.avatarUpload)
             )
             .validate()
             .responseDecodable(of: UserProfile.self, decoder: APIClient.decoder) { response in
@@ -385,12 +431,19 @@ final class APIClient: APIClientProtocol {
 
     func addReaction(messageId: String, emoji: String) async throws {
         let params: Parameters = ["emoji": emoji]
-        try await requestVoid(APIEndpoints.channels + "/messages/\(messageId)/reactions", method: .post)
+        try await requestVoid(
+            "/social/messages/\(messageId)/reactions",
+            method: .post,
+            parameters: params
+        )
     }
 
     func removeReaction(messageId: String, emoji: String) async throws {
-        let params: Parameters = ["emoji": emoji]
-        try await requestVoid(APIEndpoints.channels + "/messages/\(messageId)/reactions", method: .delete)
+        let encoded = emoji.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? emoji
+        try await requestVoid(
+            "/social/messages/\(messageId)/reactions/\(encoded)",
+            method: .delete
+        )
     }
 
     func getPinnedMessages(channelId: String) async throws -> [ChatMessage] {
@@ -399,6 +452,20 @@ final class APIClient: APIClientProtocol {
 
     func getLiveStreams() async throws -> [LiveStream] {
         try await request(APIEndpoints.liveStreams)
+    }
+
+    // MARK: - Giphy (backend proxy)
+
+    func searchGifs(query: String, limit: Int = 20, offset: Int = 0) async throws -> [GiphyProxyGif] {
+        let params: Parameters = ["q": query, "limit": limit, "offset": offset]
+        let response: GiphyProxyResponse = try await request("/giphy/search", parameters: params, encoding: URLEncoding.default)
+        return response.results
+    }
+
+    func getTrendingGifs(limit: Int = 20) async throws -> [GiphyProxyGif] {
+        let params: Parameters = ["limit": limit]
+        let response: GiphyProxyResponse = try await request("/giphy/trending", parameters: params, encoding: URLEncoding.default)
+        return response.results
     }
 
     // MARK: - Governance
@@ -466,6 +533,26 @@ final class APIClient: APIClientProtocol {
     func getAffiliateReferralCode() async throws -> ReferralCode {
         try await request(APIEndpoints.affiliateReferrals)
     }
+}
+
+// MARK: - GiphyProxyGif
+
+/// Wrapper for backend Giphy proxy responses: {"results": [...], "count": N}
+struct GiphyProxyResponse: Decodable {
+    let results: [GiphyProxyGif]
+    let count: Int
+}
+
+/// Model matching the backend Giphy proxy response shape.
+/// Backend returns: id, title, url, preview_url, preview_width, preview_height, mp4_url
+struct GiphyProxyGif: Decodable, Identifiable {
+    let id: String
+    let title: String
+    let url: String
+    let previewUrl: String
+    let previewWidth: Int
+    let previewHeight: Int
+    let mp4Url: String?
 }
 
 // MARK: - TokenRefreshInterceptor

@@ -2,6 +2,7 @@
 
 import uuid
 from datetime import datetime
+from typing import Optional
 
 from pydantic import BaseModel, Field
 
@@ -15,6 +16,9 @@ class ChannelOut(BaseModel):
     description: str | None = None
     category: str | None = None
     tier_required: str | None = None
+    locked: bool = False
+    view_only: bool = False
+    room_type: Optional[str] = None
     unread_count: int = 0
     member_count: int = 0
 
@@ -42,6 +46,7 @@ class MessageOut(BaseModel):
     reply_preview: str | None = None
     reactions: list[ReactionOut] = []
     avatar_url: str | None = None
+    sequence: Optional[int] = None
     is_pinned: bool = False
     is_system: bool = False
     created_at: datetime

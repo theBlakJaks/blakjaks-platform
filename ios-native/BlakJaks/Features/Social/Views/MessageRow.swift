@@ -16,6 +16,20 @@ struct MessageRow: View {
 
     private static let defaultReactions = ["👍", "❤️", "😂", "🔥", "💰", "🎰"]
 
+    private static let isoFormatter: ISO8601DateFormatter = {
+        let f = ISO8601DateFormatter()
+        f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return f
+    }()
+
+    private static let timeFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "h:mm a"
+        return f
+    }()
+
+    private static let giphyRegex = try! NSRegularExpression(pattern: #"^https://media\d*\.giphy\.com/.+"#)
+
     var body: some View {
         if message.isSystem == true {
             systemRow
@@ -204,8 +218,8 @@ struct MessageRow: View {
     private var effectiveGifUrl: URL? {
         if let gif = message.gifUrl, let url = URL(string: gif) { return url }
         // Detect Giphy URLs in content
-        let pattern = #"^https://media\d*\.giphy\.com/.+"#
-        if message.content.range(of: pattern, options: .regularExpression) != nil,
+        let range = NSRange(message.content.startIndex..., in: message.content)
+        if Self.giphyRegex.firstMatch(in: message.content, range: range) != nil,
            let url = URL(string: message.content) {
             return url
         }
@@ -258,12 +272,8 @@ struct MessageRow: View {
     // MARK: - Helpers
 
     private func shortTime(from iso: String) -> String {
-        let fmt = ISO8601DateFormatter()
-        fmt.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        guard let date = fmt.date(from: iso) else { return "" }
-        let display = DateFormatter()
-        display.dateFormat = "h:mm a"
-        return display.string(from: date)
+        guard let date = Self.isoFormatter.date(from: iso) else { return "" }
+        return Self.timeFormatter.string(from: date)
     }
 }
 

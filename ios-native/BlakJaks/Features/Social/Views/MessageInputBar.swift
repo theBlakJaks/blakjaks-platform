@@ -228,7 +228,7 @@ struct MessageInputBar: View {
                     showEmotePicker = false
                 } else {
                     UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
                         showEmotePicker = true
                     }
                 }

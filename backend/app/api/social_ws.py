@@ -163,8 +163,11 @@ class ConnectionManager:
 
         msg_type = message.get("type")
         sequence = message.get("sequence")
+        exclude_connection = message.pop("_exclude_connection", None)
 
         for conn_id in list(conn_ids):
+            if conn_id == exclude_connection:
+                continue
             state = self.connections.get(conn_id)
             if not state:
                 continue
@@ -653,6 +656,7 @@ async def websocket_endpoint(websocket: WebSocket):
                         "channel_id": str(channel_id),
                         "user_id": str(user_id),
                         "username": username,
+                        "_exclude_connection": conn_state.connection_id,
                     },
                 )
 

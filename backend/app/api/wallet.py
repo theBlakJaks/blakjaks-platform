@@ -1,7 +1,10 @@
 """Wallet endpoints — balance, transactions, withdrawal."""
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 from sqlalchemy.ext.asyncio import AsyncSession
+from starlette.requests import Request
 
 from app.api.deps import get_current_user, get_db
 from app.api.schemas.wallet import (
@@ -21,11 +24,15 @@ from app.services.wallet_service import (
     request_withdrawal,
 )
 
+limiter = Limiter(key_func=get_remote_address)
+
 router = APIRouter(prefix="/wallet", tags=["wallet"])
 
 
 @router.get("", response_model=WalletResponse)
+@limiter.limit("60/minute")
 async def get_wallet(
+    request: Request,
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):

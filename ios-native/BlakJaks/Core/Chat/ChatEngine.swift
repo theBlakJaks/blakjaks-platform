@@ -17,6 +17,7 @@ private let reconnectJitter: TimeInterval = 0.5
 private let maxReconnectAttempts = 10
 private let rapidCloseThreshold: TimeInterval = 2 // WS closes within 2s → likely auth rejection
 private let confirmationTimeout: TimeInterval = 10
+private let sequencePersistInterval: TimeInterval = 30
 
 @MainActor
 final class ChatEngine: ObservableObject {
@@ -54,8 +55,10 @@ final class ChatEngine: ObservableObject {
     private var reconnectWorkItem: DispatchWorkItem?
     private var zombieWorkItem: DispatchWorkItem?
     private var rttTimer: Timer?
+    private var sequencePersistTimer: Timer?
 
     private var lastSequence: [String: Int] = [:]
+    private var sequencesDirty = false
     private var outboundQueue: [String: QueuedMessage] = [:]
     private var confirmationTimers: [String: DispatchWorkItem] = [:]
 
@@ -63,7 +66,8 @@ final class ChatEngine: ObservableObject {
     private var replayFullResync: [String: Bool] = [:]
     private var catchingUpChannels: Set<String> = []
 
-    private var seenIds: [String] = []
+    private var seenIds: Set<String> = []
+    private var seenIdsOrder: [String] = []
     private var joinedChannels: Set<String> = []
 
     private var qualityMonitor = ConnectionQualityMonitor()
@@ -71,6 +75,7 @@ final class ChatEngine: ObservableObject {
 
     private var foregroundObserver: Any?
     private var backgroundObserver: Any?
+    private var resignActiveObserver: Any?
     private var backgroundWorkItem: DispatchWorkItem?
 
     /// Delegate bridge (Starscream calls delegate methods off-main, we dispatch to @MainActor)
@@ -92,6 +97,8 @@ final class ChatEngine: ObservableObject {
     deinit {
         if let foregroundObserver { NotificationCenter.default.removeObserver(foregroundObserver) }
         if let backgroundObserver { NotificationCenter.default.removeObserver(backgroundObserver) }
+        if let resignActiveObserver { NotificationCenter.default.removeObserver(resignActiveObserver) }
+        sequencePersistTimer?.invalidate()
     }
 
     // MARK: - Public API
@@ -103,10 +110,12 @@ final class ChatEngine: ObservableObject {
     }
 
     func disconnect() {
+        persistSequences()
         unbindAppLifecycle()
         clearReconnect()
         clearZombieTimer()
         stopRttInterval()
+        stopSequencePersistTimer()
         socket?.disconnect()
         socket = nil
         delegateBridge = nil
@@ -391,10 +400,12 @@ final class ChatEngine: ObservableObject {
     // MARK: - Disconnect Handling
 
     private func handleDisconnect(closeCode: Int?) {
+        persistSequences()
         socket = nil
         delegateBridge = nil
         clearZombieTimer()
         stopRttInterval()
+        stopSequencePersistTimer()
 
         // Close code 4001: Auth failure — terminal, do not reconnect
         if closeCode == 4001 {
@@ -463,6 +474,7 @@ final class ChatEngine: ObservableObject {
         }
         measureRtt()
         startRttInterval()
+        startSequencePersistTimer()
     }
 
     private func flushQueue() {
@@ -582,13 +594,29 @@ final class ChatEngine: ObservableObject {
         rttTimer = nil
     }
 
+    // MARK: - Sequence Persist Timer
+
+    private func startSequencePersistTimer() {
+        stopSequencePersistTimer()
+        sequencePersistTimer = Timer.scheduledTimer(withTimeInterval: sequencePersistInterval, repeats: true) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                self?.persistSequences()
+            }
+        }
+    }
+
+    private func stopSequencePersistTimer() {
+        sequencePersistTimer?.invalidate()
+        sequencePersistTimer = nil
+    }
+
     // MARK: - Sequence Tracking & ACK
 
     private func trackSequence(channelId: String, sequence: Int) {
         let current = lastSequence[channelId] ?? 0
         if sequence > current {
             lastSequence[channelId] = sequence
-            persistSequences()
+            sequencesDirty = true
         }
     }
 
@@ -603,9 +631,13 @@ final class ChatEngine: ObservableObject {
     }
 
     private func markSeen(_ id: String) {
-        seenIds.append(id)
-        if seenIds.count > dedupMaxSize {
-            seenIds = Array(seenIds.suffix(dedupMaxSize))
+        seenIds.insert(id)
+        seenIdsOrder.append(id)
+        if seenIdsOrder.count > dedupMaxSize {
+            let overflow = seenIdsOrder.count - dedupMaxSize
+            let removed = seenIdsOrder.prefix(overflow)
+            for old in removed { seenIds.remove(old) }
+            seenIdsOrder.removeFirst(overflow)
         }
     }
 
@@ -632,6 +664,8 @@ final class ChatEngine: ObservableObject {
     // MARK: - Sequence Persistence
 
     private func persistSequences() {
+        guard sequencesDirty else { return }
+        sequencesDirty = false
         if let data = try? JSONEncoder().encode(lastSequence) {
             UserDefaults.standard.set(data, forKey: sequenceStorageKey)
         }
@@ -665,6 +699,14 @@ final class ChatEngine: ObservableObject {
             }
         }
 
+        resignActiveObserver = NotificationCenter.default.addObserver(
+            forName: UIApplication.willResignActiveNotification, object: nil, queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                self?.persistSequences()
+            }
+        }
+
         backgroundObserver = NotificationCenter.default.addObserver(
             forName: UIScene.didEnterBackgroundNotification, object: nil, queue: .main
         ) { [weak self] _ in
@@ -693,6 +735,10 @@ final class ChatEngine: ObservableObject {
         if let foregroundObserver {
             NotificationCenter.default.removeObserver(foregroundObserver)
             self.foregroundObserver = nil
+        }
+        if let resignActiveObserver {
+            NotificationCenter.default.removeObserver(resignActiveObserver)
+            self.resignActiveObserver = nil
         }
         if let backgroundObserver {
             NotificationCenter.default.removeObserver(backgroundObserver)

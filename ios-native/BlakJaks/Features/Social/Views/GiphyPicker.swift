@@ -2,7 +2,7 @@ import SwiftUI
 
 // MARK: - GiphyPicker
 
-/// Sheet with search and 2-column grid of GIFs from Giphy API.
+/// Sheet with search and 2-column grid of GIFs fetched through the backend Giphy proxy.
 /// Selecting a GIF returns its URL for the message.
 
 struct GiphyPicker: View {
@@ -10,12 +10,10 @@ struct GiphyPicker: View {
     let onSelect: (String) -> Void   // returns the GIF URL
 
     @State private var searchText = ""
-    @State private var gifs: [GiphyGif] = []
+    @State private var gifs: [GiphyProxyGif] = []
     @State private var isLoading = false
     @State private var searchDebounce: DispatchWorkItem?
 
-    // Giphy public beta key — should be replaced with backend proxy in production
-    private let apiKey = "GlVGYHkr3WSBnllca54iNt0yFbjz7L65"
     private let columns = [GridItem(.flexible(), spacing: 8), GridItem(.flexible(), spacing: 8)]
 
     var body: some View {
@@ -102,9 +100,9 @@ struct GiphyPicker: View {
 
     // MARK: - GIF Cell
 
-    private func gifCell(_ gif: GiphyGif) -> some View {
+    private func gifCell(_ gif: GiphyProxyGif) -> some View {
         Button {
-            onSelect(gif.fullUrl)
+            onSelect(gif.url)
         } label: {
             AsyncImage(url: URL(string: gif.previewUrl)) { phase in
                 switch phase {
@@ -125,15 +123,12 @@ struct GiphyPicker: View {
         .buttonStyle(.plain)
     }
 
-    // MARK: - API
+    // MARK: - API (via backend proxy)
 
     private func loadTrending() async {
         isLoading = true
-        guard let url = URL(string: "https://api.giphy.com/v1/gifs/trending?api_key=\(apiKey)&limit=20&rating=pg-13") else { return }
         do {
-            let (data, _) = try await URLSession.shared.data(from: url)
-            let response = try JSONDecoder().decode(GiphyResponse.self, from: data)
-            gifs = response.data.map { GiphyGif(from: $0) }
+            gifs = try await APIClient.shared.getTrendingGifs(limit: 20)
         } catch {
             // Silently fail
         }
@@ -142,52 +137,11 @@ struct GiphyPicker: View {
 
     private func search(_ query: String) async {
         isLoading = true
-        let encoded = query.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? query
-        guard let url = URL(string: "https://api.giphy.com/v1/gifs/search?api_key=\(apiKey)&q=\(encoded)&limit=20&rating=pg-13") else { return }
         do {
-            let (data, _) = try await URLSession.shared.data(from: url)
-            let response = try JSONDecoder().decode(GiphyResponse.self, from: data)
-            gifs = response.data.map { GiphyGif(from: $0) }
+            gifs = try await APIClient.shared.searchGifs(query: query, limit: 20)
         } catch {
             // Silently fail
         }
         isLoading = false
     }
-}
-
-// MARK: - Giphy Models
-
-private struct GiphyGif: Identifiable {
-    let id: String
-    let previewUrl: String    // fixed_width_small for grid
-    let fullUrl: String       // fixed_width for message
-
-    init(from dto: GiphyDataItem) {
-        self.id = dto.id
-        self.previewUrl = dto.images.fixedWidthSmall?.url ?? dto.images.fixedWidth.url
-        self.fullUrl = dto.images.fixedWidth.url
-    }
-}
-
-private struct GiphyResponse: Codable {
-    let data: [GiphyDataItem]
-}
-
-private struct GiphyDataItem: Codable {
-    let id: String
-    let images: GiphyImages
-}
-
-private struct GiphyImages: Codable {
-    let fixedWidth: GiphyImage
-    let fixedWidthSmall: GiphyImage?
-
-    enum CodingKeys: String, CodingKey {
-        case fixedWidth = "fixed_width"
-        case fixedWidthSmall = "fixed_width_small"
-    }
-}
-
-private struct GiphyImage: Codable {
-    let url: String
 }

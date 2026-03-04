@@ -7,7 +7,7 @@ struct ChatView: View {
     let channel: Channel
     @EnvironmentObject private var chatEngine: ChatEngine
     @StateObject private var vm: ChatRoomViewModel
-    @ObservedObject private var emoteStore = EmoteStore.shared
+    private let emoteStore = EmoteStore.shared
     @State private var translatedMessages: [String: String] = [:]
     @State private var isTranslating: String? = nil
     @State private var showPinnedSheet = false
@@ -151,8 +151,12 @@ struct ChatView: View {
                         .padding(Spacing.sm)
                     }
 
-                    ForEach(Array(vm.messages.enumerated()), id: \.element.id) { index, message in
-                        let prevTimestamp: String? = index > 0 ? vm.messages[index - 1].createdAt : nil
+                    ForEach(vm.messages) { message in
+                        let msgIndex = vm.messages.firstIndex(where: { $0.id == message.id })
+                        let prevTimestamp: String? = {
+                            guard let idx = msgIndex, idx > 0 else { return nil }
+                            return vm.messages[idx - 1].createdAt
+                        }()
 
                         // Date separator
                         if DateSeparatorHelper.shouldShowSeparator(current: message.createdAt, previous: prevTimestamp),
@@ -198,6 +202,7 @@ struct ChatView: View {
                 .padding(.vertical, Spacing.sm)
             }
             .onChange(of: vm.messages.count) { _ in
+                guard vm.isUserAtBottom else { return }
                 withAnimation(.easeOut(duration: 0.25)) {
                     proxy.scrollTo("bottom-anchor", anchor: .bottom)
                 }

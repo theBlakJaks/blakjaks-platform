@@ -34,7 +34,7 @@ final class ChatRoomViewModel: ObservableObject {
     private let engine: ChatEngine
 
     private var cancellables = Set<AnyCancellable>()
-    private var isAtBottom = true
+    private(set) var isUserAtBottom = true
     private var typingTimers: [String: DispatchWorkItem] = [:]  // userId → auto-clear timer
     private var lastTypingSent: Date = .distantPast
 
@@ -215,7 +215,7 @@ final class ChatRoomViewModel: ObservableObject {
     // MARK: - Scroll Tracking
 
     func setAtBottom(_ value: Bool) {
-        isAtBottom = value
+        isUserAtBottom = value
         if value { newMessageCount = 0 }
     }
 
@@ -351,7 +351,7 @@ final class ChatRoomViewModel: ObservableObject {
         let msg = chatMessage(from: payload)
         messages.append(msg)
 
-        if !isAtBottom {
+        if !isUserAtBottom {
             newMessageCount += 1
         }
     }

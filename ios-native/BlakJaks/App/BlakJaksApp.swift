@@ -12,15 +12,18 @@ struct BlakJaksApp: App {
         // keychain tokens left over from a previous install.
         let key = "bj_app_installed"
         if !UserDefaults.standard.bool(forKey: key) {
-            KeychainManager.shared.clearAll()
+            // Move Keychain clear off the main thread to avoid blocking launch
+            Task.detached(priority: .userInitiated) {
+                KeychainManager.shared.clearAll()
+            }
             UserDefaults.standard.set(true, forKey: key)
         }
     }
 
     // Auth flow (unauthenticated):
-    //   UILaunchScreen → SplashOverlay (2s) → fade-to-black → WelcomeView (ENTER) → HubView (LOGIN / SIGN UP) → LoginView / SignupView
+    //   UILaunchScreen → SplashOverlay → fade-to-black → WelcomeView (ENTER) → HubView (LOGIN / SIGN UP) → LoginView / SignupView
     // Auth flow (authenticated):
-    //   UILaunchScreen → SplashOverlay (2s) → fade-to-black → MainTabView (Insights · Wallet · Shop · Social · Profile)
+    //   UILaunchScreen → SplashOverlay → fade-to-black → MainTabView (Insights · Wallet · Shop · Social · Profile)
 
     @State private var showSplash = true
 
@@ -55,7 +58,7 @@ struct BlakJaksApp: App {
 }
 
 // MARK: - SplashOverlay
-// Full-screen launch image that holds for 2 seconds then fades out smoothly.
+// Full-screen launch image that holds briefly then fades out smoothly.
 // Uses UIKit snapshot approach to guarantee the image is visible from the very
 // first frame — no async image loading race.
 
@@ -81,13 +84,13 @@ private struct SplashOverlay: View {
         .opacity(opacity)
         .allowsHitTesting(false)
         .onAppear {
-            // Hold for 2 seconds, then fade out.
-            DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
-                withAnimation(.easeInOut(duration: 0.6)) {
+            // Hold briefly for seamless handoff, then fade out.
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
+                withAnimation(.easeInOut(duration: 0.4)) {
                     opacity = 0
                 }
                 // Remove from view tree after fade completes.
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.7) {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
                     onComplete()
                 }
             }

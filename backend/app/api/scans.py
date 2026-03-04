@@ -1,7 +1,10 @@
 from fastapi import APIRouter, Depends, Query
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
+from starlette.requests import Request
 
 from app.api.deps import get_current_user, get_db
 from app.api.schemas.scan import (
@@ -15,11 +18,15 @@ from app.models.scan import Scan
 from app.models.user import User
 from app.services.qr_code import submit_scan
 
+limiter = Limiter(key_func=get_remote_address)
+
 router = APIRouter(prefix="/scans", tags=["scans"])
 
 
 @router.post("/submit", response_model=ScanResponse)
+@limiter.limit("10/minute")
 async def scan_submit(
+    request: Request,
     body: ScanSubmit,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),

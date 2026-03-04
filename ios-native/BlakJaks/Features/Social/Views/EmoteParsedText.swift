@@ -4,10 +4,14 @@ import SwiftUI
 
 /// Renders a chat message with inline emote images using a wrapping flow layout.
 
-struct EmoteParsedText: View {
+struct EmoteParsedText: View, Equatable {
 
     let content: String
     let emoteMap: [String: CachedEmote]
+
+    static func == (lhs: EmoteParsedText, rhs: EmoteParsedText) -> Bool {
+        lhs.content == rhs.content && lhs.emoteMap.count == rhs.emoteMap.count
+    }
 
     var body: some View {
         let segments = EmoteParser.parseToSegments(content, emoteMap: emoteMap)

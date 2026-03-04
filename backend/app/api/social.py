@@ -3,7 +3,10 @@
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 from sqlalchemy.ext.asyncio import AsyncSession
+from starlette.requests import Request
 
 from app.api.deps import get_current_user, get_db
 from app.api.schemas.social import (
@@ -32,11 +35,15 @@ from app.services.reaction_service import (
 from app.services.translation_service import detect_language, translate_message
 from app.api.social_ws import manager as ws_manager
 
+limiter = Limiter(key_func=get_remote_address)
+
 router = APIRouter(prefix="/social", tags=["social"])
 
 
 @router.get("/channels", response_model=list[ChannelOut])
+@limiter.limit("60/minute")
 async def list_channels(
+    request: Request,
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -114,6 +121,7 @@ async def create_reaction(
     if channel_id:
         await ws_manager.publish_to_redis(channel_id, {
             "type": "reaction_update",
+            "channel_id": str(channel_id),
             "message_id": str(message_id),
             "emoji": body.emoji,
             "user_id": str(user.id),
@@ -142,6 +150,7 @@ async def destroy_reaction(
     if channel_id:
         await ws_manager.publish_to_redis(channel_id, {
             "type": "reaction_update",
+            "channel_id": str(channel_id),
             "message_id": str(message_id),
             "emoji": emoji,
             "user_id": str(user.id),
@@ -219,7 +228,7 @@ async def translate(
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Channel not found")
 
     source_lang = msg.original_language or await detect_language(msg.content)
-    translated = await translate_message(msg.content, source_lang, body.target_lang, str(msg.id))
+    translated = await translate_message(db, str(msg.id), msg.content, body.target_lang)
     return TranslateResponse(
         original_text=msg.content,
         translated_text=translated,

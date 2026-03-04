@@ -2,7 +2,7 @@ import Foundation
 
 // MARK: - CachedEmote
 
-struct CachedEmote: Identifiable, Hashable {
+struct CachedEmote: Identifiable, Hashable, Codable {
     let id: String
     let name: String
     let animated: Bool
@@ -13,25 +13,89 @@ struct CachedEmote: Identifiable, Hashable {
     }
 }
 
+// MARK: - EmoteState
+
+struct EmoteState {
+    var emoteMap: [String: CachedEmote] = [:]
+    var emoteList: [CachedEmote] = []
+    var recentlyUsed: [CachedEmote] = []
+}
+
+// MARK: - ImageDownloadThrottle
+
+/// Limits concurrent image downloads across the app.
+actor ImageDownloadThrottle {
+    static let shared = ImageDownloadThrottle()
+
+    private let maxConcurrent = 6
+    private var active = 0
+    private var waiters: [CheckedContinuation<Void, Never>] = []
+
+    func acquire() async {
+        if active < maxConcurrent {
+            active += 1
+            return
+        }
+        await withCheckedContinuation { continuation in
+            waiters.append(continuation)
+        }
+    }
+
+    func release() {
+        if let next = waiters.first {
+            waiters.removeFirst()
+            next.resume()
+        } else {
+            active -= 1
+        }
+    }
+
+    func throttled<T>(_ work: @Sendable () async throws -> T) async rethrows -> T {
+        await acquire()
+        defer { Task { await release() } }
+        return try await work()
+    }
+}
+
 // MARK: - EmoteStore
 
 /// Singleton emote store. Loads the 7TV global emote set plus top emotes,
-/// caches them in memory, and tracks recently used emotes.
+/// caches them in memory and on disk, and tracks recently used emotes.
 
 @MainActor
 final class EmoteStore: ObservableObject {
 
     static let shared = EmoteStore()
 
-    @Published private(set) var emoteMap: [String: CachedEmote] = [:]
-    @Published private(set) var emoteList: [CachedEmote] = []
-    @Published private(set) var recentlyUsed: [CachedEmote] = []
+    /// Consolidated state — reduces @Published cascade to a single property.
+    /// Access emoteMap, emoteList, recentlyUsed through this.
+    @Published private(set) var state = EmoteState()
+
     @Published private(set) var isLoading = false
     @Published var searchResults: [CachedEmote] = []
     @Published var isSearching = false
 
+    // Public convenience accessors to preserve existing API
+    var emoteMap: [String: CachedEmote] { state.emoteMap }
+    var emoteList: [CachedEmote] { state.emoteList }
+    var recentlyUsed: [CachedEmote] { state.recentlyUsed }
+
     private let maxRecent = 24
     private let recentKey = "com.blakjaks.chat.recentEmotes"
+    private let diskCacheTTL: TimeInterval = 3600 // 1 hour
+
+    private var diskCacheURL: URL {
+        let base = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first!
+        return base.appendingPathComponent("emotes", isDirectory: true)
+    }
+
+    private var diskCacheFile: URL {
+        diskCacheURL.appendingPathComponent("emote_metadata.json")
+    }
+
+    private var diskCacheTimestampFile: URL {
+        diskCacheURL.appendingPathComponent("emote_cache_ts")
+    }
 
     private init() {
         restoreRecents()
@@ -40,24 +104,83 @@ final class EmoteStore: ObservableObject {
     // MARK: - Initialize
 
     func initializeEmotes() async {
-        guard emoteList.isEmpty else { return }
+        guard state.emoteList.isEmpty else { return }
         isLoading = true
 
-        // 1) Fetch the 7TV global emote set (44 curated emotes)
-        var emotes = await fetchGlobalEmoteSet()
+        // Try loading from disk cache first (instant)
+        if let cached = loadFromDiskCache() {
+            state.emoteList = cached
+            state.emoteMap = Dictionary(cached.map { ($0.name, $0) }, uniquingKeysWith: { first, _ in first })
+            isLoading = false
+            resolveRecents()
 
-        // 2) Supplement with TOP emotes (most popular across 7TV, max 100)
-        let top = await fetch7TVSearch(query: "", limit: 100, page: 0, category: "TOP")
+            // Refresh from network in background
+            Task { [weak self] in
+                await self?.refreshFromNetwork()
+            }
+            return
+        }
+
+        await refreshFromNetwork()
+        isLoading = false
+    }
+
+    private func refreshFromNetwork() async {
+        // Fetch global emote set and top emotes in parallel
+        async let globalResult = fetchGlobalEmoteSet()
+        async let topResult = fetch7TVSearch(query: "", limit: 100, page: 0, category: "TOP")
+        let (global, top) = await (globalResult, topResult)
+
+        var emotes = global
         let existingIds = Set(emotes.map(\.id))
         for emote in top where !existingIds.contains(emote.id) {
             emotes.append(emote)
         }
 
-        emoteList = emotes
-        emoteMap = Dictionary(emotes.map { ($0.name, $0) }, uniquingKeysWith: { first, _ in first })
+        state.emoteList = emotes
+        state.emoteMap = Dictionary(emotes.map { ($0.name, $0) }, uniquingKeysWith: { first, _ in first })
         isLoading = false
 
         resolveRecents()
+        saveToDiskCache(emotes)
+    }
+
+    // MARK: - Disk Cache
+
+    private func saveToDiskCache(_ emotes: [CachedEmote]) {
+        let fm = FileManager.default
+        do {
+            if !fm.fileExists(atPath: diskCacheURL.path) {
+                try fm.createDirectory(at: diskCacheURL, withIntermediateDirectories: true)
+            }
+            let data = try JSONEncoder().encode(emotes)
+            try data.write(to: diskCacheFile, options: .atomic)
+            // Write timestamp
+            let ts = Date().timeIntervalSince1970
+            try "\(ts)".write(to: diskCacheTimestampFile, atomically: true, encoding: .utf8)
+        } catch {
+            print("[EmoteStore] Failed to save disk cache: \(error)")
+        }
+    }
+
+    private func loadFromDiskCache() -> [CachedEmote]? {
+        let fm = FileManager.default
+        guard fm.fileExists(atPath: diskCacheFile.path),
+              fm.fileExists(atPath: diskCacheTimestampFile.path) else { return nil }
+
+        do {
+            // Check TTL
+            let tsString = try String(contentsOf: diskCacheTimestampFile, encoding: .utf8)
+            guard let ts = TimeInterval(tsString) else { return nil }
+            let age = Date().timeIntervalSince1970 - ts
+            guard age < diskCacheTTL else { return nil }
+
+            let data = try Data(contentsOf: diskCacheFile)
+            return try JSONDecoder().decode([CachedEmote].self, from: data)
+        } catch {
+            print("[EmoteStore] Failed to load disk cache: \(error)")
+            return nil
+        }
     }
 
     // MARK: - Search Online
@@ -80,19 +203,19 @@ final class EmoteStore: ObservableObject {
     // MARK: - Add Emote
 
     func addEmote(_ emote: CachedEmote) {
-        guard emoteMap[emote.name] == nil else { return }
-        emoteMap[emote.name] = emote
-        emoteList.append(emote)
+        guard state.emoteMap[emote.name] == nil else { return }
+        state.emoteMap[emote.name] = emote
+        state.emoteList.append(emote)
     }
 
     // MARK: - Recently Used
 
     func markUsed(_ emote: CachedEmote) {
         addEmote(emote)
-        recentlyUsed.removeAll { $0.id == emote.id }
-        recentlyUsed.insert(emote, at: 0)
-        if recentlyUsed.count > maxRecent {
-            recentlyUsed = Array(recentlyUsed.prefix(maxRecent))
+        state.recentlyUsed.removeAll { $0.id == emote.id }
+        state.recentlyUsed.insert(emote, at: 0)
+        if state.recentlyUsed.count > maxRecent {
+            state.recentlyUsed = Array(state.recentlyUsed.prefix(maxRecent))
         }
         persistRecents()
     }
@@ -101,7 +224,7 @@ final class EmoteStore: ObservableObject {
 
     func prefixMatch(_ prefix: String, limit: Int = 5) -> [CachedEmote] {
         let lower = prefix.lowercased()
-        return emoteList
+        return state.emoteList
             .filter { $0.name.lowercased().hasPrefix(lower) }
             .prefix(limit)
             .map { $0 }
@@ -170,7 +293,7 @@ final class EmoteStore: ObservableObject {
     // MARK: - Persistence
 
     private func persistRecents() {
-        let ids = recentlyUsed.map { $0.id }
+        let ids = state.recentlyUsed.map { $0.id }
         UserDefaults.standard.set(ids, forKey: recentKey)
     }
 
@@ -180,8 +303,8 @@ final class EmoteStore: ObservableObject {
 
     private func resolveRecents() {
         guard let ids = UserDefaults.standard.stringArray(forKey: recentKey) else { return }
-        recentlyUsed = ids.compactMap { id in
-            emoteList.first { $0.id == id }
+        state.recentlyUsed = ids.compactMap { id in
+            state.emoteList.first { $0.id == id }
         }
     }
 }

@@ -1,5 +1,6 @@
 """Notification service — writes to DB and triggers push notifications."""
 
+import logging
 import uuid
 
 from sqlalchemy import func, select
@@ -7,6 +8,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.notification import Notification
 from app.services.push_service import send_push_notification
+from app.services.redis_service import get_unread_count as redis_get_unread_count
+
+logger = logging.getLogger(__name__)
 
 
 # Valid notification types
@@ -65,7 +69,21 @@ async def mark_as_read(db: AsyncSession, notification_id: uuid.UUID, user_id: uu
 
 
 async def get_unread_count(db: AsyncSession, user_id: uuid.UUID) -> int:
-    """Return count of unread notifications for a user."""
+    """Return count of unread notifications for a user.
+
+    Tries Redis first for speed, falls back to DB on Redis failure.
+    """
+    try:
+        count = await redis_get_unread_count(str(user_id))
+        if count is not None:
+            return count
+    except Exception:
+        logger.debug("Redis unread count unavailable for user %s, falling back to DB", user_id)
+    return await _get_unread_count_from_db(db, user_id)
+
+
+async def _get_unread_count_from_db(db: AsyncSession, user_id: uuid.UUID) -> int:
+    """Return count of unread notifications from the database."""
     result = await db.execute(
         select(func.count())
         .select_from(Notification)

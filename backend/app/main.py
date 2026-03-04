@@ -80,6 +80,31 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
 
 
 # ---------------------------------------------------------------------------
+# Cache-Control headers middleware
+# ---------------------------------------------------------------------------
+
+CACHE_CONTROL_RULES: dict[str, str] = {
+    "/api/shop/products": "public, max-age=300",
+    "/api/giphy/trending": "public, max-age=600",
+    "/api/insights/overview": "public, max-age=30",
+    "/api/governance/proposals": "public, max-age=60",
+    "/api/social/channels": "private, max-age=60",
+}
+
+
+class CacheControlMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        response = await call_next(request)
+        if request.method == "GET":
+            path = request.url.path
+            for prefix, header in CACHE_CONTROL_RULES.items():
+                if path == prefix or path.startswith(prefix + "?"):
+                    response.headers["Cache-Control"] = header
+                    break
+        return response
+
+
+# ---------------------------------------------------------------------------
 # App
 # ---------------------------------------------------------------------------
 
@@ -96,6 +121,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 app.add_middleware(SecurityHeadersMiddleware)
+app.add_middleware(CacheControlMiddleware)
 
 app.include_router(api_router)
 app.include_router(social_ws_router)

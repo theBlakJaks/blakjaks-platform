@@ -1,5 +1,15 @@
 import SwiftUI
 
+// MARK: - LazyView
+// Defers initialization of a view until it is first rendered,
+// preventing all 5 tabs from being eagerly created at launch.
+
+struct LazyView<Content: View>: View {
+    let build: () -> Content
+    init(_ build: @autoclosure @escaping () -> Content) { self.build = build }
+    var body: some View { build() }
+}
+
 // MARK: - MainTabView
 // Root tab bar matching the mockup's 5-tab bottom nav:
 // Insights · Scan & Wallet · Shop · Social · Profile
@@ -9,23 +19,23 @@ struct MainTabView: View {
 
     var body: some View {
         TabView(selection: $selectedTab) {
-            InsightsMenuView()
+            LazyView(InsightsMenuView())
                 .tabItem { Label("Insights", systemImage: "chart.bar.fill") }
                 .tag(0)
 
-            ScanWalletView()
+            LazyView(ScanWalletView())
                 .tabItem { Label("Wallet", systemImage: "qrcode.viewfinder") }
                 .tag(1)
 
-            ShopView()
+            LazyView(ShopView())
                 .tabItem { Label("Shop", systemImage: "bag.fill") }
                 .tag(2)
 
-            SocialHubView()
+            LazyView(SocialHubView())
                 .tabItem { Label("Social", systemImage: "bubble.left.and.bubble.right.fill") }
                 .tag(3)
 
-            ProfileView()
+            LazyView(ProfileView())
                 .tabItem { Label("Profile", systemImage: "person.fill") }
                 .tag(4)
         }
