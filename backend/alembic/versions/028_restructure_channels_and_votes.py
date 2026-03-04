@@ -46,31 +46,31 @@ def upgrade():
             SELECT id INTO whale_id FROM tiers WHERE name = 'Whale';
 
             -- Standard channels (no tier required)
-            INSERT INTO channels (id, name, description, category, tier_required_id, is_locked, sort_order, room_type, created_at, updated_at)
+            INSERT INTO channels (id, name, description, category, tier_required_id, is_locked, sort_order, room_type, created_at)
             VALUES
-                (gen_random_uuid(), 'general-chat', 'General community chat', 'Standard', NULL, false, 0, 'chat', now(), now()),
-                (gen_random_uuid(), 'announcements', 'Official BlakJaks announcements', 'Standard', NULL, true, 1, 'announcements', now(), now());
+                (gen_random_uuid(), 'general-chat', 'General community chat', 'Standard', NULL, false, 0, 'chat', now()),
+                (gen_random_uuid(), 'announcements', 'Official BlakJaks announcements', 'Standard', NULL, true, 1, 'announcements', now());
 
             -- VIP channels
-            INSERT INTO channels (id, name, description, category, tier_required_id, is_locked, sort_order, room_type, created_at, updated_at)
+            INSERT INTO channels (id, name, description, category, tier_required_id, is_locked, sort_order, room_type, created_at)
             VALUES
-                (gen_random_uuid(), 'general-chat', 'VIP community chat', 'VIP', vip_id, false, 0, 'chat', now(), now()),
-                (gen_random_uuid(), 'announcements', 'VIP announcements', 'VIP', vip_id, true, 1, 'announcements', now(), now()),
-                (gen_random_uuid(), 'governance', 'VIP governance polls', 'VIP', vip_id, true, 2, 'governance', now(), now());
+                (gen_random_uuid(), 'general-chat', 'VIP community chat', 'VIP', vip_id, false, 0, 'chat', now()),
+                (gen_random_uuid(), 'announcements', 'VIP announcements', 'VIP', vip_id, true, 1, 'announcements', now()),
+                (gen_random_uuid(), 'governance', 'VIP governance polls', 'VIP', vip_id, true, 2, 'governance', now());
 
             -- High Roller channels
-            INSERT INTO channels (id, name, description, category, tier_required_id, is_locked, sort_order, room_type, created_at, updated_at)
+            INSERT INTO channels (id, name, description, category, tier_required_id, is_locked, sort_order, room_type, created_at)
             VALUES
-                (gen_random_uuid(), 'general-chat', 'High Roller community chat', 'High Roller', high_roller_id, false, 0, 'chat', now(), now()),
-                (gen_random_uuid(), 'announcements', 'High Roller announcements', 'High Roller', high_roller_id, true, 1, 'announcements', now(), now()),
-                (gen_random_uuid(), 'governance', 'High Roller governance polls', 'High Roller', high_roller_id, true, 2, 'governance', now(), now());
+                (gen_random_uuid(), 'general-chat', 'High Roller community chat', 'High Roller', high_roller_id, false, 0, 'chat', now()),
+                (gen_random_uuid(), 'announcements', 'High Roller announcements', 'High Roller', high_roller_id, true, 1, 'announcements', now()),
+                (gen_random_uuid(), 'governance', 'High Roller governance polls', 'High Roller', high_roller_id, true, 2, 'governance', now());
 
             -- Whale channels
-            INSERT INTO channels (id, name, description, category, tier_required_id, is_locked, sort_order, room_type, created_at, updated_at)
+            INSERT INTO channels (id, name, description, category, tier_required_id, is_locked, sort_order, room_type, created_at)
             VALUES
-                (gen_random_uuid(), 'general-chat', 'Whale exclusive chat', 'Whale', whale_id, false, 0, 'chat', now(), now()),
-                (gen_random_uuid(), 'announcements', 'Whale announcements', 'Whale', whale_id, true, 1, 'announcements', now(), now()),
-                (gen_random_uuid(), 'governance', 'Whale governance polls', 'Whale', whale_id, true, 2, 'governance', now(), now());
+                (gen_random_uuid(), 'general-chat', 'Whale exclusive chat', 'Whale', whale_id, false, 0, 'chat', now()),
+                (gen_random_uuid(), 'announcements', 'Whale announcements', 'Whale', whale_id, true, 1, 'announcements', now()),
+                (gen_random_uuid(), 'governance', 'Whale governance polls', 'Whale', whale_id, true, 2, 'governance', now());
         END $$;
     """)
 
