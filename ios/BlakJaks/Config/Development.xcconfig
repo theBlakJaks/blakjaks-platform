@@ -1,9 +1,0 @@
-// Development Configuration
-// API_BASE_URL: local dev or sandbox
-API_BASE_URL = https:/$()/dev-api.blakjaks.com
-ENVIRONMENT = Development
-APP_DISPLAY_NAME = BlakJaks Dev
-PRODUCT_BUNDLE_IDENTIFIER = com.blakjaks.app.dev
-METAMASK_CLIENT_ID =
-GIPHY_API_KEY = carvshLmb8cToKtYcXaWTyA4cHcVuvTA
-#include "Secrets.xcconfig"

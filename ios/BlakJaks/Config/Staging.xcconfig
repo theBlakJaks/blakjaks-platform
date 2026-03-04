@@ -1,9 +1,0 @@
-// Staging Configuration
-API_BASE_URL = https://staging-api.blakjaks.com
-ENVIRONMENT = Staging
-APP_DISPLAY_NAME = BlakJaks Staging
-PRODUCT_BUNDLE_IDENTIFIER = com.blakjaks.app.staging
-METAMASK_CLIENT_ID =
-GIPHY_API_KEY = $(GIPHY_API_KEY)
-WEB3AUTH_CLIENT_ID = $(WEB3AUTH_CLIENT_ID)
-#include "Secrets.xcconfig"

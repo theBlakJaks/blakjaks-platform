@@ -1,0 +1,6 @@
+// Debug environment — staging backend
+// Note: xcconfig treats // as a comment, so URLs must use a variable for the protocol.
+_API_PROTO = https
+API_BASE_URL = $(_API_PROTO)://staging-api.blakjaks.com/api
+ENVIRONMENT = staging
+ATS_ALLOWS_ARBITRARY_LOADS = NO

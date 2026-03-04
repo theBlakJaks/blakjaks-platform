@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html, body {
+    width:100%; height:100%;
+    background:transparent;
+    overflow:hidden;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+  }
+  #bj-logo-scene {
+    perspective: 900px;
+    perspective-origin: 50% 50%;
+  }
+  #bj-logo-wrap {
+    transform-style: preserve-3d;
+    pointer-events: none;
+  }
+  #bj-logo-img {
+    display: block;
+    width: 280px;
+    height: auto;
+    user-select: none;
+    -webkit-user-drag: none;
+  }
+</style>
+</head>
+<body>
+<div id="bj-logo-scene">
+  <div id="bj-logo-wrap">
+    <img id="bj-logo-img" src="blakjaks-logo.png" alt="BlakJaks">
+  </div>
+</div>
+<script>
+(function () {
+  const wrap = document.getElementById('bj-logo-wrap');
+  if (!wrap) return;
+  const SPEED = 0.001521;
+  const startTime = performance.now();
+
+  function orbitTransform(t) {
+    const s1 = t * SPEED;
+    const s2 = t * SPEED * 0.37;
+    const ry = Math.sin(s1) * 15 + Math.sin(s2 + 1.3) * 5;
+    const rx = Math.sin(s1 * 0.7 + 0.9) * 14 + Math.sin(s2 * 1.1 + 0.8) * 6;
+    const rz = Math.cos(s1) * 3 + Math.cos(s2 * 0.9) * 1.5;
+    const y  = Math.sin(t * 0.0004) * 6 + Math.sin(t * 0.00017 + 2.1) * 3;
+    return { ry, rx, rz, y };
+  }
+
+  function loop(now) {
+    const { ry, rx, rz, y } = orbitTransform(now - startTime);
+    wrap.style.transform =
+      `translateY(${y.toFixed(3)}px) ` +
+      `rotateY(${ry.toFixed(3)}deg) ` +
+      `rotateX(${rx.toFixed(3)}deg) ` +
+      `rotateZ(${rz.toFixed(3)}deg)`;
+    requestAnimationFrame(loop);
+  }
+  requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>
