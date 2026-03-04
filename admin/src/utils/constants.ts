@@ -65,20 +65,6 @@ export const STATUS_COLORS: Record<string, string> = {
   changes_requested: 'bg-orange-100 text-orange-800',
 }
 
-export const VOTE_TYPE_COLORS: Record<string, string> = {
-  flavor: 'bg-pink-100 text-pink-800',
-  product: 'bg-blue-100 text-blue-800',
-  loyalty: 'bg-amber-100 text-amber-800',
-  corporate: 'bg-purple-100 text-purple-800',
-}
-
-export const VOTE_TYPE_MIN_TIER: Record<string, string> = {
-  flavor: 'VIP',
-  product: 'High Roller',
-  loyalty: 'High Roller',
-  corporate: 'Whale',
-}
-
 export const COMP_TYPE_COLORS: Record<string, string> = {
   crypto_100: 'bg-indigo-100 text-indigo-800',
   crypto_1k: 'bg-indigo-100 text-indigo-800',

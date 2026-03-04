@@ -6,22 +6,12 @@ import LoadingSpinner from '../components/LoadingSpinner'
 import EmptyState from '../components/EmptyState'
 import Modal from '../components/Modal'
 import ConfirmDialog from '../components/ConfirmDialog'
-import { getVotes, getVoteResults, createVote, closeVote, getProposals, reviewProposal } from '../api/governance'
+import { getVotes, getVoteResults, createVote, closeVote } from '../api/governance'
 import { formatDate } from '../utils/formatters'
-import { VOTE_TYPE_COLORS, VOTE_TYPE_MIN_TIER } from '../utils/constants'
-import type { Vote, VoteResult, Proposal, VoteOption } from '../types'
-
-const TABS = ['Votes', 'Proposals'] as const
-type Tab = typeof TABS[number]
+import { TIER_COLORS } from '../utils/constants'
+import type { Vote, VoteResult, VoteOption } from '../types'
 
 const BAR_COLORS = ['#6366f1', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981', '#06b6d4']
-
-const VOTE_TYPES = [
-  { value: 'flavor', label: 'Flavor (VIP+)' },
-  { value: 'product', label: 'Product (HR+)' },
-  { value: 'loyalty', label: 'Loyalty (HR+)' },
-  { value: 'corporate', label: 'Corporate (Whale only)' },
-]
 
 /** Returns a datetime-local string for `now + days` days */
 function defaultEndDate(days = 7): string {
@@ -31,20 +21,17 @@ function defaultEndDate(days = 7): string {
 }
 
 export default function Governance() {
-  const [tab, setTab] = useState<Tab>('Votes')
-
   // ── Votes list ───────────────────────────────────────────────────────
   const [votes, setVotes] = useState<Vote[]>([])
   const [votesLoading, setVotesLoading] = useState(true)
   const [votesError, setVotesError] = useState<string | null>(null)
   const [voteStatusFilter, setVoteStatusFilter] = useState('')
-  const [voteTypeFilter, setVoteTypeFilter] = useState('')
 
   // ── Create vote modal ────────────────────────────────────────────────
   const [createOpen, setCreateOpen] = useState(false)
   const [newTitle, setNewTitle] = useState('')
   const [newDesc, setNewDesc] = useState('')
-  const [newType, setNewType] = useState('flavor')
+  const [newTargetTiers, setNewTargetTiers] = useState<string[]>(['VIP', 'High Roller', 'Whale'])
   const [newOptions, setNewOptions] = useState<{ id: string; label: string }[]>([
     { id: 'opt-1', label: '' },
     { id: 'opt-2', label: '' },
@@ -64,17 +51,6 @@ export default function Governance() {
   // Close from inside the results modal
   const [closeFromResults, setCloseFromResults] = useState(false)
 
-  // ── Proposals ────────────────────────────────────────────────────────
-  const [proposals, setProposals] = useState<Proposal[]>([])
-  const [proposalsLoading, setProposalsLoading] = useState(true)
-  const [proposalStatusFilter, setProposalStatusFilter] = useState('')
-  const [expandedProp, setExpandedProp] = useState<string | null>(null)
-
-  // ── Review modal ─────────────────────────────────────────────────────
-  const [reviewTarget, setReviewTarget] = useState<Proposal | null>(null)
-  const [reviewNotes, setReviewNotes] = useState('')
-  const [reviewing, setReviewing] = useState(false)
-
   // ────────────────────────────────────────────────────────────────────
   // Data fetching
   // ────────────────────────────────────────────────────────────────────
@@ -83,27 +59,16 @@ export default function Governance() {
     setVotesLoading(true)
     setVotesError(null)
     try {
-      const data = await getVotes(voteStatusFilter || undefined, voteTypeFilter || undefined)
+      const data = await getVotes(voteStatusFilter || undefined)
       setVotes(data)
     } catch {
       setVotesError('Failed to load votes.')
     } finally {
       setVotesLoading(false)
     }
-  }, [voteStatusFilter, voteTypeFilter])
-
-  const fetchProposals = useCallback(async () => {
-    setProposalsLoading(true)
-    try {
-      const data = await getProposals(proposalStatusFilter || undefined)
-      setProposals(data)
-    } finally {
-      setProposalsLoading(false)
-    }
-  }, [proposalStatusFilter])
+  }, [voteStatusFilter])
 
   useEffect(() => { fetchVotes() }, [fetchVotes])
-  useEffect(() => { if (tab === 'Proposals') fetchProposals() }, [tab, fetchProposals])
 
   // ── Results polling ──────────────────────────────────────────────────
 
@@ -158,6 +123,10 @@ export default function Governance() {
       toast.error('Fill in all fields and provide at least 2 options')
       return
     }
+    if (newTargetTiers.length === 0) {
+      toast.error('Select at least one target tier')
+      return
+    }
     if (!newEndDate || new Date(newEndDate) <= new Date()) {
       toast.error('End date must be in the future')
       return
@@ -165,7 +134,7 @@ export default function Governance() {
     setCreating(true)
     try {
       const opts: VoteOption[] = validOptions.map((o, i) => ({ id: `opt-${i + 1}`, label: o.label.trim() }))
-      await createVote(newTitle.trim(), newDesc.trim(), newType, opts, 7, new Date(newEndDate).toISOString())
+      await createVote(newTitle.trim(), newDesc.trim(), newTargetTiers, opts, new Date(newEndDate).toISOString())
       toast.success('Vote created')
       setCreateOpen(false)
       resetCreateForm()
@@ -180,7 +149,7 @@ export default function Governance() {
   const resetCreateForm = () => {
     setNewTitle('')
     setNewDesc('')
-    setNewType('flavor')
+    setNewTargetTiers(['VIP', 'High Roller', 'Whale'])
     setNewOptions([{ id: 'opt-1', label: '' }, { id: 'opt-2', label: '' }])
     setNewEndDate(defaultEndDate(7))
   }
@@ -216,30 +185,6 @@ export default function Governance() {
   }
 
   // ────────────────────────────────────────────────────────────────────
-  // Proposals
-  // ────────────────────────────────────────────────────────────────────
-
-  const handleReview = async (action: 'approve' | 'reject' | 'changes_requested') => {
-    if (!reviewTarget) return
-    if ((action === 'reject' || action === 'changes_requested') && !reviewNotes.trim()) {
-      toast.error('Notes required for reject/changes requested')
-      return
-    }
-    setReviewing(true)
-    try {
-      const res = await reviewProposal(reviewTarget.id, action, reviewNotes || undefined)
-      toast.success(res.message)
-      setReviewTarget(null)
-      setReviewNotes('')
-      fetchProposals()
-    } catch {
-      toast.error('Failed to review proposal')
-    } finally {
-      setReviewing(false)
-    }
-  }
-
-  // ────────────────────────────────────────────────────────────────────
   // Helpers
   // ────────────────────────────────────────────────────────────────────
 
@@ -259,224 +204,110 @@ export default function Governance() {
   return (
     <div className="space-y-6">
 
-      {/* ── Tabs ─────────────────────────────────────────────────────── */}
-      <div className="border-b border-slate-200">
-        <nav className="-mb-px flex gap-6">
-          {TABS.map(t => (
-            <button
-              key={t}
-              onClick={() => setTab(t)}
-              className={`border-b-2 pb-3 text-sm font-medium transition-colors ${
-                tab === t
-                  ? 'border-indigo-600 text-indigo-600'
-                  : 'border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-700'
-              }`}
-            >
-              {t}
-            </button>
-          ))}
-        </nav>
-      </div>
+      <div className="space-y-4">
 
-      {/* ── Votes Tab ────────────────────────────────────────────────── */}
-      {tab === 'Votes' && (
-        <div className="space-y-4">
+        {/* Toolbar */}
+        <div className="flex flex-wrap items-center gap-3">
+          <button
+            onClick={() => { resetCreateForm(); setCreateOpen(true) }}
+            className="flex items-center gap-1.5 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"
+          >
+            <Plus size={16} /> Create New Vote
+          </button>
 
-          {/* Toolbar */}
-          <div className="flex flex-wrap items-center gap-3">
-            <button
-              onClick={() => { resetCreateForm(); setCreateOpen(true) }}
-              className="flex items-center gap-1.5 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"
-            >
-              <Plus size={16} /> Create New Vote
-            </button>
-
-            <div className="ml-auto flex items-center gap-3">
-              <Filter size={16} className="text-slate-400" />
-              <select
-                value={voteStatusFilter}
-                onChange={e => setVoteStatusFilter(e.target.value)}
-                className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none"
-              >
-                <option value="">All Status</option>
-                <option value="active">Active</option>
-                <option value="closed">Closed</option>
-                <option value="draft">Draft</option>
-              </select>
-              <select
-                value={voteTypeFilter}
-                onChange={e => setVoteTypeFilter(e.target.value)}
-                className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none"
-              >
-                <option value="">All Types</option>
-                {VOTE_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
-              </select>
-              <button
-                onClick={fetchVotes}
-                title="Refresh"
-                className="rounded-lg border border-slate-200 bg-white p-2 text-slate-500 hover:bg-slate-50"
-              >
-                <RefreshCw size={15} />
-              </button>
-            </div>
-          </div>
-
-          {/* Error state */}
-          {votesError && (
-            <div className="flex items-center justify-between rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-              <span>{votesError}</span>
-              <button onClick={fetchVotes} className="font-medium underline hover:no-underline">Retry</button>
-            </div>
-          )}
-
-          {/* Table */}
-          {votesLoading ? (
-            <div className="flex items-center justify-center py-16"><LoadingSpinner /></div>
-          ) : votes.length === 0 ? (
-            <EmptyState title="No votes" message="Create a vote to get started." />
-          ) : (
-            <div className="overflow-hidden rounded-xl bg-white shadow-sm">
-              <table className="w-full text-left text-sm">
-                <thead>
-                  <tr className="border-b border-slate-100 bg-slate-50">
-                    <th className="px-4 py-3 font-medium text-slate-600">Title</th>
-                    <th className="px-4 py-3 font-medium text-slate-600">Type</th>
-                    <th className="px-4 py-3 font-medium text-slate-600">Status</th>
-                    <th className="px-4 py-3 font-medium text-slate-600">Min Tier</th>
-                    <th className="px-4 py-3 font-medium text-slate-600">End Date</th>
-                    <th className="px-4 py-3 font-medium text-slate-600">Ballots</th>
-                    <th className="px-4 py-3 font-medium text-slate-600">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {votes.map(v => (
-                    <tr key={v.id} className="border-b border-slate-50 hover:bg-slate-50">
-                      <td className="px-4 py-3 font-medium text-slate-900">{v.title}</td>
-                      <td className="px-4 py-3">
-                        <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${VOTE_TYPE_COLORS[v.vote_type] || 'bg-slate-100 text-slate-800'}`}>
-                          {v.vote_type}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3"><Badge label={v.status} /></td>
-                      <td className="px-4 py-3"><Badge label={v.min_tier_required} variant="tier" /></td>
-                      <td className="px-4 py-3 text-slate-500">
-                        <span title={formatDate(v.end_date)}>
-                          {v.status === 'active' ? daysRemaining(v.end_date) : formatDate(v.end_date)}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-slate-700">{v.total_ballots}</td>
-                      <td className="px-4 py-3">
-                        <div className="flex gap-2">
-                          <button
-                            onClick={() => handleViewResults(v)}
-                            className="flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-medium text-indigo-600 hover:bg-indigo-50"
-                          >
-                            <Eye size={13} /> Results
-                          </button>
-                          {v.status === 'active' && (
-                            <button
-                              onClick={() => { setCloseFromResults(false); setCloseTarget(v) }}
-                              className="flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50"
-                            >
-                              <XCircle size={13} /> Close
-                            </button>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* ── Proposals Tab ────────────────────────────────────────────── */}
-      {tab === 'Proposals' && (
-        <div className="space-y-4">
-          <div className="flex items-center gap-3">
+          <div className="ml-auto flex items-center gap-3">
             <Filter size={16} className="text-slate-400" />
             <select
-              value={proposalStatusFilter}
-              onChange={e => setProposalStatusFilter(e.target.value)}
+              value={voteStatusFilter}
+              onChange={e => setVoteStatusFilter(e.target.value)}
               className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none"
             >
               <option value="">All Status</option>
-              <option value="pending">Pending</option>
-              <option value="approved">Approved</option>
-              <option value="rejected">Rejected</option>
-              <option value="changes_requested">Changes Requested</option>
+              <option value="active">Active</option>
+              <option value="closed">Closed</option>
+              <option value="draft">Draft</option>
             </select>
+            <button
+              onClick={fetchVotes}
+              title="Refresh"
+              className="rounded-lg border border-slate-200 bg-white p-2 text-slate-500 hover:bg-slate-50"
+            >
+              <RefreshCw size={15} />
+            </button>
           </div>
-
-          {proposalsLoading ? (
-            <div className="flex items-center justify-center py-16"><LoadingSpinner /></div>
-          ) : proposals.length === 0 ? (
-            <EmptyState title="No proposals" message="No proposals match your filter." />
-          ) : (
-            <div className="overflow-hidden rounded-xl bg-white shadow-sm">
-              <table className="w-full text-left text-sm">
-                <thead>
-                  <tr className="border-b border-slate-100 bg-slate-50">
-                    <th className="px-4 py-3 font-medium text-slate-600">Submitted By</th>
-                    <th className="px-4 py-3 font-medium text-slate-600">Title</th>
-                    <th className="px-4 py-3 font-medium text-slate-600">Description</th>
-                    <th className="px-4 py-3 font-medium text-slate-600">Type</th>
-                    <th className="px-4 py-3 font-medium text-slate-600">Status</th>
-                    <th className="px-4 py-3 font-medium text-slate-600">Submitted</th>
-                    <th className="px-4 py-3 font-medium text-slate-600">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {proposals.map(p => (
-                    <tr key={p.id} className="border-b border-slate-50 hover:bg-slate-50">
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-2">
-                          <span className="font-medium text-slate-900">{p.user_name}</span>
-                          <Badge label="Whale" variant="tier" />
-                        </div>
-                      </td>
-                      <td className="px-4 py-3 font-medium text-slate-900">{p.title}</td>
-                      <td className="max-w-xs px-4 py-3">
-                        <button
-                          onClick={() => setExpandedProp(expandedProp === p.id ? null : p.id)}
-                          className="text-left text-sm text-slate-600 hover:text-slate-900"
-                        >
-                          {expandedProp === p.id
-                            ? p.description
-                            : p.description.length > 60
-                              ? `${p.description.slice(0, 60)}...`
-                              : p.description}
-                        </button>
-                      </td>
-                      <td className="px-4 py-3">
-                        <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${VOTE_TYPE_COLORS[p.proposed_vote_type] || 'bg-slate-100 text-slate-800'}`}>
-                          {p.proposed_vote_type}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3"><Badge label={p.status} /></td>
-                      <td className="px-4 py-3 text-slate-500">{formatDate(p.created_at)}</td>
-                      <td className="px-4 py-3">
-                        {(p.status === 'pending' || p.status === 'changes_requested') ? (
-                          <button
-                            onClick={() => { setReviewTarget(p); setReviewNotes('') }}
-                            className="rounded-lg px-2.5 py-1.5 text-xs font-medium text-indigo-600 hover:bg-indigo-50"
-                          >
-                            Review
-                          </button>
-                        ) : (
-                          <span className="text-xs text-slate-400">-</span>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
         </div>
-      )}
+
+        {/* Error state */}
+        {votesError && (
+          <div className="flex items-center justify-between rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            <span>{votesError}</span>
+            <button onClick={fetchVotes} className="font-medium underline hover:no-underline">Retry</button>
+          </div>
+        )}
+
+        {/* Table */}
+        {votesLoading ? (
+          <div className="flex items-center justify-center py-16"><LoadingSpinner /></div>
+        ) : votes.length === 0 ? (
+          <EmptyState title="No votes" message="Create a vote to get started." />
+        ) : (
+          <div className="overflow-hidden rounded-xl bg-white shadow-sm">
+            <table className="w-full text-left text-sm">
+              <thead>
+                <tr className="border-b border-slate-100 bg-slate-50">
+                  <th className="px-4 py-3 font-medium text-slate-600">Title</th>
+                  <th className="px-4 py-3 font-medium text-slate-600">Target Tiers</th>
+                  <th className="px-4 py-3 font-medium text-slate-600">Status</th>
+                  <th className="px-4 py-3 font-medium text-slate-600">End Date</th>
+                  <th className="px-4 py-3 font-medium text-slate-600">Votes</th>
+                  <th className="px-4 py-3 font-medium text-slate-600">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {votes.map(v => (
+                  <tr key={v.id} className="border-b border-slate-50 hover:bg-slate-50">
+                    <td className="px-4 py-3 font-medium text-slate-900">{v.title}</td>
+                    <td className="px-4 py-3">
+                      <div className="flex flex-wrap gap-1">
+                        {v.target_tiers.map(tier => (
+                          <span key={tier} className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${TIER_COLORS[tier] || 'bg-slate-100 text-slate-800'}`}>
+                            {tier}
+                          </span>
+                        ))}
+                      </div>
+                    </td>
+                    <td className="px-4 py-3"><Badge label={v.status} /></td>
+                    <td className="px-4 py-3 text-slate-500">
+                      <span title={formatDate(v.end_date)}>
+                        {v.status === 'active' ? daysRemaining(v.end_date) : formatDate(v.end_date)}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-slate-700">{v.total_votes}</td>
+                    <td className="px-4 py-3">
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => handleViewResults(v)}
+                          className="flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-medium text-indigo-600 hover:bg-indigo-50"
+                        >
+                          <Eye size={13} /> Results
+                        </button>
+                        {v.status === 'active' && (
+                          <button
+                            onClick={() => { setCloseFromResults(false); setCloseTarget(v) }}
+                            className="flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50"
+                          >
+                            <XCircle size={13} /> Close
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
 
       {/* ── Create Vote Modal ─────────────────────────────────────────── */}
       <Modal open={createOpen} onClose={() => setCreateOpen(false)} title="Create New Vote">
@@ -506,19 +337,26 @@ export default function Governance() {
             />
           </div>
 
-          {/* Vote Type */}
+          {/* Target Tiers */}
           <div>
-            <label className="mb-1 block text-sm font-medium text-slate-700">Vote Type</label>
-            <select
-              value={newType}
-              onChange={e => setNewType(e.target.value)}
-              className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-indigo-500"
-            >
-              {VOTE_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
-            </select>
-            <p className="mt-1 text-xs text-slate-500">
-              Tier eligibility: {VOTE_TYPE_MIN_TIER[newType]}+ members
-            </p>
+            <label className="mb-1 block text-sm font-medium text-slate-700">Target Tiers</label>
+            <div className="flex flex-wrap gap-3">
+              {['VIP', 'High Roller', 'Whale'].map(tier => (
+                <label key={tier} className="flex items-center gap-2 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={newTargetTiers.includes(tier)}
+                    onChange={e => {
+                      if (e.target.checked) setNewTargetTiers(prev => [...prev, tier])
+                      else setNewTargetTiers(prev => prev.filter(t => t !== tier))
+                    }}
+                    className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                  />
+                  <span className="text-sm text-slate-700">{tier}</span>
+                </label>
+              ))}
+            </div>
+            <p className="mt-1 text-xs text-slate-500">Poll will appear in selected tier governance rooms</p>
           </div>
 
           {/* Options */}
@@ -706,88 +544,6 @@ export default function Governance() {
         confirmLabel="Close Vote"
         variant="danger"
       />
-
-      {/* ── Review Proposal Modal ─────────────────────────────────────── */}
-      <Modal open={!!reviewTarget} onClose={() => setReviewTarget(null)} title="Review Proposal">
-        {reviewTarget && (
-          <div className="space-y-4">
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="font-medium text-slate-900">{reviewTarget.user_name}</span>
-                <Badge label="Whale" variant="tier" />
-              </div>
-              <p className="mt-1 text-xs text-slate-500">{reviewTarget.user_email}</p>
-            </div>
-            <div>
-              <h4 className="font-medium text-slate-900">{reviewTarget.title}</h4>
-              <p className="mt-1 text-sm text-slate-600">{reviewTarget.description}</p>
-            </div>
-            <div className="flex gap-2">
-              <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${VOTE_TYPE_COLORS[reviewTarget.proposed_vote_type] || 'bg-slate-100 text-slate-800'}`}>
-                {reviewTarget.proposed_vote_type}
-              </span>
-              {reviewTarget.proposed_options && (
-                <span className="text-xs text-slate-500">{reviewTarget.proposed_options.length} options proposed</span>
-              )}
-            </div>
-            {reviewTarget.proposed_options && (
-              <div className="rounded-lg bg-slate-50 p-3">
-                <p className="mb-1 text-xs font-medium text-slate-500">Proposed Options:</p>
-                <ul className="space-y-1">
-                  {reviewTarget.proposed_options.map(o => (
-                    <li key={o.id} className="text-sm text-slate-700">- {o.label}</li>
-                  ))}
-                </ul>
-              </div>
-            )}
-            {reviewTarget.admin_notes && (
-              <div className="rounded-lg border border-orange-200 bg-orange-50 p-3">
-                <p className="text-xs font-medium text-orange-700">Previous Admin Notes:</p>
-                <p className="mt-1 text-sm text-orange-800">{reviewTarget.admin_notes}</p>
-              </div>
-            )}
-            <div>
-              <label className="mb-1 block text-sm font-medium text-slate-700">Admin Notes</label>
-              <textarea
-                value={reviewNotes}
-                onChange={e => setReviewNotes(e.target.value)}
-                rows={3}
-                placeholder="Required for reject/changes requested"
-                className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-indigo-500"
-              />
-            </div>
-            <div className="flex justify-end gap-2">
-              <button
-                onClick={() => setReviewTarget(null)}
-                className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={() => handleReview('changes_requested')}
-                disabled={reviewing}
-                className="rounded-lg bg-orange-50 px-4 py-2 text-sm font-medium text-orange-700 hover:bg-orange-100 disabled:opacity-40"
-              >
-                Request Changes
-              </button>
-              <button
-                onClick={() => handleReview('reject')}
-                disabled={reviewing}
-                className="rounded-lg bg-red-50 px-4 py-2 text-sm font-medium text-red-700 hover:bg-red-100 disabled:opacity-40"
-              >
-                Reject
-              </button>
-              <button
-                onClick={() => handleReview('approve')}
-                disabled={reviewing}
-                className="flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-40"
-              >
-                {reviewing && <LoadingSpinner className="h-4 w-4" />} Approve
-              </button>
-            </div>
-          </div>
-        )}
-      </Modal>
     </div>
   )
 }

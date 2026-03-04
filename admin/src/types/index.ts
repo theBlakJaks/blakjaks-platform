@@ -164,14 +164,15 @@ export interface Vote {
   id: string
   title: string
   description: string
-  vote_type: string
-  options_json: VoteOption[]
-  min_tier_required: string
+  target_tiers: string[]
+  options: VoteOption[]
   status: string
   start_date: string
   end_date: string
-  created_by: string
-  total_ballots: number
+  total_votes: number
+  results: VoteResult[]
+  user_has_voted: boolean
+  user_selected_option: string | null
   created_at: string
 }
 
@@ -217,20 +218,6 @@ export interface ModerationLogEntry {
   channel: string
   details: string
   timestamp: string
-}
-
-export interface Proposal {
-  id: string
-  user_id: string
-  user_name: string
-  user_email: string
-  title: string
-  description: string
-  proposed_vote_type: string
-  proposed_options: VoteOption[] | null
-  status: string
-  admin_notes: string | null
-  created_at: string
 }
 
 export interface PoolBalance {
