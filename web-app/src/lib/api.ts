@@ -304,29 +304,34 @@ export const api = {
       if (beforeId) params.set('before', beforeId)
       if (sinceSequence !== undefined) params.set('since_sequence', String(sinceSequence))
       const raw = await fetchAPI<Array<Record<string, unknown>>>(`/social/channels/${channelId}/messages?${params}`)
-      const messages: Message[] = raw.map((m) => ({
-        id: String(m.id),
-        channelId: String(m.channel_id),
-        userId: String(m.user_id),
-        username: String(m.username ?? ''),
-        userTier: (m.user_tier ?? 'standard') as Message['userTier'],
-        content: String(m.content ?? ''),
-        timestamp: String(m.created_at ?? new Date().toISOString()),
-        reactions: (() => {
-          const arr = m.reactions as Array<{ emoji: string; users: string[] }> | undefined
-          if (!arr) return {}
-          const out: Record<string, string[]> = {}
-          for (const r of arr) out[r.emoji] = r.users
-          return out
-        })(),
-        replyToId: m.reply_to_id ? String(m.reply_to_id) : undefined,
-        replyToContent: m.reply_preview ? String(m.reply_preview) : undefined,
-        isSystem: Boolean(m.is_system),
-        isPinned: Boolean(m.is_pinned),
-        originalLanguage: m.original_language ? String(m.original_language) : undefined,
-        avatarUrl: m.avatar_url ? String(m.avatar_url) : undefined,
-        sequence: m.sequence != null ? Number(m.sequence) : undefined,
-      }))
+      const GIPHY_RE = /^https:\/\/media\d*\.giphy\.com\/.+/i
+      const messages: Message[] = raw.map((m) => {
+        const content = String(m.content ?? '')
+        return {
+          id: String(m.id),
+          channelId: String(m.channel_id),
+          userId: String(m.user_id),
+          username: String(m.username ?? ''),
+          userTier: (m.user_tier ?? 'standard') as Message['userTier'],
+          content,
+          timestamp: String(m.created_at ?? new Date().toISOString()),
+          reactions: (() => {
+            const arr = m.reactions as Array<{ emoji: string; users: string[] }> | undefined
+            if (!arr) return {}
+            const out: Record<string, string[]> = {}
+            for (const r of arr) out[r.emoji] = r.users
+            return out
+          })(),
+          replyToId: m.reply_to_id ? String(m.reply_to_id) : undefined,
+          replyToContent: m.reply_preview ? String(m.reply_preview) : undefined,
+          isSystem: Boolean(m.is_system),
+          isPinned: Boolean(m.is_pinned),
+          originalLanguage: m.original_language ? String(m.original_language) : undefined,
+          avatarUrl: m.avatar_url ? String(m.avatar_url) : undefined,
+          sequence: m.sequence != null ? Number(m.sequence) : undefined,
+          gifUrl: GIPHY_RE.test(content.trim()) ? content.trim() : undefined,
+        }
+      })
       return { messages }
     },
 
