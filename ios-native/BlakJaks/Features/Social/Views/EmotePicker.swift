@@ -200,8 +200,11 @@ struct EmotePicker: View {
             if let url = emote.url(size: "2x") {
                 AnimatedImageView(url: url, height: 36)
                     .frame(width: 36, height: 36)
+            } else {
+                Color.clear.frame(width: 36, height: 36)
             }
         }
+        .contentShape(Rectangle())
         .buttonStyle(EmoteCellButtonStyle())
     }
 }
@@ -211,7 +214,7 @@ struct EmotePicker: View {
 private struct EmoteCellButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .frame(maxWidth: .infinity)
+            .frame(width: 36, height: 36)
             .padding(4)
             .background(configuration.isPressed ? Color.bgCard : Color.clear)
             .clipShape(RoundedRectangle(cornerRadius: 6))

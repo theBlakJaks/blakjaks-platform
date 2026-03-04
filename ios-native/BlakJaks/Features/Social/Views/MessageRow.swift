@@ -266,3 +266,15 @@ struct MessageRow: View {
         return display.string(from: date)
     }
 }
+
+// MARK: - Equatable
+
+extension MessageRow: Equatable {
+    static func == (lhs: MessageRow, rhs: MessageRow) -> Bool {
+        lhs.message.id == rhs.message.id &&
+        lhs.message.reactions == rhs.message.reactions &&
+        lhs.message.deliveryStatus == rhs.message.deliveryStatus &&
+        lhs.translatedText == rhs.translatedText &&
+        lhs.isTranslating == rhs.isTranslating
+    }
+}

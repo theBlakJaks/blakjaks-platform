@@ -12,6 +12,7 @@ struct MessageInputBar: View {
     @State private var showGifPicker = false
     @State private var stagedGifUrl: String?
     @State private var pendingEmote: CachedEmote?
+    @State private var localInput = ""
 
     private let maxCharacters = 500
 
@@ -59,7 +60,7 @@ struct MessageInputBar: View {
                     .padding(.vertical, Spacing.xs)
 
                     // Char counter
-                    if vm.inputText.count > 400 {
+                    if localInput.count > 400 {
                         charCounter
                     }
                 }
@@ -90,13 +91,17 @@ struct MessageInputBar: View {
 
     private var richInput: some View {
         EmoteRichInput(
-            text: $vm.inputText,
+            text: $localInput,
             pendingEmote: $pendingEmote,
             placeholder: "Message \(vm.channel.name)...",
             maxCharacters: maxCharacters,
             emoteMap: emoteStore.emoteMap,
             onSubmit: {
-                Task { await vm.sendMessage() }
+                vm.inputText = localInput
+                Task {
+                    await vm.sendMessage()
+                    localInput = ""
+                }
             },
             onTextChange: { text in
                 if !text.isEmpty {
@@ -161,7 +166,7 @@ struct MessageInputBar: View {
     // MARK: - Send Button
 
     private var sendButton: some View {
-        let textEmpty = vm.inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        let textEmpty = localInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         let isEmpty = textEmpty && stagedGifUrl == nil
         let isDisabled = vm.isSending || isEmpty || vm.cooldownActive
 
@@ -170,7 +175,11 @@ struct MessageInputBar: View {
                 onSendGif(gifUrl)
                 stagedGifUrl = nil
             } else {
-                Task { await vm.sendMessage() }
+                vm.inputText = localInput
+                Task {
+                    await vm.sendMessage()
+                    localInput = ""
+                }
             }
         } label: {
             ZStack {
@@ -193,13 +202,13 @@ struct MessageInputBar: View {
             }
         }
         .disabled(isDisabled)
-        .animation(.easeInOut(duration: 0.15), value: vm.inputText)
+        .animation(.easeInOut(duration: 0.15), value: localInput)
     }
 
     // MARK: - Character Counter
 
     private var charCounter: some View {
-        let remaining = maxCharacters - vm.inputText.count
+        let remaining = maxCharacters - localInput.count
         let isWarning = remaining <= 50
         return HStack {
             Spacer()
@@ -220,7 +229,7 @@ struct MessageInputBar: View {
                     showEmotePicker = false
                 } else {
                     UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
                         showEmotePicker = true
                     }
                 }
@@ -285,8 +294,7 @@ struct MessageInputBar: View {
     // MARK: - Autocomplete
 
     private var autocompleteMatches: [CachedEmote] {
-        let text = vm.inputText
-        guard let lastWord = text.split(separator: " ").last,
+        guard let lastWord = localInput.split(separator: " ").last,
               lastWord.count >= 2 else { return [] }
         return emoteStore.prefixMatch(String(lastWord))
     }

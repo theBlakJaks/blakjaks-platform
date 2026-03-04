@@ -11,6 +11,7 @@ struct ChatView: View {
     @State private var translatedMessages: [String: String] = [:]
     @State private var isTranslating: String? = nil
     @State private var showPinnedSheet = false
+    @State private var frozenEmoteMap: [String: CachedEmote] = [:]
 
     init(channel: Channel, engine: ChatEngine) {
         self.channel = channel
@@ -84,6 +85,7 @@ struct ChatView: View {
             async let loadMessages: () = vm.loadInitial()
             async let loadEmotes: () = emoteStore.initializeEmotes()
             _ = await (loadMessages, loadEmotes)
+            frozenEmoteMap = emoteStore.emoteMap
         }
         .onDisappear {
             vm.onDisappear()
@@ -150,7 +152,7 @@ struct ChatView: View {
                         MessageRow(
                             message: message,
                             currentUserId: vm.currentUserId,
-                            emoteMap: emoteStore.emoteMap,
+                            emoteMap: frozenEmoteMap,
                             translatedText: translatedMessages[message.id],
                             isTranslating: isTranslating == message.id,
                             onTranslate: {
@@ -173,6 +175,7 @@ struct ChatView: View {
                                 }
                             } : nil
                         )
+                        .equatable()
                         .id(message.id)
                     }
 
