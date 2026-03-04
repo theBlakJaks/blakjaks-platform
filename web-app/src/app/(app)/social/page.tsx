@@ -68,6 +68,7 @@ function SocialPage() {
   const [cooldownTime, setCooldownTime] = useState(0)
   const burstCountRef = useRef(0)
   const [gifPickerOpen, setGifPickerOpen] = useState(false)
+  const [stagedGif, setStagedGif] = useState<{ url: string; previewUrl: string } | null>(null)
   const [emotePickerOpen, setEmotePickerOpen] = useState(false)
   const [autocompleteMatches, setAutocompleteMatches] = useState<CachedEmote[]>([])
   const [inputFocused, setInputFocused] = useState(false)
@@ -252,10 +253,18 @@ function SocialPage() {
 
   const handleSend = async () => {
     const text = chatInputRef.current?.getText().trim() || inputText.trim()
-    if (!text || cooldownActive) return
+    if (!text && !stagedGif) return
+    if (cooldownActive) return
 
     shouldAutoScrollRef.current = true
-    chatSendMessage(text, replyingTo?.id)
+
+    if (stagedGif) {
+      // Send GIF — content is the URL, gifUrl detection happens in wireToMessage
+      chatSendMessage(stagedGif.url, replyingTo?.id)
+      setStagedGif(null)
+    } else {
+      chatSendMessage(text, replyingTo?.id)
+    }
     if (replyingTo) setReplyingTo(null)
 
     chatInputRef.current?.clear()
@@ -275,8 +284,7 @@ function SocialPage() {
 
   const handleGifSelect = (gifUrl: string) => {
     if (!user || !activeChannel) return
-    chatSendMessage(gifUrl)
-    shouldAutoScrollRef.current = true
+    setStagedGif({ url: gifUrl, previewUrl: gifUrl })
     setGifPickerOpen(false)
   }
 
@@ -820,6 +828,14 @@ function SocialPage() {
               Rate limited. You can send another message in {cooldownTime}s
             </div>
           )}
+          {stagedGif && (
+            <div className="mb-2 flex items-start gap-2 rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-surface)] p-2">
+              <img src={stagedGif.previewUrl} alt="GIF preview" className="rounded-md max-w-[120px] max-h-[80px] object-cover" />
+              <button onClick={() => setStagedGif(null)} className="shrink-0 text-[var(--color-text-dim)] hover:text-white transition-colors mt-0.5">
+                <X size={14} />
+              </button>
+            </div>
+          )}
           <div className="flex items-end gap-2">
             <div className="flex-1 relative">
               <EmoteChatInput
@@ -893,7 +909,7 @@ function SocialPage() {
                 <GiphyPicker onSelect={handleGifSelect} onClose={() => setGifPickerOpen(false)} />
               )}
             </div>
-            <GoldButton onClick={() => { handleSend(); setEmotePickerOpen(false) }} disabled={!inputText.trim() || cooldownActive} size="md">
+            <GoldButton onClick={() => { handleSend(); setEmotePickerOpen(false) }} disabled={(!inputText.trim() && !stagedGif) || cooldownActive} size="md">
               <Send size={16} />
             </GoldButton>
           </div>

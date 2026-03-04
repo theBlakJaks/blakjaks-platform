@@ -25,11 +25,15 @@ import type {
 import type { Message, Tier } from '@/lib/types'
 import { api } from '@/lib/api'
 
+// Detect Giphy URLs in message content to render as GIF
+const GIPHY_URL_RE = /^https:\/\/media\d*\.giphy\.com\/.+/i
+
 // Maps a server wire message (snake_case) to frontend Message (camelCase)
 function wireToMessage(
   msg: InboundNewMessage | InboundReplayMessage,
   status?: 'sending' | 'sent' | 'failed',
 ): Message {
+  const gifUrl = GIPHY_URL_RE.test(msg.content.trim()) ? msg.content.trim() : undefined
   return {
     id: msg.id,
     channelId: msg.channel_id,
@@ -48,6 +52,7 @@ function wireToMessage(
     sequence: msg.sequence,
     status: status ?? 'sent',
     idempotencyKey: msg.idempotency_key ?? undefined,
+    gifUrl,
   }
 }
 
@@ -316,6 +321,7 @@ export function useChat(channelId: string | null): UseChatReturn {
       const queued = engine.sendMessage(channelId, content, replyToId)
 
       // Insert optimistic message into local state
+      const gifUrl = GIPHY_URL_RE.test(content.trim()) ? content.trim() : undefined
       const optimistic: Message = {
         id: `optimistic-${queued.idempotencyKey}`,
         channelId,
@@ -328,6 +334,7 @@ export function useChat(channelId: string | null): UseChatReturn {
         replyToId,
         status: 'sending',
         idempotencyKey: queued.idempotencyKey,
+        gifUrl,
       }
       setMessages((prev) => [...prev, optimistic])
 
