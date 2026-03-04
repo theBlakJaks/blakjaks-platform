@@ -20,6 +20,8 @@ function defaultEndDate(days = 7): string {
   return d.toISOString().slice(0, 16)
 }
 
+let nextOptId = 3
+
 export default function Governance() {
   // ── Votes list ───────────────────────────────────────────────────────
   const [votes, setVotes] = useState<Vote[]>([])
@@ -152,10 +154,11 @@ export default function Governance() {
     setNewTargetTiers(['VIP', 'High Roller', 'Whale'])
     setNewOptions([{ id: 'opt-1', label: '' }, { id: 'opt-2', label: '' }])
     setNewEndDate(defaultEndDate(7))
+    nextOptId = 3
   }
 
   const addOption = () =>
-    setNewOptions(prev => [...prev, { id: `opt-${prev.length + 1}`, label: '' }])
+    setNewOptions(prev => [...prev, { id: `opt-${nextOptId++}`, label: '' }])
   const removeOption = (idx: number) =>
     setNewOptions(prev => prev.filter((_, i) => i !== idx))
   const updateOption = (idx: number, label: string) =>
