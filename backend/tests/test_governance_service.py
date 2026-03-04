@@ -17,7 +17,7 @@ pytestmark = pytest.mark.asyncio
 
 
 def _make_vote(
-    vote_type: str = "flavor",
+    target_tiers: list[str] | None = None,
     status: str = "active",
     end_date: datetime | None = None,
     options_json: list | None = None,
@@ -30,18 +30,18 @@ def _make_vote(
             {"id": "mint", "label": "Mint"},
             {"id": "berry", "label": "Berry"},
         ]
+    if target_tiers is None:
+        target_tiers = ["VIP", "High Roller", "Whale"]
     vote = MagicMock(spec=Vote)
     vote.id = uuid.uuid4()
     vote.title = "Test Vote"
     vote.description = "Test description"
-    vote.vote_type = vote_type
+    vote.target_tiers = target_tiers
     vote.status = status
     vote.options_json = options_json
-    vote.min_tier_required = "VIP"
     vote.start_date = datetime.now(timezone.utc)
     vote.end_date = end_date
     vote.created_by = uuid.uuid4()
-    vote.proposal_id = None
     vote.created_at = datetime.now(timezone.utc)
     return vote
 
@@ -105,10 +105,10 @@ def _make_db(
 
 
 async def test_cast_ballot_tier_too_low_raises_403():
-    """A Standard-tier user trying to vote on a flavor vote gets 403 (string error from service)."""
+    """A Standard-tier user trying to vote on a VIP+ vote gets an error string."""
     from app.services.governance_service import cast_ballot
 
-    vote = _make_vote(vote_type="flavor", status="active")
+    vote = _make_vote(target_tiers=["VIP", "High Roller", "Whale"], status="active")
     user_id = uuid.uuid4()
 
     # DB returns the vote, then no existing ballot
@@ -123,7 +123,7 @@ async def test_cast_ballot_tier_too_low_raises_403():
 
     # Service returns error string; API layer converts it to 403
     assert isinstance(result, str)
-    assert "cannot vote" in result.lower()
+    assert "not eligible" in result.lower()
 
 
 # ── Test 2: User cannot vote twice (returns "already voted" string → API raises 409) ──
@@ -133,7 +133,7 @@ async def test_cast_ballot_duplicate_vote_returns_already_voted():
     """Casting a second ballot for the same user/vote returns 'already voted' error."""
     from app.services.governance_service import cast_ballot
 
-    vote = _make_vote(vote_type="flavor", status="active")
+    vote = _make_vote(target_tiers=["VIP", "High Roller", "Whale"], status="active")
     user_id = uuid.uuid4()
     existing = _make_ballot(vote.id, user_id, "mint")
 
@@ -196,9 +196,9 @@ async def test_get_active_votes_filters_expired():
     user_id = uuid.uuid4()
 
     # Two votes: one active, one already expired (status still 'active' but end_date past)
-    active_vote = _make_vote(vote_type="flavor", status="active")
+    active_vote = _make_vote(target_tiers=["VIP", "High Roller", "Whale"], status="active")
     expired_vote = _make_vote(
-        vote_type="flavor",
+        target_tiers=["VIP", "High Roller", "Whale"],
         status="active",
         end_date=datetime.now(timezone.utc) - timedelta(days=1),
     )
@@ -245,7 +245,7 @@ async def test_get_active_votes_filters_expired():
 
 
 async def test_create_vote_stores_fields():
-    """create_vote sets title, description, vote_type, options, status='active'."""
+    """create_vote sets title, description, target_tiers, options, status='active'."""
     from app.services.governance_service import create_vote
 
     admin_id = uuid.uuid4()
@@ -262,15 +262,16 @@ async def test_create_vote_stores_fields():
     db.refresh = AsyncMock(side_effect=_refresh)
 
     options = [{"id": "a", "label": "Option A"}, {"id": "b", "label": "Option B"}]
+    end_date = datetime.now(timezone.utc) + timedelta(days=14)
 
     vote = await create_vote(
         db,
         admin_id,
         title="Flavor Poll",
         description="Pick a flavor",
-        vote_type="flavor",
+        target_tiers=["VIP", "High Roller", "Whale"],
         options=options,
-        duration_days=14,
+        end_date=end_date,
     )
 
     # db.add was called with a Vote instance
@@ -280,7 +281,7 @@ async def test_create_vote_stores_fields():
     added_vote = db.add.call_args[0][0]
     assert added_vote.title == "Flavor Poll"
     assert added_vote.description == "Pick a flavor"
-    assert added_vote.vote_type == "flavor"
+    assert added_vote.target_tiers == ["VIP", "High Roller", "Whale"]
     assert added_vote.status == "active"
     assert added_vote.options_json == options
     assert added_vote.created_by == admin_id
@@ -357,7 +358,7 @@ async def test_cast_ballot_invalid_option_returns_error():
     from app.services.governance_service import cast_ballot
 
     vote = _make_vote(
-        vote_type="flavor",
+        target_tiers=["VIP", "High Roller", "Whale"],
         status="active",
         options_json=[{"id": "mint", "label": "Mint"}],
     )

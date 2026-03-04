@@ -102,7 +102,8 @@ async def _clear_rate_limit_state():
 # ── Channel access by tier ───────────────────────────────────────────
 
 
-async def test_standard_sees_public_channels_only(db: AsyncSession):
+async def test_standard_sees_all_channels_with_locked(db: AsyncSession):
+    """All channels visible; higher-tier channels marked locked for Standard user."""
     await seed_tiers(db)
     from sqlalchemy import select
     from app.models.tier import Tier
@@ -117,12 +118,19 @@ async def test_standard_sees_public_channels_only(db: AsyncSession):
     user = await _create_user_with_tier(db, "standard@test.com", "Standard")
     channels = await get_channels(db, user.id)
     names = [c["name"] for c in channels]
+    # All channels visible
     assert "general-chat" in names
-    assert "high-roller-chat" not in names
-    assert "whale-room" not in names
+    assert "high-roller-chat" in names
+    assert "whale-room" in names
+    # Higher-tier channels are locked
+    by_name = {c["name"]: c for c in channels}
+    assert by_name["general-chat"]["locked"] is False
+    assert by_name["high-roller-chat"]["locked"] is True
+    assert by_name["whale-room"]["locked"] is True
 
 
-async def test_vip_sees_public_and_vip_channels(db: AsyncSession):
+async def test_vip_sees_all_channels_with_locked(db: AsyncSession):
+    """All channels visible; whale channel marked locked for VIP user."""
     await seed_tiers(db)
     from sqlalchemy import select
     from app.models.tier import Tier
@@ -137,9 +145,14 @@ async def test_vip_sees_public_and_vip_channels(db: AsyncSession):
     user = await _create_user_with_tier(db, "vip@test.com", "VIP")
     channels = await get_channels(db, user.id)
     names = [c["name"] for c in channels]
+    # All channels visible
     assert "general-chat" in names
     assert "vip-chat" in names
-    assert "whale-room" not in names
+    assert "whale-room" in names
+    # Whale channel is locked for VIP
+    by_name = {c["name"]: c for c in channels}
+    assert by_name["vip-chat"]["locked"] is False
+    assert by_name["whale-room"]["locked"] is True
 
 
 async def test_whale_sees_all_channels(db: AsyncSession):
