@@ -14,28 +14,50 @@ extension View {
 
 // MARK: - Disable Swipe-Back Navigation
 
-/// Invisible UIViewControllerRepresentable that walks up the responder chain
-/// to find the hosting UINavigationController and disables its pop gesture.
-/// Re-checks on every viewDidAppear so SwiftUI can't re-enable it.
-private struct SwipeBackDisablerView: UIViewControllerRepresentable {
-    func makeUIViewController(context: Context) -> SwipeBackDisablerVC {
-        SwipeBackDisablerVC()
+/// UIViewRepresentable that walks the responder chain from the UIView level
+/// to find the UINavigationController and hijack its pop gesture recognizer.
+/// Sets itself as the gesture's delegate so `gestureRecognizerShouldBegin`
+/// always returns false — SwiftUI cannot re-enable it.
+private struct SwipeBackDisablerView: UIViewRepresentable {
+    func makeUIView(context: Context) -> SwipeBackDisablerUIView {
+        SwipeBackDisablerUIView()
     }
-    func updateUIViewController(_ uiViewController: SwipeBackDisablerVC, context: Context) {}
+    func updateUIView(_ uiView: SwipeBackDisablerUIView, context: Context) {}
 }
 
-private class SwipeBackDisablerVC: UIViewController {
-    override func viewDidAppear(_ animated: Bool) {
-        super.viewDidAppear(animated)
-        disablePopGesture()
+private class SwipeBackDisablerUIView: UIView, UIGestureRecognizerDelegate {
+
+    override func didMoveToWindow() {
+        super.didMoveToWindow()
+        DispatchQueue.main.async { self.hijackGesture() }
     }
 
-    override func viewDidLayoutSubviews() {
-        super.viewDidLayoutSubviews()
-        disablePopGesture()
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        hijackGesture()
     }
 
-    private func disablePopGesture() {
-        navigationController?.interactivePopGestureRecognizer?.isEnabled = false
+    private func hijackGesture() {
+        guard let nav = findNavigationController() else { return }
+        guard let gesture = nav.interactivePopGestureRecognizer else { return }
+        gesture.isEnabled = false
+        gesture.delegate = self
+    }
+
+    /// Always block the pop gesture from starting.
+    override func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
+        false
+    }
+
+    /// Walk the responder chain to find the nearest UINavigationController.
+    private func findNavigationController() -> UINavigationController? {
+        var responder: UIResponder? = self
+        while let next = responder?.next {
+            if let nav = next as? UINavigationController {
+                return nav
+            }
+            responder = next
+        }
+        return nil
     }
 }
