@@ -15,9 +15,6 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
         // Background registration completes before the first SwiftUI layout pass.
         DispatchQueue.global(qos: .userInitiated).async { Self.registerFonts() }
 
-        // Disable swipe-back navigation globally — buttons only.
-        SwipeBackDisabler.install()
-
         return true
     }
 

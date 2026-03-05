@@ -76,6 +76,7 @@ struct OrderConfirmationView: View {
             }
         }
         .navigationBarBackButtonHidden(true)
+        .disableSwipeBack()
         .onAppear {
             withAnimation(.spring(response: 0.6, dampingFraction: 0.7).delay(0.2)) {
                 checkmarkAppeared = true

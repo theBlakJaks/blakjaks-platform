@@ -52,6 +52,7 @@ struct EditProfileView: View {
                 .disabled(vm.isSaving)
             }
         }
+        .disableSwipeBack()
         .onChange(of: selectedPhotoItem) { newItem in
             Task { await handlePhotoSelection(newItem) }
         }

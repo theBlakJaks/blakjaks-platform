@@ -21,6 +21,7 @@ struct TreasuryView: View {
         }
         .navigationTitle("")
         .navigationBarTitleDisplayMode(.inline)
+        .disableSwipeBack()
         .toolbar { toolbarContent }
         .task { await vm.loadTreasury() }
     }

@@ -147,6 +147,7 @@ struct HubView: View {
             }
         }
         .navigationBarHidden(true)
+        .disableSwipeBack()
         .navigationDestination(isPresented: $showLogin)     { LoginView() }
         .navigationDestination(isPresented: $showAbout)     { AboutView() }
         .navigationDestination(isPresented: $showLoyalty)   { LoyaltyView() }

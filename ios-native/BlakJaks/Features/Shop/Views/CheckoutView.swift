@@ -86,6 +86,7 @@ struct CheckoutView: View {
                     .foregroundColor(Color.textPrimary)
             }
         }
+        .disableSwipeBack()
         .navigationDestination(isPresented: $showConfirmation) {
             if let order = cartVM.lastOrder {
                 OrderConfirmationView(order: order, cartVM: cartVM)

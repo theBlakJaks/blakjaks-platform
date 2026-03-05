@@ -26,6 +26,7 @@ struct CompsView: View {
         }
         .navigationTitle("")
         .navigationBarTitleDisplayMode(.inline)
+        .disableSwipeBack()
         .toolbar { toolbarContent }
         .task { await vm.loadComps() }
     }

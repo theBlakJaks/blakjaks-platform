@@ -4,28 +4,38 @@ extension View {
     func hideKeyboard() {
         UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
     }
-}
 
-// MARK: - Disable Swipe-Back Navigation Globally
-
-/// Swizzles UINavigationController.viewDidAppear to disable the interactive
-/// pop gesture every time a navigation controller's view appears.
-/// viewDidAppear is used instead of viewDidLoad because SwiftUI's
-/// NavigationStack re-enables the gesture recognizer after viewDidLoad.
-/// Called once from AppDelegate.didFinishLaunchingWithOptions.
-enum SwipeBackDisabler {
-    static func install() {
-        let original = #selector(UINavigationController.viewDidAppear(_:))
-        let swizzled = #selector(UINavigationController.bj_viewDidAppear(_:))
-        guard let originalMethod = class_getInstanceMethod(UINavigationController.self, original),
-              let swizzledMethod = class_getInstanceMethod(UINavigationController.self, swizzled) else { return }
-        method_exchangeImplementations(originalMethod, swizzledMethod)
+    /// Disables the interactive pop (swipe-back) gesture on the nearest
+    /// UINavigationController. Apply to any view pushed inside a NavigationStack.
+    func disableSwipeBack() -> some View {
+        background(SwipeBackDisablerView())
     }
 }
 
-extension UINavigationController {
-    @objc func bj_viewDidAppear(_ animated: Bool) {
-        bj_viewDidAppear(animated) // calls original (implementations are swapped)
-        interactivePopGestureRecognizer?.isEnabled = false
+// MARK: - Disable Swipe-Back Navigation
+
+/// Invisible UIViewControllerRepresentable that walks up the responder chain
+/// to find the hosting UINavigationController and disables its pop gesture.
+/// Re-checks on every viewDidAppear so SwiftUI can't re-enable it.
+private struct SwipeBackDisablerView: UIViewControllerRepresentable {
+    func makeUIViewController(context: Context) -> SwipeBackDisablerVC {
+        SwipeBackDisablerVC()
+    }
+    func updateUIViewController(_ uiViewController: SwipeBackDisablerVC, context: Context) {}
+}
+
+private class SwipeBackDisablerVC: UIViewController {
+    override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+        disablePopGesture()
+    }
+
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        disablePopGesture()
+    }
+
+    private func disablePopGesture() {
+        navigationController?.interactivePopGestureRecognizer?.isEnabled = false
     }
 }

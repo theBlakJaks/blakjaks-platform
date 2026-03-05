@@ -51,6 +51,7 @@ struct CartView: View {
                 }
             }
         }
+        .disableSwipeBack()
         .navigationDestination(isPresented: $showCheckout) {
             CheckoutView(cartVM: cartVM)
         }

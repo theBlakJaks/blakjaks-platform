@@ -71,6 +71,7 @@ struct LoyaltyView: View {
         }
         .toolbarBackground(Color(red: 10/255, green: 10/255, blue: 10/255).opacity(0.85), for: .navigationBar)
         .toolbarBackground(.visible, for: .navigationBar)
+        .disableSwipeBack()
     }
 }
 

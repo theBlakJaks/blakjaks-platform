@@ -37,6 +37,7 @@ struct GovernancePollView: View {
         .navigationTitle("")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(.hidden, for: .tabBar)
+        .disableSwipeBack()
         .toolbar {
             ToolbarItem(placement: .principal) {
                 Text("GOVERNANCE")

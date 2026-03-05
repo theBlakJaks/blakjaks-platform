@@ -21,6 +21,7 @@ struct SystemsView: View {
         }
         .navigationTitle("")
         .navigationBarTitleDisplayMode(.inline)
+        .disableSwipeBack()
         .toolbar { toolbarContent }
         .task { await vm.loadSystems() }
     }
