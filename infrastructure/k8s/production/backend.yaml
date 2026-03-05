@@ -102,6 +102,8 @@ kind: Service
 metadata:
   name: backend
   namespace: production
+  annotations:
+    cloud.google.com/backend-config: '{"default": "backend-ws-config"}'
 spec:
   selector:
     app: backend

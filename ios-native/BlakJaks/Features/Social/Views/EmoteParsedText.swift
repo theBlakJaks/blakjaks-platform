@@ -16,7 +16,7 @@ struct EmoteParsedText: View, Equatable {
     var body: some View {
         let segments = EmoteParser.parseToSegments(content, emoteMap: emoteMap)
 
-        if segments.count == 1, case .text(let s) = segments[0] {
+        if segments.count == 1, case .text(_, let s) = segments[0] {
             Text(s)
                 .font(BJFont.body)
                 .foregroundColor(Color.textPrimary)
@@ -25,13 +25,13 @@ struct EmoteParsedText: View, Equatable {
             WrappingEmoteLayout {
                 ForEach(segments) { segment in
                     switch segment {
-                    case .text(let text):
+                    case .text(_, let text):
                         ForEach(Array(text.split(separator: " ").enumerated()), id: \.offset) { _, word in
                             Text(String(word))
                                 .font(BJFont.body)
                                 .foregroundColor(Color.textPrimary)
                         }
-                    case .emote(let emote, _):
+                    case .emote(_, let emote, _):
                         if let url = emote.url(size: "2x") {
                             AnimatedImageView(url: url, height: 28)
                                 .frame(width: 28, height: 28)

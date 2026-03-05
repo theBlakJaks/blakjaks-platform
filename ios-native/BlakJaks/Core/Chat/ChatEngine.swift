@@ -51,6 +51,9 @@ final class ChatEngine: ObservableObject {
 
     private var reconnectAttempts = 0
     private var rapidCloseCount = 0
+    private var hasReceivedData = false
+    private var consecutiveShortLived = 0
+    private let shortLivedThreshold: TimeInterval = 5
     private var connectTime: Date = .distantPast
     private var reconnectWorkItem: DispatchWorkItem?
     private var zombieWorkItem: DispatchWorkItem?
@@ -329,13 +332,14 @@ final class ChatEngine: ObservableObject {
             print("[ChatEngine] auth_success userId=\(payload.userId)")
             sessionId = payload.sessionId
             userId = payload.userId
-            reconnectAttempts = 0
+            hasReceivedData = false
             rapidCloseCount = 0
             setState(.connected)
             resetZombieTimer()
             onConnected()
 
         case .newMessage(let payload):
+            markDataReceived()
             handleNewMessage(payload)
 
         case .messageDeleted(let payload):
@@ -367,6 +371,7 @@ final class ChatEngine: ObservableObject {
             onMessage.send(payload)
 
         case .replayEnd(let payload):
+            markDataReceived()
             onReplayEnd.send(payload)
             catchingUpChannels.remove(payload.channelId)
             if catchingUpChannels.isEmpty {
@@ -381,6 +386,7 @@ final class ChatEngine: ObservableObject {
             resetZombieTimer()
 
         case .pong:
+            markDataReceived()
             if let ts = pingTimestamp {
                 let rtt = Date().timeIntervalSince(ts) * 1000 // ms
                 qualityMonitor.recordRtt(rtt)
@@ -421,20 +427,35 @@ final class ChatEngine: ObservableObject {
             return
         }
 
-        // Rapid-close detection: WS closes within 2s without reaching auth_success
+        // Rapid-close detection: WS closes within 2s of connecting
         let wasRapidClose = Date().timeIntervalSince(connectTime) < rapidCloseThreshold
-        if wasRapidClose && connectionState != .connected {
+        if wasRapidClose {
             rapidCloseCount += 1
         } else {
             rapidCloseCount = 0
         }
 
-        print("[ChatEngine] closeCode=\(String(describing: closeCode)) rapidCloseCount=\(rapidCloseCount) reconnectAttempts=\(reconnectAttempts)")
+        // Track consecutive short-lived connections (even if auth succeeded)
+        if Date().timeIntervalSince(connectTime) < shortLivedThreshold {
+            consecutiveShortLived += 1
+        } else {
+            consecutiveShortLived = 0
+        }
+
+        print("[ChatEngine] closeCode=\(String(describing: closeCode)) rapidCloseCount=\(rapidCloseCount) reconnectAttempts=\(reconnectAttempts) shortLived=\(consecutiveShortLived)")
 
         // Stop retrying after max attempts or repeated rapid closes
         if reconnectAttempts >= maxReconnectAttempts || rapidCloseCount >= 3 {
             print("[ChatEngine] Giving up: attempts=\(reconnectAttempts) rapidCloses=\(rapidCloseCount)")
             setState(.sessionExpired)
+            return
+        }
+
+        // Escalating delay for repeated short-lived connections
+        if consecutiveShortLived >= 5 {
+            let cappedDelay = min(Double(consecutiveShortLived) * 2.0, 30.0)
+            print("[ChatEngine] Short-lived connection backoff: \(cappedDelay)s")
+            scheduleReconnect(delay: cappedDelay)
             return
         }
 
@@ -444,6 +465,15 @@ final class ChatEngine: ObservableObject {
         } else {
             scheduleReconnect()
         }
+    }
+
+    /// Called when meaningful data is received from the server (not just auth).
+    /// Resets reconnect counters since the connection is proven stable.
+    private func markDataReceived() {
+        guard !hasReceivedData else { return }
+        hasReceivedData = true
+        reconnectAttempts = 0
+        consecutiveShortLived = 0
     }
 
     /// Silently refresh access token using the stored refresh token, then reconnect.

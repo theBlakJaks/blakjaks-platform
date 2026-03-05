@@ -3,13 +3,13 @@ import Foundation
 // MARK: - Message Segment
 
 enum MessageSegment: Identifiable {
-    case text(String)
-    case emote(CachedEmote, zeroWidth: Bool)
+    case text(id: String, String)
+    case emote(id: String, CachedEmote, zeroWidth: Bool)
 
     var id: String {
         switch self {
-        case .text(let s): return "t_\(s.hashValue)"
-        case .emote(let e, _): return "e_\(e.id)"
+        case .text(let id, _): return id
+        case .emote(let id, _, _): return id
         }
     }
 }
@@ -21,21 +21,24 @@ enum EmoteParser {
     /// Splits message content into text and emote segments.
     /// Exact case-sensitive match against emoteMap, split by whitespace.
     static func parseToSegments(_ content: String, emoteMap: [String: CachedEmote]) -> [MessageSegment] {
-        guard !emoteMap.isEmpty else { return [.text(content)] }
+        guard !emoteMap.isEmpty else { return [.text(id: "t_0", content)] }
 
         let words = content.split(separator: " ", omittingEmptySubsequences: false)
         var segments: [MessageSegment] = []
         var textBuffer = ""
+        var segmentIndex = 0
 
         for word in words {
             let wordStr = String(word)
             if let emote = emoteMap[wordStr] {
                 // Flush text buffer
                 if !textBuffer.isEmpty {
-                    segments.append(.text(textBuffer))
+                    segments.append(.text(id: "t_\(segmentIndex)", textBuffer))
+                    segmentIndex += 1
                     textBuffer = ""
                 }
-                segments.append(.emote(emote, zeroWidth: emote.zeroWidth))
+                segments.append(.emote(id: "e_\(emote.id)_\(segmentIndex)", emote, zeroWidth: emote.zeroWidth))
+                segmentIndex += 1
             } else {
                 if !textBuffer.isEmpty { textBuffer += " " }
                 textBuffer += wordStr
@@ -43,7 +46,7 @@ enum EmoteParser {
         }
 
         if !textBuffer.isEmpty {
-            segments.append(.text(textBuffer))
+            segments.append(.text(id: "t_\(segmentIndex)", textBuffer))
         }
 
         return segments
