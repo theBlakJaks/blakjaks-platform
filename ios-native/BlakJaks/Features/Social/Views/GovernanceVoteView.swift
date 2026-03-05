@@ -31,7 +31,6 @@ struct GovernanceVoteView: View {
                     .foregroundColor(Color.gold)
             }
         }
-        .disableSwipeBack()
         .task {
             await vm.loadDetail(voteId: vote.id)
         }

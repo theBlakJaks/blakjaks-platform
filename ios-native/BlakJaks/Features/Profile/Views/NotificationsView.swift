@@ -49,7 +49,6 @@ struct NotificationsView: View {
                 .disabled(vm.notifications.allSatisfy { $0.isRead })
             }
         }
-        .disableSwipeBack()
         .task {
             await vm.loadNotifications()
         }

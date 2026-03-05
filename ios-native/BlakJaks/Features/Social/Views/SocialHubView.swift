@@ -32,6 +32,7 @@ private let staticAlerts: [AlertItem] = [
 struct SocialHubView: View {
 
     @EnvironmentObject private var chatEngine: ChatEngine
+    @EnvironmentObject private var authState: AuthState
     @StateObject private var vm = ChannelListViewModel()
     @State private var selectedTab: Int = 0          // 0 = Channels, 1 = Alerts
     @State private var selectedChannel: Channel?
@@ -65,17 +66,26 @@ struct SocialHubView: View {
             }
             .navigationDestination(
                 isPresented: Binding(
-                    get: { selectedChannel != nil },
+                    get: { selectedChannel?.roomType == "governance" },
                     set: { if !$0 { selectedChannel = nil } }
                 )
             ) {
                 if let ch = selectedChannel {
-                    if ch.roomType == "governance" {
-                        GovernancePollView(channel: ch)
-                    } else {
-                        ChatView(channel: ch, engine: chatEngine)
-                    }
+                    GovernancePollView(channel: ch)
                 }
+            }
+            .fullScreenCover(
+                item: Binding(
+                    get: {
+                        guard let ch = selectedChannel, ch.roomType != "governance" else { return nil }
+                        return ch
+                    },
+                    set: { selectedChannel = $0 }
+                )
+            ) { channel in
+                ChatView(channel: channel, engine: chatEngine)
+                    .environmentObject(chatEngine)
+                    .environmentObject(authState)
             }
             .task {
                 await vm.loadChannels()

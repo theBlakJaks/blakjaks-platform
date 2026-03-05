@@ -266,7 +266,6 @@ struct LoginView: View {
                 .padding(.top, 16)
             }
         }
-        .disableSwipeBack()
         .fullScreenCover(isPresented: $showSignup) {
             SignupView()
                 .environmentObject(authState)

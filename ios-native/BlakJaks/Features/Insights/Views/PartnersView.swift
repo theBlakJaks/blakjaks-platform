@@ -21,7 +21,6 @@ struct PartnersView: View {
         }
         .navigationTitle("")
         .navigationBarTitleDisplayMode(.inline)
-        .disableSwipeBack()
         .toolbar { toolbarContent }
         .task { await vm.loadPartners() }
     }

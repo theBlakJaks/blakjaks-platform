@@ -22,95 +22,106 @@ struct ChatView: View {
         ))
     }
 
+    @Environment(\.dismiss) private var dismiss
+
     var body: some View {
-        ZStack(alignment: .bottom) {
-            Color.bgPrimary.ignoresSafeArea()
+        NavigationStack {
+            ZStack(alignment: .bottom) {
+                Color.bgPrimary.ignoresSafeArea()
 
-            VStack(spacing: 0) {
-                // Session expired banner only
-                ConnectionStatusBanner(
-                    connectionState: chatEngine.connectionState,
-                    onSignOut: { authState.signOut() }
-                )
+                VStack(spacing: 0) {
+                    // Session expired banner only
+                    ConnectionStatusBanner(
+                        connectionState: chatEngine.connectionState,
+                        onSignOut: { authState.signOut() }
+                    )
 
-                messagesArea
+                    messagesArea
 
-                // Typing indicator
-                TypingIndicator(usernames: vm.typingUsernames)
+                    // Typing indicator
+                    TypingIndicator(usernames: vm.typingUsernames)
 
-                MessageInputBar(
-                    vm: vm,
-                    emoteMap: frozenEmoteMap,
-                    emoteList: emoteStore.emoteList,
-                    emoteStore: emoteStore,
-                    onSendGif: { gifUrl in Task { await vm.sendGif(gifUrl) } },
-                    onMarkUsed: { emote in
-                        emoteStore.markUsed(emote)
-                        // Keep frozenEmoteMap in sync so messages render new emotes
-                        if frozenEmoteMap[emote.name] == nil {
-                            frozenEmoteMap[emote.name] = emote
+                    MessageInputBar(
+                        vm: vm,
+                        emoteMap: frozenEmoteMap,
+                        emoteList: emoteStore.emoteList,
+                        emoteStore: emoteStore,
+                        onSendGif: { gifUrl in Task { await vm.sendGif(gifUrl) } },
+                        onMarkUsed: { emote in
+                            emoteStore.markUsed(emote)
+                            if frozenEmoteMap[emote.name] == nil {
+                                frozenEmoteMap[emote.name] = emote
+                            }
                         }
-                    }
-                )
-            }
+                    )
+                }
 
-            // New message indicator
-            if vm.newMessageCount > 0 {
-                NewMessageIndicator(count: vm.newMessageCount) {
-                    // Will be scrolled by onChange
-                    vm.setAtBottom(true)
-                }
-                .padding(.bottom, 80) // above input bar
-                .transition(.move(edge: .bottom).combined(with: .opacity))
-            }
-        }
-        .navigationTitle("")
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbar(.hidden, for: .tabBar)
-        .disableSwipeBack()
-        .toolbar {
-            ToolbarItem(placement: .principal) {
-                VStack(spacing: 1) {
-                    Text(channel.name)
-                        .font(BJFont.sora(14, weight: .bold))
-                        .foregroundColor(Color.textPrimary)
-                    Text("\(channel.memberCount ?? 0) members")
-                        .font(BJFont.micro)
-                        .foregroundColor(Color.textTertiary)
+                // New message indicator
+                if vm.newMessageCount > 0 {
+                    NewMessageIndicator(count: vm.newMessageCount) {
+                        vm.setAtBottom(true)
+                    }
+                    .padding(.bottom, 80)
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
                 }
             }
-            ToolbarItem(placement: .navigationBarTrailing) {
-                Button {
-                    showPinnedSheet = true
-                } label: {
-                    Image(systemName: "pin")
-                        .font(.system(size: 13))
-                        .foregroundColor(Color.textSecondary)
+            .navigationTitle("")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button { dismiss() } label: {
+                        HStack(spacing: 4) {
+                            Image(systemName: "chevron.left")
+                                .font(.system(size: 14, weight: .semibold))
+                            Text("Back")
+                                .font(BJFont.sora(14, weight: .medium))
+                        }
+                        .foregroundColor(Color.gold)
+                    }
+                }
+                ToolbarItem(placement: .principal) {
+                    VStack(spacing: 1) {
+                        Text(channel.name)
+                            .font(BJFont.sora(14, weight: .bold))
+                            .foregroundColor(Color.textPrimary)
+                        Text("\(channel.memberCount ?? 0) members")
+                            .font(BJFont.micro)
+                            .foregroundColor(Color.textTertiary)
+                    }
+                }
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button {
+                        showPinnedSheet = true
+                    } label: {
+                        Image(systemName: "pin")
+                            .font(.system(size: 13))
+                            .foregroundColor(Color.textSecondary)
+                    }
                 }
             }
-        }
-        .sheet(isPresented: $showPinnedSheet) {
-            PinnedMessagesSheet(channelId: channel.id) { messageId in
-                // Scroll to pinned message
+            .sheet(isPresented: $showPinnedSheet) {
+                PinnedMessagesSheet(channelId: channel.id) { messageId in
+                    // Scroll to pinned message
+                }
+                .presentationDetents([.medium, .large])
             }
-            .presentationDetents([.medium, .large])
-        }
-        .task {
-            async let loadMessages: () = vm.loadInitial()
-            async let loadEmotes: () = emoteStore.initializeEmotes()
-            _ = await (loadMessages, loadEmotes)
-            frozenEmoteMap = emoteStore.emoteMap
-        }
-        .onDisappear {
-            vm.onDisappear()
-        }
-        .alert("Error", isPresented: Binding(
-            get: { vm.errorMessage != nil },
-            set: { if !$0 { vm.errorMessage = nil } }
-        )) {
-            Button("OK") { vm.errorMessage = nil }
-        } message: {
-            Text(vm.errorMessage ?? "")
+            .task {
+                async let loadMessages: () = vm.loadInitial()
+                async let loadEmotes: () = emoteStore.initializeEmotes()
+                _ = await (loadMessages, loadEmotes)
+                frozenEmoteMap = emoteStore.emoteMap
+            }
+            .onDisappear {
+                vm.onDisappear()
+            }
+            .alert("Error", isPresented: Binding(
+                get: { vm.errorMessage != nil },
+                set: { if !$0 { vm.errorMessage = nil } }
+            )) {
+                Button("OK") { vm.errorMessage = nil }
+            } message: {
+                Text(vm.errorMessage ?? "")
+            }
         }
     }
 

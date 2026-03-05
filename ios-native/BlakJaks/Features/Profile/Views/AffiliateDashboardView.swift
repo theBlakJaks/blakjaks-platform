@@ -30,7 +30,6 @@ struct AffiliateDashboardView: View {
                     .foregroundColor(Color.gold)
             }
         }
-        .disableSwipeBack()
         .task {
             await vm.loadAll()
         }
